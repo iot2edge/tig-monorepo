@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use serde_json::{Map, Value};
 use tig_challenges::vehicle_routing::*;
 
-
 pub fn solve_challenge(
     challenge: &Challenge,
     save_solution: &dyn Fn(&Solution) -> Result<()>,
@@ -15,7 +14,6 @@ pub fn solve_challenge(
 #[cfg(none)]
 mod dead_code {
     use tig_challenges::vehicle_routing::*;
-
 
     pub fn solve_challenge(challenge: &Challenge) -> anyhow::Result<Option<Solution>> {
         let mut solution = Solution {
@@ -38,25 +36,25 @@ mod dead_code {
         let max_dist: f32 = challenge.distance_matrix[0].iter().sum::<i32>() as f32;
         let p = challenge.baseline_total_distance as f32 / max_dist;
         if p < 0.57 {
-            return Ok(None)
+            return Ok(None);
         }
 
         // Clarke-Wright heuristic for node pairs based on their distances to depot
         // vs distance between each other
-        let mut scores: Vec<(i32, usize, usize)> = Vec::with_capacity((n-1)*(n-2)/2);
+        let mut scores: Vec<(i32, usize, usize)> = Vec::with_capacity((n - 1) * (n - 2) / 2);
         for i in 1..n {
             for j in (i + 1)..n {
                 scores.push((d[i][0] + d[0][j] - d[i][j], i, j));
             }
         }
 
-        scores.sort_unstable_by(|a, b| b.0.cmp(&a.0));    
-    
+        scores.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+
         // Create a route for every node
         let mut routes: Vec<Option<Vec<usize>>> = (0..n).map(|i| Some(vec![i])).collect();
         routes[0] = None;
         let mut route_demands: Vec<i32> = challenge.demands.clone();
-   
+
         // Iterate through node pairs, starting from greatest score
         for (s, i, j) in scores {
             // Stop if score is negative
@@ -107,22 +105,20 @@ mod dead_code {
             route_demands[left_startnode] = merged_demand;
             route_demands[right_endnode] = merged_demand;
         }
-    
-        let routes = routes
-        .into_iter()
-        .enumerate()
-        .filter(|(i, x)| x.as_ref().is_some_and(|x| x[0] == *i))
-        .map(|(_, mut x)| {
-            let mut route = vec![0];
-            route.append(x.as_mut().unwrap());
-            route.push(0);
-            route
-        })
-        .collect();
 
-        Ok(Some(SubSolution {
-            routes
-        }))
+        let routes = routes
+            .into_iter()
+            .enumerate()
+            .filter(|(i, x)| x.as_ref().is_some_and(|x| x[0] == *i))
+            .map(|(_, mut x)| {
+                let mut route = vec![0];
+                route.append(x.as_mut().unwrap());
+                route.push(0);
+                route
+            })
+            .collect();
+
+        Ok(Some(SubSolution { routes }))
     }
 }
 

@@ -9,7 +9,7 @@ pub struct Problem {
     pub node_positions: Vec<(i32, i32)>,
     pub service_times: Vec<i32>,
     pub start_tw: Vec<i32>,
-    pub end_tw: Vec<i32>
+    pub end_tw: Vec<i32>,
 }
 
 impl Problem {

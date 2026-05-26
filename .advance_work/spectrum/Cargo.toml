@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "spectrum"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nalgebra = "0.33"
+tig-challenges = { path = "../../tig-challenges", features = ["c003"] }
+
+[[bin]]
+name = "spectrum"
+path = "main.rs"

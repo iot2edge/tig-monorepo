@@ -1,8 +1,6 @@
 use serde_json::{Map, Value};
 use tig_challenges::vehicle_routing::*;
 
-
-
 pub fn solve_challenge(
     challenge: &Challenge,
     save_solution: &dyn Fn(&Solution) -> anyhow::Result<()>,

@@ -2,8 +2,8 @@ use cudarc::{
     driver::{safe::LaunchConfig, CudaModule, CudaStream, PushKernelArg},
     runtime::sys::cudaDeviceProp,
 };
-use std::sync::Arc;
 use serde_json::{Map, Value};
+use std::sync::Arc;
 use tig_challenges::vector_search::*;
 
 pub fn solve_challenge(
@@ -23,7 +23,11 @@ pub fn solve_challenge(
         let base_clusters = if num_queries <= 3000 {
             3
         } else if num_queries <= 5000 {
-            if vector_dims >= 720 { 6 } else { 4 }
+            if vector_dims >= 720 {
+                6
+            } else {
+                4
+            }
         } else if num_queries <= 7000 {
             5
         } else if num_queries <= 9000 {
@@ -34,14 +38,16 @@ pub fn solve_challenge(
             8
         } else if num_queries <= 20000 {
             9
-        } else {            
+        } else {
             ((database_size as f32).sqrt() / 1000.0).max(8.0).min(12.0) as i32
         };
-        
+
         let memory_factor = if vector_dims > 1000 { 0.8 } else { 1.0 };
-        ((base_clusters as f32 * memory_factor) as i32).max(3).min(12)
+        ((base_clusters as f32 * memory_factor) as i32)
+            .max(3)
+            .min(12)
     }
-    
+
     let num_clusters = calculate_optimal_clusters(num_queries, database_size, vector_dims);
 
     let deterministic_clustering = module.load_function("deterministic_clustering")?;
@@ -113,8 +119,10 @@ pub fn solve_challenge(
     let fill_blocks: u32 = (db_u32 + block_size - 1) / block_size;
     let fill_blocks_i32: i32 = fill_blocks as i32;
 
-    let mut d_block_counts = stream.alloc_zeros::<i32>((fill_blocks as usize) * (num_clusters as usize))?;
-    let mut d_block_offsets = stream.alloc_zeros::<i32>((fill_blocks as usize) * (num_clusters as usize))?;
+    let mut d_block_counts =
+        stream.alloc_zeros::<i32>((fill_blocks as usize) * (num_clusters as usize))?;
+    let mut d_block_offsets =
+        stream.alloc_zeros::<i32>((fill_blocks as usize) * (num_clusters as usize))?;
 
     let count_config = LaunchConfig {
         grid_dim: (fill_blocks, 1, 1),
@@ -182,7 +190,7 @@ pub fn solve_challenge(
     }
 
     let mut d_results = stream.alloc_zeros::<i32>(num_queries as usize)?;
-    
+
     let search_config = if num_queries <= 3000 {
         LaunchConfig {
             grid_dim: (num_queries as u32, 1, 1),
@@ -190,11 +198,7 @@ pub fn solve_challenge(
             shared_mem_bytes: 0,
         }
     } else {
-        let threads_per_block = if vector_dims >= 720 { 
-            256 
-        } else { 
-            128 
-        };
+        let threads_per_block = if vector_dims >= 720 { 256 } else { 128 };
         let blocks = ((num_queries as u32) + threads_per_block - 1) / threads_per_block;
         LaunchConfig {
             grid_dim: (blocks.min(2048), 1, 1),

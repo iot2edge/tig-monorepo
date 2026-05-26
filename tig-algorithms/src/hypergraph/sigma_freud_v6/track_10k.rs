@@ -1,5 +1,5 @@
 use cudarc::{
-    driver::{safe::LaunchConfig, CudaModule, CudaStream, PushKernelArg}, 
+    driver::{safe::LaunchConfig, CudaModule, CudaStream, PushKernelArg},
     runtime::sys::cudaDeviceProp,
 };
 use serde_json::{Map, Value};
@@ -75,7 +75,7 @@ pub fn solve(
 
     let mut d_pref_parts = stream.alloc_zeros::<i32>(challenge.num_nodes as usize)?;
     let mut d_pref_priorities = stream.alloc_zeros::<i32>(challenge.num_nodes as usize)?;
-   
+
     let mut d_move_priorities = stream.alloc_zeros::<i32>(challenge.num_nodes as usize)?;
 
     let mut d_num_valid_moves = stream.alloc_zeros::<i32>(1)?;
@@ -138,7 +138,9 @@ pub fn solve(
         .map(|v| v.clamp(256, 1_000_000) as usize)
         .unwrap_or(if is_sparse {
             262_144
-        } else if challenge.num_hyperedges as usize >= 150_000 || challenge.num_nodes as usize >= 250_000 {
+        } else if challenge.num_hyperedges as usize >= 150_000
+            || challenge.num_nodes as usize >= 250_000
+        {
             131_072
         } else {
             200_000
@@ -203,7 +205,9 @@ pub fn solve(
 
     let mut indices: Vec<usize> = (0..challenge.num_nodes as usize).collect();
     indices.sort_unstable_by(|&a, &b| {
-        pref_priorities[b].cmp(&pref_priorities[a]).then_with(|| a.cmp(&b))
+        pref_priorities[b]
+            .cmp(&pref_priorities[a])
+            .then_with(|| a.cmp(&b))
     });
 
     let sorted_nodes: Vec<i32> = indices.iter().map(|&i| i as i32).collect();
@@ -224,7 +228,7 @@ pub fn solve(
             .arg(&mut d_nodes_in_part)
             .launch(one_thread_cfg.clone())?;
     }
-    
+
     let mut sorted_move_nodes: Vec<i32> = Vec::with_capacity(challenge.num_nodes as usize);
     let mut sorted_move_parts: Vec<i32> = Vec::with_capacity(challenge.num_nodes as usize);
 
@@ -232,7 +236,7 @@ pub fn solve(
 
     let mut stagnant_rounds = 0;
     let max_stagnant_rounds = 30;
-    
+
     let mut node_tabu_until: Vec<usize> = vec![0; challenge.num_nodes as usize];
 
     let mut tgt_used: Vec<usize> = vec![0; num_parts_usize];
@@ -303,7 +307,7 @@ pub fn solve(
         let cmp = |a: &(usize, i32), b: &(usize, i32)| b.1.cmp(&a.1).then(a.0.cmp(&b.0));
 
         let mut k_base = valid_moves.len();
-        
+
         let adaptive_limit = if round < 50 {
             move_limit / 2
         } else if round < 200 {
@@ -311,7 +315,7 @@ pub fn solve(
         } else {
             move_limit / 3
         };
-        
+
         if k_base > adaptive_limit {
             k_base = adaptive_limit;
         }
@@ -326,7 +330,13 @@ pub fn solve(
         }
 
         stream.memcpy_dtoh(&d_nodes_in_part, &mut nodes_in_part_host)?;
-        let slack = if round < 64 { slack_early } else if round < 256 { slack_mid } else { slack_late };
+        let slack = if round < 64 {
+            slack_early
+        } else if round < 256 {
+            slack_mid
+        } else {
+            slack_late
+        };
 
         tgt_used.fill(0);
         for p in 0..num_parts_usize {
@@ -406,7 +416,7 @@ pub fn solve(
 
         if moves_executed == 0 {
             stagnant_rounds += 1;
-            
+
             if stagnant_rounds >= 5 && round < refinement_rounds.saturating_sub(50) {
                 let mini_seed = 987654321u64 + (round as u64) * 123456789u64;
                 unsafe {
@@ -476,13 +486,19 @@ pub fn solve(
                 stream.memcpy_dtoh(&mut *$d_partition, $partition_host_swap)?;
                 let num_nodes = num_nodes_i as usize;
 
-                for v in $part_to_part.iter_mut() { v.clear(); }
+                for v in $part_to_part.iter_mut() {
+                    v.clear();
+                }
                 for node in 0..num_nodes {
                     let src = $partition_host_swap[node] as usize;
-                    if src >= np { continue; }
+                    if src >= np {
+                        continue;
+                    }
                     for k in 0..3usize {
                         let val = $swap_gains_host[node * 3 + k];
-                        if val == 0 { continue; }
+                        if val == 0 {
+                            continue;
+                        }
                         let tgt = (val & 0xFFFF) as usize;
                         let gain = ((val >> 16) as i16) as i32;
                         if tgt < np && tgt != src {
@@ -506,7 +522,9 @@ pub fn solve(
                     for b in (a + 1)..np {
                         let idx_ab = a * np + b;
                         let idx_ba = b * np + a;
-                        if $part_to_part[idx_ab].is_empty() || $part_to_part[idx_ba].is_empty() { continue; }
+                        if $part_to_part[idx_ab].is_empty() || $part_to_part[idx_ba].is_empty() {
+                            continue;
+                        }
                         let lab_len = $part_to_part[idx_ab].len();
                         let lba_len = $part_to_part[idx_ba].len();
                         let scan_lba = std::cmp::min(lba_len, $exh_lim);
@@ -514,13 +532,19 @@ pub fn solve(
                         $used_ba_buf.resize(lba_len, false);
                         for i in 0..lab_len {
                             let (node_a, gain_a) = $part_to_part[idx_ab][i];
-                            if $partition_mut_swap[node_a] as usize != a { continue; }
+                            if $partition_mut_swap[node_a] as usize != a {
+                                continue;
+                            }
                             let mut best_combined = 0i32;
                             let mut best_j = usize::MAX;
                             for j in 0..scan_lba {
-                                if $used_ba_buf[j] { continue; }
+                                if $used_ba_buf[j] {
+                                    continue;
+                                }
                                 let (node_b, gain_b) = $part_to_part[idx_ba][j];
-                                if $partition_mut_swap[node_b] as usize != b { continue; }
+                                if $partition_mut_swap[node_b] as usize != b {
+                                    continue;
+                                }
                                 let combined = gain_a + gain_b;
                                 if combined > best_combined {
                                     best_combined = combined;
@@ -541,17 +565,30 @@ pub fn solve(
                 if $do_cycles {
                     for a in 0..np {
                         for b in 0..np {
-                            if b == a { continue; }
+                            if b == a {
+                                continue;
+                            }
                             let idx_ab = a * np + b;
-                            if $part_to_part[idx_ab].is_empty() { continue; }
-                            let ab_top = std::cmp::min($part_to_part[idx_ab].len(), cycle_scan_limit);
+                            if $part_to_part[idx_ab].is_empty() {
+                                continue;
+                            }
+                            let ab_top =
+                                std::cmp::min($part_to_part[idx_ab].len(), cycle_scan_limit);
                             for c in 0..np {
-                                if c == a || c == b { continue; }
+                                if c == a || c == b {
+                                    continue;
+                                }
                                 let idx_bc = b * np + c;
                                 let idx_ca = c * np + a;
-                                if $part_to_part[idx_bc].is_empty() || $part_to_part[idx_ca].is_empty() { continue; }
-                                let bc_top = std::cmp::min($part_to_part[idx_bc].len(), cycle_scan_limit);
-                                let ca_top = std::cmp::min($part_to_part[idx_ca].len(), cycle_scan_limit);
+                                if $part_to_part[idx_bc].is_empty()
+                                    || $part_to_part[idx_ca].is_empty()
+                                {
+                                    continue;
+                                }
+                                let bc_top =
+                                    std::cmp::min($part_to_part[idx_bc].len(), cycle_scan_limit);
+                                let ca_top =
+                                    std::cmp::min($part_to_part[idx_ca].len(), cycle_scan_limit);
 
                                 let mut best_gain = 0i32;
                                 let mut best_ia = usize::MAX;
@@ -560,16 +597,30 @@ pub fn solve(
 
                                 for ia in 0..ab_top {
                                     let (node_a, gain_a) = $part_to_part[idx_ab][ia];
-                                    if $partition_mut_swap[node_a] as usize != a { continue; }
-                                    if gain_a + $part_to_part[idx_bc][0].1 + $part_to_part[idx_ca][0].1 <= best_gain { break; }
+                                    if $partition_mut_swap[node_a] as usize != a {
+                                        continue;
+                                    }
+                                    if gain_a
+                                        + $part_to_part[idx_bc][0].1
+                                        + $part_to_part[idx_ca][0].1
+                                        <= best_gain
+                                    {
+                                        break;
+                                    }
                                     for ib in 0..bc_top {
                                         let (node_b, gain_b) = $part_to_part[idx_bc][ib];
-                                        if $partition_mut_swap[node_b] as usize != b { continue; }
+                                        if $partition_mut_swap[node_b] as usize != b {
+                                            continue;
+                                        }
                                         let ab_bc = gain_a + gain_b;
-                                        if ab_bc + $part_to_part[idx_ca][0].1 <= best_gain { break; }
+                                        if ab_bc + $part_to_part[idx_ca][0].1 <= best_gain {
+                                            break;
+                                        }
                                         for ic in 0..ca_top {
                                             let (node_c, gain_c) = $part_to_part[idx_ca][ic];
-                                            if $partition_mut_swap[node_c] as usize != c { continue; }
+                                            if $partition_mut_swap[node_c] as usize != c {
+                                                continue;
+                                            }
                                             let total = ab_bc + gain_c;
                                             if total > best_gain {
                                                 best_gain = total;
@@ -582,7 +633,11 @@ pub fn solve(
                                     }
                                 }
 
-                                if best_gain > 0 && best_ia < ab_top && best_ib < bc_top && best_ic < ca_top {
+                                if best_gain > 0
+                                    && best_ia < ab_top
+                                    && best_ib < bc_top
+                                    && best_ic < ca_top
+                                {
                                     let (node_a, _) = $part_to_part[idx_ab][best_ia];
                                     let (node_b, _) = $part_to_part[idx_bc][best_ib];
                                     let (node_c, _) = $part_to_part[idx_ca][best_ic];
@@ -601,11 +656,15 @@ pub fn solve(
                     }
                 }
 
-                if swap_count == 0 { break; }
+                if swap_count == 0 {
+                    break;
+                }
                 total_swaps += swap_count;
                 if swap_count >= prev_swap_count {
                     stagnant += 1;
-                    if stagnant >= 3 { break; }
+                    if stagnant >= 3 {
+                        break;
+                    }
                 } else {
                     stagnant = 0;
                 }
@@ -617,12 +676,20 @@ pub fn solve(
     }
 
     do_swap_phase!(
-        &mut d_partition, &mut d_nodes_in_part,
-        &mut d_edge_flags_all, &mut d_edge_flags_double,
-        &mut d_swap_gains, &mut swap_gains_host,
-        &mut partition_host_swap, &mut partition_mut_swap,
-        &mut part_to_part, &mut used_ba_buf,
-        100, neg_gain_thresh, swap_exhaustive_limit, true
+        &mut d_partition,
+        &mut d_nodes_in_part,
+        &mut d_edge_flags_all,
+        &mut d_edge_flags_double,
+        &mut d_swap_gains,
+        &mut swap_gains_host,
+        &mut partition_host_swap,
+        &mut partition_mut_swap,
+        &mut part_to_part,
+        &mut used_ba_buf,
+        100,
+        neg_gain_thresh,
+        swap_exhaustive_limit,
+        true
     )?;
 
     for _post_swap_round in 0..30 {
@@ -662,13 +729,19 @@ pub fn solve(
                 .launch(cfg.clone())?;
         }
         let nvm = stream.memcpy_dtov(&d_num_valid_moves)?[0];
-        if nvm == 0 { break; }
+        if nvm == 0 {
+            break;
+        }
         stream.memcpy_dtoh(&d_move_priorities, &mut move_keys_host)?;
         valid_moves.clear();
         for (node, &key) in move_keys_host.iter().enumerate() {
-            if key > 0 { valid_moves.push((node, key)); }
+            if key > 0 {
+                valid_moves.push((node, key));
+            }
         }
-        if valid_moves.is_empty() { break; }
+        if valid_moves.is_empty() {
+            break;
+        }
         let cmp = |a: &(usize, i32), b: &(usize, i32)| b.1.cmp(&a.1).then(a.0.cmp(&b.0));
         let k_base = std::cmp::min(valid_moves.len(), move_limit / 2);
         let k_cand = std::cmp::min(valid_moves.len(), k_base + extra_window / 2);
@@ -685,7 +758,9 @@ pub fn solve(
         sorted_move_nodes.clear();
         sorted_move_parts.clear();
         for &(node, key) in valid_moves[..k_cand].iter() {
-            if sorted_move_nodes.len() >= k_base { break; }
+            if sorted_move_nodes.len() >= k_base {
+                break;
+            }
             let tgt = (key & 63) as usize;
             if tgt < num_parts_usize && tgt_used[tgt] < tgt_quota[tgt] {
                 tgt_used[tgt] += 1;
@@ -713,20 +788,30 @@ pub fn solve(
                 .launch(one_thread_cfg.clone())?;
         }
         let me = stream.memcpy_dtov(&d_moves_executed)?[0];
-        if me == 0 { break; }
+        if me == 0 {
+            break;
+        }
     }
 
     do_swap_phase!(
-        &mut d_partition, &mut d_nodes_in_part,
-        &mut d_edge_flags_all, &mut d_edge_flags_double,
-        &mut d_swap_gains, &mut swap_gains_host,
-        &mut partition_host_swap, &mut partition_mut_swap,
-        &mut part_to_part, &mut used_ba_buf,
-        50, neg_gain_thresh, swap_exhaustive_limit, true
+        &mut d_partition,
+        &mut d_nodes_in_part,
+        &mut d_edge_flags_all,
+        &mut d_edge_flags_double,
+        &mut d_swap_gains,
+        &mut swap_gains_host,
+        &mut partition_host_swap,
+        &mut partition_mut_swap,
+        &mut part_to_part,
+        &mut used_ba_buf,
+        50,
+        neg_gain_thresh,
+        swap_exhaustive_limit,
+        true
     )?;
 
     let perturb_strength = 1i32;
-    
+
     unsafe {
         stream
             .launch_builder(&compute_connectivity_kernel)
@@ -737,7 +822,7 @@ pub fn solve(
             .arg(&mut d_connectivity)
             .launch(hedge_cfg.clone())?;
     }
-    
+
     let connectivity_vec = stream.memcpy_dtov(&d_connectivity)?;
     let mut best_connectivity: i32 = connectivity_vec.iter().sum();
 
@@ -745,9 +830,17 @@ pub fn solve(
     let mut best_nodes_in_part_host = stream.memcpy_dtov(&d_nodes_in_part)?;
 
     let num_high_hedges = std::cmp::min(500usize, challenge.num_hyperedges as usize);
-    let mut conn_with_idx: Vec<(i32, i32)> = connectivity_vec.iter().enumerate().map(|(i, &c)| (c, i as i32)).collect();
+    let mut conn_with_idx: Vec<(i32, i32)> = connectivity_vec
+        .iter()
+        .enumerate()
+        .map(|(i, &c)| (c, i as i32))
+        .collect();
     conn_with_idx.sort_unstable_by(|a, b| b.0.cmp(&a.0));
-    let high_hedge_ids: Vec<i32> = conn_with_idx.iter().take(num_high_hedges).map(|&(_, id)| id).collect();
+    let high_hedge_ids: Vec<i32> = conn_with_idx
+        .iter()
+        .take(num_high_hedges)
+        .map(|&(_, id)| id)
+        .collect();
     let mut d_high_hedge_ids = stream.memcpy_stod(&high_hedge_ids)?;
 
     for ils_iter in 0..ils_iterations {
@@ -788,7 +881,7 @@ pub fn solve(
                     .launch(one_thread_cfg.clone())?;
             }
         }
-        
+
         for _ in 0..ils_quick_refine {
             unsafe {
                 stream
@@ -797,7 +890,7 @@ pub fn solve(
                     .arg(&mut d_moves_executed)
                     .launch(one_thread_cfg.clone())?;
             }
-            
+
             unsafe {
                 stream
                     .launch_builder(&precompute_edge_flags_kernel)
@@ -810,7 +903,7 @@ pub fn solve(
                     .arg(&mut d_edge_flags_double)
                     .launch(hedge_cfg.clone())?;
             }
-            
+
             unsafe {
                 stream
                     .launch_builder(&compute_moves_kernel)
@@ -827,12 +920,12 @@ pub fn solve(
                     .arg(&mut d_num_valid_moves)
                     .launch(cfg.clone())?;
             }
-            
+
             let num_valid_moves = stream.memcpy_dtov(&d_num_valid_moves)?[0];
             if num_valid_moves == 0 {
                 break;
             }
-            
+
             stream.memcpy_dtoh(&d_move_priorities, &mut move_keys_host)?;
 
             valid_moves.clear();
@@ -887,12 +980,13 @@ pub fn solve(
             if sorted_move_nodes.is_empty() {
                 let take = std::cmp::min(k_base, k_cand);
                 sorted_move_nodes.extend(valid_moves[..take].iter().map(|(n, _)| *n as i32));
-                sorted_move_parts.extend(valid_moves[..take].iter().map(|(_, key)| (key & 63) as i32));
+                sorted_move_parts
+                    .extend(valid_moves[..take].iter().map(|(_, key)| (key & 63) as i32));
             }
-            
+
             let d_sorted_move_nodes = stream.memcpy_stod(&sorted_move_nodes)?;
             let d_sorted_move_parts = stream.memcpy_stod(&sorted_move_parts)?;
-            
+
             unsafe {
                 stream
                     .launch_builder(&execute_moves_kernel)
@@ -905,7 +999,7 @@ pub fn solve(
                     .arg(&mut d_moves_executed)
                     .launch(one_thread_cfg.clone())?;
             }
-            
+
             let moves_executed = stream.memcpy_dtov(&d_moves_executed)?[0];
             if moves_executed == 0 {
                 break;
@@ -913,12 +1007,20 @@ pub fn solve(
         }
 
         do_swap_phase!(
-            &mut d_partition, &mut d_nodes_in_part,
-            &mut d_edge_flags_all, &mut d_edge_flags_double,
-            &mut d_swap_gains, &mut swap_gains_host,
-            &mut partition_host_swap, &mut partition_mut_swap,
-            &mut part_to_part, &mut used_ba_buf,
-            25, neg_gain_thresh, swap_exhaustive_limit, true
+            &mut d_partition,
+            &mut d_nodes_in_part,
+            &mut d_edge_flags_all,
+            &mut d_edge_flags_double,
+            &mut d_swap_gains,
+            &mut swap_gains_host,
+            &mut partition_host_swap,
+            &mut partition_mut_swap,
+            &mut part_to_part,
+            &mut used_ba_buf,
+            25,
+            neg_gain_thresh,
+            swap_exhaustive_limit,
+            true
         )?;
 
         unsafe {
@@ -931,7 +1033,7 @@ pub fn solve(
                 .arg(&mut d_connectivity)
                 .launch(hedge_cfg.clone())?;
         }
-        
+
         let connectivity_vec = stream.memcpy_dtov(&d_connectivity)?;
         let new_connectivity: i32 = connectivity_vec.iter().sum();
 
@@ -940,18 +1042,26 @@ pub fn solve(
             best_partition_host = stream.memcpy_dtov(&d_partition)?;
             best_nodes_in_part_host = stream.memcpy_dtov(&d_nodes_in_part)?;
 
-            let mut new_conn_with_idx: Vec<(i32, i32)> = connectivity_vec.iter().enumerate().map(|(i, &c)| (c, i as i32)).collect();
+            let mut new_conn_with_idx: Vec<(i32, i32)> = connectivity_vec
+                .iter()
+                .enumerate()
+                .map(|(i, &c)| (c, i as i32))
+                .collect();
             new_conn_with_idx.sort_unstable_by(|a, b| b.0.cmp(&a.0));
-            let new_high_hedge_ids: Vec<i32> = new_conn_with_idx.iter().take(num_high_hedges).map(|&(_, id)| id).collect();
+            let new_high_hedge_ids: Vec<i32> = new_conn_with_idx
+                .iter()
+                .take(num_high_hedges)
+                .map(|&(_, id)| id)
+                .collect();
             stream.memcpy_htod(&new_high_hedge_ids, &mut d_high_hedge_ids)?;
         }
     }
-    
+
     let d_partition_final = stream.memcpy_stod(&best_partition_host)?;
     let d_nodes_in_part_final = stream.memcpy_stod(&best_nodes_in_part_host)?;
     d_partition = d_partition_final;
     d_nodes_in_part = d_nodes_in_part_final;
-    
+
     for _ in 0..post_ils_polish {
         unsafe {
             stream
@@ -960,7 +1070,7 @@ pub fn solve(
                 .arg(&mut d_moves_executed)
                 .launch(one_thread_cfg.clone())?;
         }
-        
+
         unsafe {
             stream
                 .launch_builder(&precompute_edge_flags_kernel)
@@ -973,7 +1083,7 @@ pub fn solve(
                 .arg(&mut d_edge_flags_double)
                 .launch(hedge_cfg.clone())?;
         }
-        
+
         unsafe {
             stream
                 .launch_builder(&compute_moves_kernel)
@@ -990,12 +1100,12 @@ pub fn solve(
                 .arg(&mut d_num_valid_moves)
                 .launch(cfg.clone())?;
         }
-        
+
         let num_valid_moves = stream.memcpy_dtov(&d_num_valid_moves)?[0];
         if num_valid_moves == 0 {
             break;
         }
-        
+
         stream.memcpy_dtoh(&d_move_priorities, &mut move_keys_host)?;
 
         valid_moves.clear();
@@ -1050,10 +1160,10 @@ pub fn solve(
             sorted_move_nodes.extend(valid_moves[..take].iter().map(|(n, _)| *n as i32));
             sorted_move_parts.extend(valid_moves[..take].iter().map(|(_, key)| (key & 63) as i32));
         }
-        
+
         let d_sorted_move_nodes = stream.memcpy_stod(&sorted_move_nodes)?;
         let d_sorted_move_parts = stream.memcpy_stod(&sorted_move_parts)?;
-        
+
         unsafe {
             stream
                 .launch_builder(&execute_moves_kernel)
@@ -1066,7 +1176,7 @@ pub fn solve(
                 .arg(&mut d_moves_executed)
                 .launch(one_thread_cfg.clone())?;
         }
-        
+
         let moves_executed = stream.memcpy_dtov(&d_moves_executed)?[0];
         if moves_executed == 0 {
             break;
@@ -1152,7 +1262,7 @@ pub fn solve(
         let mut k = valid_moves.len();
 
         let adaptive_limit = move_limit / 2;
-        
+
         if k > adaptive_limit {
             k = adaptive_limit;
             valid_moves.select_nth_unstable_by(k - 1, cmp);
@@ -1219,12 +1329,20 @@ pub fn solve(
     }
 
     do_swap_phase!(
-        &mut d_partition, &mut d_nodes_in_part,
-        &mut d_edge_flags_all, &mut d_edge_flags_double,
-        &mut d_swap_gains, &mut swap_gains_host,
-        &mut partition_host_swap, &mut partition_mut_swap,
-        &mut part_to_part, &mut used_ba_buf,
-        10, neg_gain_thresh, swap_exhaustive_limit, true
+        &mut d_partition,
+        &mut d_nodes_in_part,
+        &mut d_edge_flags_all,
+        &mut d_edge_flags_double,
+        &mut d_swap_gains,
+        &mut swap_gains_host,
+        &mut partition_host_swap,
+        &mut partition_mut_swap,
+        &mut part_to_part,
+        &mut used_ba_buf,
+        10,
+        neg_gain_thresh,
+        swap_exhaustive_limit,
+        true
     )?;
 
     let partition = stream.memcpy_dtov(&d_partition)?;

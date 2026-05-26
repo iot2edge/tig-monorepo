@@ -2048,11 +2048,20 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "anyhow",
- "blake3",
  "cudarc",
  "ndarray",
  "rand",
  "serde",
+ "serde_json",
+ "tig-challenges",
+]
+
+[[package]]
+name = "tig-analysis"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "rand",
  "serde_json",
  "tig-challenges",
 ]

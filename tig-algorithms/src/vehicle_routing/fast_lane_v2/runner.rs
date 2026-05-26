@@ -1,11 +1,11 @@
-use super::instance::Instance;
 use super::config::Config;
 use super::evolution::Evolution;
+use super::instance::Instance;
 use anyhow::Result;
-use tig_challenges::vehicle_routing::*;
-use serde_json::{Map, Value};
 use rand::{rngs::SmallRng, SeedableRng};
+use serde_json::{Map, Value};
 use std::time::Instant;
+use tig_challenges::vehicle_routing::*;
 
 pub struct TigLoader;
 
@@ -49,7 +49,13 @@ impl Solver {
         let mut rng = SmallRng::from_seed(data.seed);
         let mut ga = Evolution::new(&data, params);
         Ok(ga.run(&mut rng, t0, save_solution).map(|(routes, cost)| {
-            (Solution { routes: routes.clone() }, cost, routes.len())
+            (
+                Solution {
+                    routes: routes.clone(),
+                },
+                cost,
+                routes.len(),
+            )
         }))
     }
 

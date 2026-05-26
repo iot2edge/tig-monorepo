@@ -7,8 +7,11 @@ pub fn solve_challenge(
     save_solution: &dyn Fn(&Solution) -> anyhow::Result<()>,
     hyperparameters: &Option<Map<String, Value>>,
 ) -> anyhow::Result<()> {
-    let _ = save_solution(&Solution { variables: vec![false; challenge.num_variables] });
-    let mut rng = StdRng::seed_from_u64(u64::from_le_bytes(challenge.seed[..8].try_into().unwrap()) as u64);
+    let _ = save_solution(&Solution {
+        variables: vec![false; challenge.num_variables],
+    });
+    let mut rng =
+        StdRng::seed_from_u64(u64::from_le_bytes(challenge.seed[..8].try_into().unwrap()) as u64);
     let num_variables = challenge.num_variables;
     let mut variables: Vec<bool> = (0..num_variables).map(|_| rng.gen::<bool>()).collect();
 

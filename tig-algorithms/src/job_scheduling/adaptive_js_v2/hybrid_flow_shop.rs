@@ -2,8 +2,8 @@ use anyhow::Result;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use tig_challenges::job_scheduling::*;
 
-use super::types::*;
 use super::infra::*;
+use super::types::*;
 
 fn maybe_plateau_local_search(
     pre: &Pre,
@@ -30,7 +30,9 @@ fn maybe_plateau_local_search(
         None => return Ok(false),
     };
 
-    if let Some((sol2, mk2)) = critical_block_move_local_search_ex(pre, challenge, base_sol, p1, p2, p3)? {
+    if let Some((sol2, mk2)) =
+        critical_block_move_local_search_ex(pre, challenge, base_sol, p1, p2, p3)?
+    {
         if mk2 < *best_makespan {
             *best_makespan = mk2;
             *best_solution = Some(sol2.clone());
@@ -38,7 +40,11 @@ fn maybe_plateau_local_search(
 
             if *learn_updates_left > 0 {
                 *learned_jb = Some(job_bias_from_solution(pre, &sol2)?);
-                *learned_mp = Some(machine_penalty_from_solution(pre, &sol2, challenge.num_machines)?);
+                *learned_mp = Some(machine_penalty_from_solution(
+                    pre,
+                    &sol2,
+                    challenge.num_machines,
+                )?);
                 *learned_rp = Some(route_pref_from_solution_lite(pre, &sol2, challenge)?);
                 *learn_updates_left -= 1;
             }
@@ -85,7 +91,8 @@ pub fn solve(
         (0.040 + 0.10 * pre.high_flex + 0.08 * pre.jobshopness).clamp(0.04, 0.22);
 
     if pre.flow_route.is_some() && pre.flow_pt_by_job.is_some() {
-        let (sol, mk) = neh_reentrant_flow_solution(pre, challenge.num_jobs, challenge.num_machines)?;
+        let (sol, mk) =
+            neh_reentrant_flow_solution(pre, challenge.num_jobs, challenge.num_machines)?;
         if mk < best_makespan {
             best_makespan = mk;
             best_solution = Some(sol.clone());
@@ -97,16 +104,7 @@ pub fn solve(
     let mut ranked: Vec<(Rule, u32, Solution)> = Vec::with_capacity(rules.len());
     for &rule in &rules {
         let (sol, mk) = construct_solution_conflict(
-            challenge,
-            pre,
-            rule,
-            0,
-            None,
-            &mut rng,
-            None,
-            None,
-            None,
-            0.0,
+            challenge, pre, rule, 0, None, &mut rng, None, None, None, 0.0,
         )?;
         if mk < best_makespan {
             best_makespan = mk;
@@ -131,7 +129,11 @@ pub fn solve(
 
     let base = &ranked[0].2;
     let mut learned_jb = Some(job_bias_from_solution(pre, base)?);
-    let mut learned_mp = Some(machine_penalty_from_solution(pre, base, challenge.num_machines)?);
+    let mut learned_mp = Some(machine_penalty_from_solution(
+        pre,
+        base,
+        challenge.num_machines,
+    )?);
     let mut learned_rp = Some(route_pref_from_solution_lite(pre, base, challenge)?);
     let mut learn_updates_left = 4usize;
 
@@ -186,10 +188,8 @@ pub fn solve(
         }
         .min(k_hi);
 
-        let learn_base =
-            (0.08 + 0.22 * pre.jobshopness + 0.18 * pre.high_flex).clamp(0.05, 0.42);
-        let learn_boost =
-            (1.0 + 0.35 * ((stuck as f64) / 120.0).clamp(0.0, 1.0)).clamp(1.0, 1.35);
+        let learn_base = (0.08 + 0.22 * pre.jobshopness + 0.18 * pre.high_flex).clamp(0.05, 0.42);
+        let learn_boost = (1.0 + 0.35 * ((stuck as f64) / 120.0).clamp(0.0, 1.0)).clamp(1.0, 1.35);
         let learn_p = (learn_base * learn_boost).clamp(0.0, 0.60);
 
         let target = if best_makespan < (u32::MAX / 2) {
@@ -200,9 +200,9 @@ pub fn solve(
 
         let elite_ok = !top_solutions.is_empty() && r > 25;
         let elite_boost = ((stuck as f64) / 140.0).clamp(0.0, 1.0);
-        let elite_base =
-            (0.05 + 0.10 * pre.high_flex + 0.06 * pre.jobshopness).clamp(0.02, 0.22);
-        let elite_p = (elite_base + 0.28 * elite_boost + if late { 0.05 } else { 0.0 }).clamp(0.0, 0.45);
+        let elite_base = (0.05 + 0.10 * pre.high_flex + 0.06 * pre.jobshopness).clamp(0.02, 0.22);
+        let elite_p =
+            (elite_base + 0.28 * elite_boost + if late { 0.05 } else { 0.0 }).clamp(0.0, 0.45);
 
         let use_elite = elite_ok && rng.gen::<f64>() < elite_p;
 
@@ -251,16 +251,7 @@ pub fn solve(
             )?
         } else {
             construct_solution_conflict(
-                challenge,
-                pre,
-                rule,
-                k,
-                target,
-                &mut rng,
-                None,
-                None,
-                None,
-                0.0,
+                challenge, pre, rule, k, target, &mut rng, None, None, None, 0.0,
             )?
         };
 
@@ -276,7 +267,11 @@ pub fn solve(
 
             if learn_updates_left > 0 {
                 learned_jb = Some(job_bias_from_solution(pre, &sol)?);
-                learned_mp = Some(machine_penalty_from_solution(pre, &sol, challenge.num_machines)?);
+                learned_mp = Some(machine_penalty_from_solution(
+                    pre,
+                    &sol,
+                    challenge.num_machines,
+                )?);
                 learned_rp = Some(route_pref_from_solution_lite(pre, &sol, challenge)?);
                 learn_updates_left -= 1;
             }
@@ -370,9 +365,9 @@ pub fn solve(
     let ls_perturb = (effort.hybrid_flow_shop_iters / 160).max(12);
     for i in 0..ls_runs {
         let base_sol = &top_solutions[i].0;
-        if let Some((sol2, mk2)) =
-            critical_block_move_local_search_ex(pre, challenge, base_sol, ls_iters, ls_cands, ls_perturb)?
-        {
+        if let Some((sol2, mk2)) = critical_block_move_local_search_ex(
+            pre, challenge, base_sol, ls_iters, ls_cands, ls_perturb,
+        )? {
             if mk2 < best_makespan {
                 best_makespan = mk2;
                 best_solution = Some(sol2.clone());

@@ -241,15 +241,42 @@ pub use fast_lane_v4 as c002_a103;
 
 // c002_a108
 
-// c002_a109
+pub mod near_vrp_v1;
+pub use near_vrp_v1 as c002_a109;
+
+pub mod near_vrp_v2;
+pub use near_vrp_v2 as c002_a110;
+
+pub mod near_vrp_v3;
+pub use near_vrp_v3 as c002_a111;
+
+pub mod near_vrp_v4;
+pub use near_vrp_v4 as c002_a117;
+
+pub mod near_vrp_v5;
+pub use near_vrp_v5 as c002_a118;
+
+pub mod near_vrp_filo;
+pub use near_vrp_filo as c002_a112;
+
+pub mod near_vrp_sisr;
+pub use near_vrp_sisr as c002_a113;
+
+pub mod near_vrp_prof;
+pub use near_vrp_prof as c002_a114;
+
+pub mod near_vrp_pareto;
+pub use near_vrp_pareto as c002_a115;
+
+pub mod near_vrp_or6;
+pub use near_vrp_or6 as c002_a116;
+
+pub mod near_vrp_v7;
+pub use near_vrp_v7 as c002_a119;
 
 // c002_a110
 
 // c002_a111
-
-// c002_a112
-
-// c002_a113
 
 // c002_a114
 

@@ -39,11 +39,7 @@ fn compute_solution(
         inv_weights.push(1.0 / w as f32);
     }
 
-    let rcl_max = if challenge.num_items <= 165 {
-        9
-    } else {
-        10
-    };
+    let rcl_max = if challenge.num_items <= 165 { 9 } else { 10 };
 
     let mut item_densities: Vec<(usize, f32)> = Vec::with_capacity(unselected_items.len());
     for &idx in unselected_items.iter() {
@@ -185,11 +181,7 @@ fn compute_solution(
         unselected_items.push(idx);
     }
 
-    let local_search_iterations = if challenge.num_items <= 165 {
-        60
-    } else {
-        100
-    };
+    let local_search_iterations = if challenge.num_items <= 165 { 60 } else { 100 };
     let mut feasible_adds = Vec::with_capacity(50);
     let mut feasible_swaps = Vec::with_capacity(100);
 
@@ -347,8 +339,7 @@ pub fn solve_challenge(
 
         let k = 5;
         for _ in 0..k {
-            let mut unselected_items: Vec<usize> =
-                Vec::with_capacity(challenge.num_items);
+            let mut unselected_items: Vec<usize> = Vec::with_capacity(challenge.num_items);
             for i in 0..challenge.num_items {
                 unselected_items.push(i);
             }

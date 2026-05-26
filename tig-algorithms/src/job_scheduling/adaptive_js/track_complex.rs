@@ -2,12 +2,14 @@ use anyhow::Result;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use tig_challenges::job_scheduling::*;
 
-use super::types::*;
 use super::construction::{construct_solution_conflict, neh_reentrant_flow_solution};
-use super::learning::{job_bias_from_solution, machine_penalty_from_solution, route_pref_from_solution_lite};
+use super::helpers::push_top_solutions;
+use super::learning::{
+    job_bias_from_solution, machine_penalty_from_solution, route_pref_from_solution_lite,
+};
 use super::local_search::critical_block_move_local_search;
 use super::rules::{choose_rule_bandit, rule_idx};
-use super::helpers::push_top_solutions;
+use super::types::*;
 
 pub fn solve(
     challenge: &Challenge,
@@ -87,8 +89,11 @@ pub fn solve(
 
     let base = &ranked[0].2;
     let mut learned_jb = Some(job_bias_from_solution(&pre, base)?);
-    let mut learned_mp =
-        Some(machine_penalty_from_solution(&pre, base, challenge.num_machines)?);
+    let mut learned_mp = Some(machine_penalty_from_solution(
+        &pre,
+        base,
+        challenge.num_machines,
+    )?);
     let mut learned_rp = if route_w_base > 0.0 {
         Some(route_pref_from_solution_lite(&pre, base, challenge)?)
     } else {
@@ -165,8 +170,7 @@ pub fn solve(
         } else {
             (0.08 + 0.22 * pre.jobshopness + 0.18 * pre.high_flex).clamp(0.05, 0.42)
         };
-        let learn_boost =
-            (1.0 + 0.35 * ((stuck as f64) / 120.0).clamp(0.0, 1.0)).clamp(1.0, 1.35);
+        let learn_boost = (1.0 + 0.35 * ((stuck as f64) / 120.0).clamp(0.0, 1.0)).clamp(1.0, 1.35);
         let learn_p = (learn_base * learn_boost).clamp(0.0, 0.60);
 
         let use_learn = learned_jb.is_some()
@@ -218,8 +222,7 @@ pub fn solve(
                     challenge.num_machines,
                 )?);
                 if route_w_base > 0.0 {
-                    learned_rp =
-                        Some(route_pref_from_solution_lite(&pre, &sol, challenge)?);
+                    learned_rp = Some(route_pref_from_solution_lite(&pre, &sol, challenge)?);
                 }
                 learn_updates_left -= 1;
             }
@@ -324,7 +327,11 @@ pub fn solve(
         14usize
     };
 
-    let top_cands = if pre.jobshopness > 0.55 { 36usize } else { 28usize };
+    let top_cands = if pre.jobshopness > 0.55 {
+        36usize
+    } else {
+        28usize
+    };
 
     for i in 0..ls_runs {
         let base_sol = &top_solutions[i].0;

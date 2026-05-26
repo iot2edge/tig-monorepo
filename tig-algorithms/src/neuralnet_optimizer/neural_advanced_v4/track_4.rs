@@ -1,6 +1,6 @@
 use anyhow::Result;
 use cudarc::{
-    driver::{CudaModule, CudaSlice, CudaStream, LaunchConfig, PushKernelArg}, 
+    driver::{CudaModule, CudaSlice, CudaStream, LaunchConfig, PushKernelArg},
     runtime::sys::cudaDeviceProp,
 };
 use serde_json::{Map, Value};
@@ -8,9 +8,8 @@ use std::sync::Arc;
 use tig_challenges::neuralnet_optimizer::*;
 
 use super::helpers::{
-    OptimizerState,
-    spectral_phase_lr, compute_blends, update_state_from_val_loss,
-    compute_global_damp, compute_precision_params, finalize_state,
+    compute_blends, compute_global_damp, compute_precision_params, finalize_state,
+    spectral_phase_lr, update_state_from_val_loss, OptimizerState,
 };
 
 const TOTAL_STEPS: usize = 1024;
@@ -59,7 +58,7 @@ fn optimizer_init(
         prev_g.push(stream.alloc_zeros::<f32>(n)?);
         prev_u.push(stream.alloc_zeros::<f32>(n)?);
         slow_u.push(stream.alloc_zeros::<f32>(n)?);
-        
+
         f.push(stream.alloc_zeros::<f32>(n)?);
 
         ef.push(stream.alloc_zeros::<f32>(n)?);
@@ -68,7 +67,9 @@ fn optimizer_init(
 
     let threads_per_block: u32 = 256;
     let blocks_per_sm: u32 = 3;
-    let sm_blocks = (prop.multiProcessorCount as u32).saturating_mul(blocks_per_sm).max(1);
+    let sm_blocks = (prop.multiProcessorCount as u32)
+        .saturating_mul(blocks_per_sm)
+        .max(1);
 
     let mut cfgs = Vec::with_capacity(param_sizes.len());
     for &n in param_sizes {
@@ -177,8 +178,15 @@ fn optimizer_step(
     let mut global_damp = compute_global_damp(s, val_loss);
     let (in_zone, precision_gain, mut gate_lo, mut gate_hi, forward_gain) =
         compute_precision_params(s, val_loss);
-    let (blend_adam, blend_norm, blend_sign, nesterov_gamma, bb_blend, lookahead_alpha, lookahead_tau) =
-        compute_blends(s, val_loss);
+    let (
+        blend_adam,
+        blend_norm,
+        blend_sign,
+        nesterov_gamma,
+        bb_blend,
+        lookahead_alpha,
+        lookahead_tau,
+    ) = compute_blends(s, val_loss);
 
     if s.step_count <= s.warmup_steps {
         s.lr_boost = 1.0;
@@ -215,7 +223,7 @@ fn optimizer_step(
     let late_phase = s.step_count > (s.total_steps * 19 / 20);
     let use_robust = s.step_count > s.warmup_steps + 120
         && (near_floor || late_phase || (in_zone && s.plateau_count >= 12));
-    
+
     let t = (s.step_count + 1) as i32;
     let bias_correction1 = 1.0 - s.beta1.powi(t);
     let bias_correction2 = 1.0 - s.beta2.powi(t);

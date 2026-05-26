@@ -1,5 +1,5 @@
-use super::problem::Problem;
 use super::params::Params;
+use super::problem::Problem;
 use super::sequence::Sequence;
 
 #[derive(Clone, Debug)]
@@ -36,7 +36,9 @@ impl Individual {
         let mut tw: i32 = 0;
         let mut loadx: i32 = 0;
         for r in routes {
-            if r.is_empty() { continue; }
+            if r.is_empty() {
+                continue;
+            }
             let mut acc = Sequence::singleton(data, r[0]);
             for idx in 1..r.len() {
                 let next = Sequence::singleton(data, r[idx]);
@@ -51,7 +53,12 @@ impl Individual {
     }
 
     #[inline]
-    pub fn compute_penalized_cost(distance: i32, tw_violation: i32, load_excess: i32, params: &Params) -> i64 {
+    pub fn compute_penalized_cost(
+        distance: i32,
+        tw_violation: i32,
+        load_excess: i32,
+        params: &Params,
+    ) -> i64 {
         (distance as i64)
             + (params.penalty_tw as i64) * (tw_violation as i64)
             + (params.penalty_capa as i64) * (load_excess as i64)
@@ -59,11 +66,19 @@ impl Individual {
 
     #[inline]
     pub fn recompute_cost(&mut self, params: &Params) {
-        self.cost = Self::compute_penalized_cost(self.distance, self.tw_violation, self.load_excess, params);
+        self.cost = Self::compute_penalized_cost(
+            self.distance,
+            self.tw_violation,
+            self.load_excess,
+            params,
+        );
     }
 
     /// Build predecessor/successor arrays and count non-empty routes.
-    fn build_pred_succ_and_count(data: &Problem, routes: &Vec<Vec<usize>>) -> (Vec<usize>, Vec<usize>, usize) {
+    fn build_pred_succ_and_count(
+        data: &Problem,
+        routes: &Vec<Vec<usize>>,
+    ) -> (Vec<usize>, Vec<usize>, usize) {
         let n_all = data.nb_nodes;
         let mut pred = vec![0usize; n_all];
         let mut succ = vec![0usize; n_all];
@@ -71,8 +86,12 @@ impl Individual {
 
         for r in routes {
             // A non-empty route contains at least one client: [0, c1, ..., 0] has len >= 3
-            if r.len() > 2 { nb_routes += 1; }
-            if r.len() < 2 { continue; } // defensive
+            if r.len() > 2 {
+                nb_routes += 1;
+            }
+            if r.len() < 2 {
+                continue;
+            } // defensive
             for p in 1..r.len() - 1 {
                 let id = r[p];
                 pred[id] = r[p - 1];

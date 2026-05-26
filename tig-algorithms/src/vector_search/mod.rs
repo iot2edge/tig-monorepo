@@ -220,7 +220,8 @@ pub use autovector_v12 as c004_a088;
 
 // c004_a100
 
-// c004_a101
+pub mod near_vector_v1;
+pub use near_vector_v1 as c004_a101;
 
 // c004_a102
 

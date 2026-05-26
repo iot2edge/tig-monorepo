@@ -85,8 +85,20 @@ fn apply_best_add_neigh_global(state: &mut State) -> bool {
         return false;
     }
 
-    let edge_lim: usize = if n >= 4500 { 16000 } else if n >= 2500 { 12000 } else { 9000 };
-    let node_lim: usize = if n >= 4500 { 56 } else if n >= 2500 { 64 } else { 72 };
+    let edge_lim: usize = if n >= 4500 {
+        16000
+    } else if n >= 2500 {
+        12000
+    } else {
+        9000
+    };
+    let node_lim: usize = if n >= 4500 {
+        56
+    } else if n >= 2500 {
+        64
+    } else {
+        72
+    };
 
     let start = (((state.total_value as u64) as usize)
         ^ ((state.total_weight as usize).wrapping_mul(911)))
@@ -223,8 +235,7 @@ fn apply_best_replace12_windowed(state: &mut State, used: &[usize]) -> bool {
                     continue;
                 }
 
-                let delta = (state.contrib[a] as i64)
-                    + (state.contrib[b] as i64)
+                let delta = (state.contrib[a] as i64) + (state.contrib[b] as i64)
                     - (state.contrib[r] as i64)
                     - (state.ch.interaction_values[a][r] as i64)
                     - (state.ch.interaction_values[b][r] as i64)
@@ -354,9 +365,8 @@ fn apply_best_swap_diff_reduce_windowed_cached(state: &mut State, used: &[usize]
                 if state.selected_bit[cand] {
                     continue;
                 }
-                let delta = state.contrib[cand]
-                    - state.contrib[rm]
-                    - state.ch.interaction_values[cand][rm];
+                let delta =
+                    state.contrib[cand] - state.contrib[rm] - state.ch.interaction_values[cand][rm];
                 if delta > 0 && best.map_or(true, |(_, _, bd)| delta > bd) {
                     best = Some((cand, rm, delta));
                 }
@@ -397,9 +407,8 @@ fn apply_best_swap_diff_increase_windowed_cached(state: &mut State, used: &[usiz
                 if state.selected_bit[cand] {
                     continue;
                 }
-                let delta = state.contrib[cand]
-                    - state.contrib[rm]
-                    - state.ch.interaction_values[cand][rm];
+                let delta =
+                    state.contrib[cand] - state.contrib[rm] - state.ch.interaction_values[cand][rm];
                 if delta > 0 {
                     let ratio = (delta as f64) / (dw as f64);
                     if best.map_or(true, |(_, _, br)| ratio > br) {
@@ -465,7 +474,9 @@ fn apply_best_swap_neigh_any(state: &mut State, used: &[usize]) -> bool {
                 (delta * 1000) / dw.max(1)
             };
 
-            if best.map_or(true, |(_, _, bs, bd)| score > bs || (score == bs && delta > bd)) {
+            if best.map_or(true, |(_, _, bs, bd)| {
+                score > bs || (score == bs && delta > bd)
+            }) {
                 best = Some((cand, rm, score, delta));
             }
         }
@@ -525,8 +536,20 @@ fn apply_best_swap_frontier_global(state: &mut State, used: &[usize]) -> bool {
 
     let slack0 = state.slack();
 
-    let edge_lim: usize = if n >= 4500 { 22000 } else if n >= 2500 { 16000 } else { 9000 };
-    let node_lim: usize = if n >= 4500 { 64 } else if n >= 2500 { 72 } else { 84 };
+    let edge_lim: usize = if n >= 4500 {
+        22000
+    } else if n >= 2500 {
+        16000
+    } else {
+        9000
+    };
+    let node_lim: usize = if n >= 4500 {
+        64
+    } else if n >= 2500 {
+        72
+    } else {
+        84
+    };
 
     let start = (((state.total_value as u64) as usize)
         ^ ((state.total_weight as usize).wrapping_mul(911)))
@@ -645,7 +668,9 @@ fn apply_best_swap_frontier_global(state: &mut State, used: &[usize]) -> bool {
                 (delta * 1000) / dw.max(1)
             };
 
-            if best.map_or(true, |(_, _, bs, bd)| score > bs || (score == bs && delta > bd)) {
+            if best.map_or(true, |(_, _, bs, bd)| {
+                score > bs || (score == bs && delta > bd)
+            }) {
                 best = Some((cand, r, score, delta));
             }
         }
@@ -675,9 +700,13 @@ pub fn local_search_vnd(state: &mut State, params: &Params) {
     let mut micro_used = false;
 
     let mut frontier_swap_tries: usize = 0;
-    let max_frontier_swaps: usize = params.max_frontier_swaps_override.unwrap_or(
-        if n >= 2500 { 0 } else if n >= 1500 { 1 } else { 2 }
-    );
+    let max_frontier_swaps: usize = params.max_frontier_swaps_override.unwrap_or(if n >= 2500 {
+        0
+    } else if n >= 1500 {
+        1
+    } else {
+        2
+    });
 
     let mut dirty_window = false;
     let mut n_rebuilds = 0usize;

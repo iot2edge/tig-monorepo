@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use serde_json::{Map, Value};
 use tig_challenges::knapsack::*;
 
-
 pub fn solve_challenge(
     challenge: &Challenge,
     save_solution: &dyn Fn(&Solution) -> Result<()>,
@@ -16,9 +15,8 @@ pub fn solve_challenge(
 mod dead_code {
     // TIG's UI uses the pattern `tig_challenges::<challenge_name>` to automatically detect your algorithm's challenge
     use anyhow::Result;
-    use rand::{SeedableRng, Rng, rngs::StdRng};
+    use rand::{rngs::StdRng, Rng, SeedableRng};
     use tig_challenges::knapsack::*;
-
 
     pub fn solve_challenge(challenge: &Challenge) -> anyhow::Result<Option<Solution>> {
         let mut solution = Solution {
@@ -39,8 +37,11 @@ mod dead_code {
         let mut item_scores: Vec<(usize, f32)> = (0..vertex_count)
             .map(|index| {
                 let interaction_sum: i32 = challenge.interaction_values[index].iter().sum();
-                let secondary_score = challenge.values[index] as f32 / challenge.weights[index] as f32;
-                let combined_score = (challenge.values[index] as f32 * 0.75 + interaction_sum as f32 * 0.15 + secondary_score * 0.1) 
+                let secondary_score =
+                    challenge.values[index] as f32 / challenge.weights[index] as f32;
+                let combined_score = (challenge.values[index] as f32 * 0.75
+                    + interaction_sum as f32 * 0.15
+                    + secondary_score * 0.1)
                     / challenge.weights[index] as f32;
                 (index, combined_score)
             })
@@ -89,7 +90,8 @@ mod dead_code {
                 }
 
                 let mutant_fitness = mutation_rates[mutant];
-                let extra_weight = challenge.weights[mutant] as i32 - (challenge.max_weight as i32 - current_weight as i32);
+                let extra_weight = challenge.weights[mutant] as i32
+                    - (challenge.max_weight as i32 - current_weight as i32);
 
                 if mutant_fitness < 0 {
                     continue;
@@ -104,8 +106,10 @@ mod dead_code {
                         continue;
                     }
 
-                    let interaction_penalty = (challenge.interaction_values[mutant][selected] as f32 * 0.3) as i32;
-                    let fitness_gain = mutant_fitness - mutation_rates[selected] - interaction_penalty;
+                    let interaction_penalty =
+                        (challenge.interaction_values[mutant][selected] as f32 * 0.3) as i32;
+                    let fitness_gain =
+                        mutant_fitness - mutation_rates[selected] - interaction_penalty;
 
                     if fitness_gain > best_gain {
                         best_gain = fitness_gain;
@@ -124,7 +128,8 @@ mod dead_code {
                 unselected_items.push(removed_item);
 
                 current_value += best_gain;
-                current_weight = current_weight + challenge.weights[added_item] - challenge.weights[removed_item];
+                current_weight = current_weight + challenge.weights[added_item]
+                    - challenge.weights[removed_item];
 
                 if current_weight > challenge.max_weight {
                     continue;
@@ -140,17 +145,25 @@ mod dead_code {
             }
 
             if current_value as u32 >= challenge.baseline_value {
-                return Ok(Some(SubSolution { items: selected_items }));
+                return Ok(Some(SubSolution {
+                    items: selected_items,
+                }));
             }
 
             for cooling_rate in cooling_schedule.iter_mut() {
-                *cooling_rate = if *cooling_rate > 0 { *cooling_rate - 1 } else { 0 };
+                *cooling_rate = if *cooling_rate > 0 {
+                    *cooling_rate - 1
+                } else {
+                    0
+                };
             }
 
             if current_value as u32 > (challenge.baseline_value * 9 / 10) {
                 let high_potential_items: Vec<usize> = unselected_items
                     .iter()
-                    .filter(|&&i| challenge.values[i] as i32 > (challenge.baseline_value as i32 / 4))
+                    .filter(|&&i| {
+                        challenge.values[i] as i32 > (challenge.baseline_value as i32 / 4)
+                    })
                     .copied()
                     .collect();
 
@@ -168,15 +181,21 @@ mod dead_code {
                         }
 
                         if current_value as u32 >= challenge.baseline_value {
-                            return Ok(Some(SubSolution { items: selected_items }));
+                            return Ok(Some(SubSolution {
+                                items: selected_items,
+                            }));
                         }
                     }
                 }
             }
         }
 
-        if current_value as u32 >= challenge.baseline_value && current_weight <= challenge.max_weight {
-            Ok(Some(SubSolution { items: selected_items }))
+        if current_value as u32 >= challenge.baseline_value
+            && current_weight <= challenge.max_weight
+        {
+            Ok(Some(SubSolution {
+                items: selected_items,
+            }))
         } else {
             Ok(None)
         }

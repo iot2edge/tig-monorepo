@@ -23,7 +23,7 @@ pub fn solve_challenge(
     let num_queries = challenge.num_queries as u32;
     let database_size = challenge.database_size as u32;
     let vector_dims = challenge.vector_dims as u32;
-    
+
     let num_queries_i = num_queries as i32;
     let vector_dims_i = vector_dims as i32;
 
@@ -31,8 +31,12 @@ pub fn solve_challenge(
     let mut d_best_dists = stream.alloc_zeros::<f32>(num_queries as usize)?;
 
     let search_kernel = module.load_function("batched_search")?;
-    
-    let batch_size = if vector_dims >= 512 { 80000u32 } else { 200000u32 };
+
+    let batch_size = if vector_dims >= 512 {
+        80000u32
+    } else {
+        200000u32
+    };
     let num_batches = (database_size + batch_size - 1) / batch_size;
 
     let config = LaunchConfig {
@@ -68,7 +72,7 @@ pub fn solve_challenge(
 
     stream.synchronize()?;
     let result_indices: Vec<i32> = stream.memcpy_dtov(&d_results)?;
-    
+
     let indexes: Vec<usize> = result_indices
         .iter()
         .map(|&idx| {

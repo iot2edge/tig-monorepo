@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use serde_json::{Map, Value};
 use tig_challenges::knapsack::*;
 
-
 pub fn solve_challenge(
     challenge: &Challenge,
     save_solution: &dyn Fn(&Solution) -> Result<()>,
@@ -15,7 +14,6 @@ pub fn solve_challenge(
 #[cfg(none)]
 mod dead_code {
     use tig_challenges::knapsack::*;
-
 
     pub fn solve_challenge(challenge: &Challenge) -> anyhow::Result<Option<Solution>> {
         let mut solution = Solution {
@@ -37,8 +35,16 @@ mod dead_code {
 
         let max_weight_plus_one = max_weight + 1;
 
-        let weights: Vec<usize> = challenge.weights.iter().map(|weight| *weight as usize).collect();
-        let values: Vec<usize> = challenge.values.iter().map(|value| *value as usize).collect();
+        let weights: Vec<usize> = challenge
+            .weights
+            .iter()
+            .map(|weight| *weight as usize)
+            .collect();
+        let values: Vec<usize> = challenge
+            .values
+            .iter()
+            .map(|value| *value as usize)
+            .collect();
 
         let mut sorted_items: Vec<(usize, f64)> = (0..num_items)
             .map(|i| (i, values[i] as f64 / weights[i] as f64))

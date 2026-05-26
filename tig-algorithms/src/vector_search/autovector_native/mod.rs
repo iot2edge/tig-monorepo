@@ -1,5 +1,8 @@
 use anyhow::Result;
-use cudarc::driver::{safe::{LaunchConfig, CudaModule, CudaStream}, CudaSlice, PushKernelArg};
+use cudarc::driver::{
+    safe::{CudaModule, CudaStream, LaunchConfig},
+    CudaSlice, PushKernelArg,
+};
 use cudarc::runtime::sys::cudaDeviceProp;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -15,7 +18,7 @@ pub struct Hyperparameters {
 
 impl Default for Hyperparameters {
     fn default() -> Self {
-        Self { 
+        Self {
             num_centroids: 4,
             search_clusters: 2,
             multi_probe_boost: 2,
@@ -27,7 +30,7 @@ fn calculate_adaptive_clusters(database_size: u32, vector_dims: u32, num_queries
     let base_clusters = (database_size as f32).sqrt() as u32;
     let dim_factor = 1.0 + (vector_dims as f32 / 100.0).ln();
     let query_factor = (num_queries as f32 / 10.0).sqrt().max(1.0);
-    
+
     let adaptive_count = (base_clusters as f32 * dim_factor / query_factor) as u32;
     adaptive_count.clamp(8, 64)
 }
@@ -52,10 +55,11 @@ fn build_probe_list_adaptive(
             (i, dist)
         })
         .collect();
-    
+
     distances.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-    
-    distances.into_iter()
+
+    distances
+        .into_iter()
         .take(total_probes.min(num_centroids) as usize)
         .map(|(i, _)| i)
         .collect()
@@ -69,10 +73,11 @@ pub fn solve_challenge(
     stream: Arc<CudaStream>,
     prop: &cudaDeviceProp,
 ) -> Result<()> {
-    let hps: Hyperparameters = hyperparameters.as_ref()
+    let hps: Hyperparameters = hyperparameters
+        .as_ref()
         .and_then(|m| serde_json::from_value(serde_json::Value::Object(m.clone())).ok())
         .unwrap_or_default();
-    
+
     let dim = challenge.vector_dims as u32;
     let num_vectors = challenge.database_size as u32;
     let num_queries = challenge.num_queries as u32;
@@ -80,16 +85,17 @@ pub fn solve_challenge(
     let adaptive_centroids = calculate_adaptive_clusters(num_vectors, dim, num_queries);
     let num_centroids = hps.num_centroids.min(adaptive_centroids);
     let total_search_clusters = (hps.search_clusters + hps.multi_probe_boost).min(num_centroids);
-    
+
     let use_adaptive_probes = total_search_clusters < num_centroids;
 
     // Select centroids on GPU
     let d_centroids = stream.alloc_zeros::<f32>((num_centroids * dim) as usize)?;
     let select_func = module.load_function("select_centroids_strided")?;
-    
+
     let total_threads = num_centroids * dim;
     unsafe {
-        stream.launch_builder(&select_func)
+        stream
+            .launch_builder(&select_func)
             .arg(&challenge.d_database_vectors)
             .arg(&d_centroids)
             .arg(&num_vectors)
@@ -98,73 +104,76 @@ pub fn solve_challenge(
             .launch(LaunchConfig {
                 grid_dim: ((total_threads + 255) / 256, 1, 1),
                 block_dim: (256, 1, 1),
-                shared_mem_bytes: 0
+                shared_mem_bytes: 0,
             })?;
     }
-    
+
     stream.synchronize()?;
-    
+
     let centroids = if use_adaptive_probes {
         stream.memcpy_dtov(&d_centroids)?
     } else {
         Vec::new()
     };
-    
+
     // Assign vectors to nearest centroids
     let d_assignments = stream.alloc_zeros::<i32>(num_vectors as usize)?;
     let assign_func = module.load_function("assign_to_nearest_centroid")?;
-    
+
     unsafe {
-        stream.launch_builder(&assign_func)
+        stream
+            .launch_builder(&assign_func)
             .arg(&challenge.d_database_vectors)
             .arg(&d_centroids)
             .arg(&d_assignments)
             .arg(&num_vectors)
             .arg(&num_centroids)
             .arg(&dim)
-            .launch(LaunchConfig { 
-                grid_dim: ((num_vectors + 255) / 256, 1, 1), 
-                block_dim: (256, 1, 1), 
-                shared_mem_bytes: 0 
+            .launch(LaunchConfig {
+                grid_dim: ((num_vectors + 255) / 256, 1, 1),
+                block_dim: (256, 1, 1),
+                shared_mem_bytes: 0,
             })?;
     }
-    
+
     stream.synchronize()?;
-    
+
     // GPU-based cluster building
     let d_cluster_sizes = stream.alloc_zeros::<i32>(num_centroids as usize)?;
     let count_func = module.load_function("count_cluster_sizes")?;
-    
+
     unsafe {
-        stream.launch_builder(&count_func)
+        stream
+            .launch_builder(&count_func)
             .arg(&d_assignments)
             .arg(&d_cluster_sizes)
             .arg(&num_vectors)
             .launch(LaunchConfig {
                 grid_dim: ((num_vectors + 255) / 256, 1, 1),
                 block_dim: (256, 1, 1),
-                shared_mem_bytes: 0
+                shared_mem_bytes: 0,
             })?;
     }
-    
+
     stream.synchronize()?;
-    
+
     let cluster_sizes: Vec<i32> = stream.memcpy_dtov(&d_cluster_sizes)?;
-    
+
     let mut cluster_offsets: Vec<i32> = vec![0];
     let mut total = 0i32;
     for &size in &cluster_sizes {
         total += size;
         cluster_offsets.push(total);
     }
-    
+
     let d_cluster_indices = stream.alloc_zeros::<i32>(num_vectors as usize)?;
     let d_cluster_offsets = stream.memcpy_stod(&cluster_offsets)?;
     let d_cluster_positions = stream.alloc_zeros::<i32>(num_centroids as usize)?;
-    
+
     let build_func = module.load_function("build_cluster_indices")?;
     unsafe {
-        stream.launch_builder(&build_func)
+        stream
+            .launch_builder(&build_func)
             .arg(&d_assignments)
             .arg(&d_cluster_offsets)
             .arg(&d_cluster_indices)
@@ -173,47 +182,47 @@ pub fn solve_challenge(
             .launch(LaunchConfig {
                 grid_dim: ((num_vectors + 255) / 256, 1, 1),
                 block_dim: (256, 1, 1),
-                shared_mem_bytes: 0
+                shared_mem_bytes: 0,
             })?;
     }
-    
+
     stream.synchronize()?;
-    
+
     let d_cluster_sizes = stream.memcpy_stod(&cluster_sizes)?;
-    
+
     let h_queries = if use_adaptive_probes {
         stream.memcpy_dtov(&challenge.d_query_vectors)?
     } else {
         Vec::new()
     };
-    
+
     let cluster_search = module.load_function("search_coalesced_multiquery")?;
     let mut d_results = stream.alloc_zeros::<i32>(num_queries as usize)?;
-    
+
     let shared_mem_centroids = (num_centroids * dim * 4) as u32;
     let max_shared = prop.sharedMemPerBlock as u32;
     let use_shared_mem = shared_mem_centroids < (max_shared / 2);
     let use_shared_flag = if use_shared_mem { 1i32 } else { 0i32 };
-    
+
     let batch_size = 256;
-    
+
     for query_batch_start in (0..num_queries).step_by(batch_size) {
         let query_batch_end = (query_batch_start + batch_size as u32).min(num_queries);
         let batch_count = query_batch_end - query_batch_start;
-        
+
         let all_probe_lists = if use_adaptive_probes {
             let mut lists = Vec::new();
             for q in query_batch_start..query_batch_end {
                 let query_start = (q * dim) as usize;
                 let query_end = query_start + dim as usize;
                 let query = &h_queries[query_start..query_end];
-                
+
                 let probe_list = build_probe_list_adaptive(
                     query,
                     &centroids,
                     num_centroids,
                     dim,
-                    total_search_clusters
+                    total_search_clusters,
                 );
                 lists.extend(probe_list);
             }
@@ -222,17 +231,22 @@ pub fn solve_challenge(
             let fixed_list: Vec<u32> = (0..num_centroids).collect();
             fixed_list.repeat(batch_count as usize)
         };
-        
+
         let d_probe_lists = stream.memcpy_stod(&all_probe_lists)?;
-        
+
         let search_config = LaunchConfig {
             grid_dim: (batch_count, 1, 1),
             block_dim: (256, 1, 1),
-            shared_mem_bytes: if use_shared_mem { shared_mem_centroids } else { 0 },
+            shared_mem_bytes: if use_shared_mem {
+                shared_mem_centroids
+            } else {
+                0
+            },
         };
 
         unsafe {
-            stream.launch_builder(&cluster_search)
+            stream
+                .launch_builder(&cluster_search)
                 .arg(&challenge.d_query_vectors)
                 .arg(&challenge.d_database_vectors)
                 .arg(&d_centroids)
@@ -250,17 +264,17 @@ pub fn solve_challenge(
                 .arg(&use_shared_flag)
                 .launch(search_config)?;
         }
-        
+
         stream.synchronize()?;
     }
-    
+
     stream.synchronize()?;
-    
+
     let indices: Vec<i32> = stream.memcpy_dtov(&d_results)?;
     let indexes = indices.iter().map(|&idx| idx as usize).collect();
-    
+
     save_solution(&Solution { indexes })?;
-    
+
     Ok(())
 }
 

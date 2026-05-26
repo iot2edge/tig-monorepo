@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transformers and vLLM Lecture</title>
+  <style>
+    :root {
+      --ink: #182028;
+      --muted: #5f6972;
+      --paper: #f8faf7;
+      --panel: #ffffff;
+      --line: #dce2dc;
+      --blue: #205da8;
+      --blue-soft: #e6effb;
+      --green: #14745d;
+      --green-soft: #ddf2eb;
+      --gold: #b77914;
+      --gold-soft: #fff1c9;
+      --rose: #b8495f;
+      --rose-soft: #ffe4eb;
+      --shadow: 0 18px 48px rgba(24, 32, 40, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(248, 250, 247, 0.92);
+      border-bottom: 1px solid rgba(24, 32, 40, 0.12);
+      backdrop-filter: blur(16px);
+    }
+
+    .nav {
+      width: min(1180px, calc(100% - 32px));
+      min-height: 64px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 250px;
+      text-decoration: none;
+      font-weight: 900;
+    }
+
+    .mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      background: var(--ink);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      padding: 7px;
+      box-shadow: 0 10px 24px rgba(24, 32, 40, 0.22);
+    }
+
+    .mark span {
+      border-radius: 4px;
+      background: white;
+    }
+
+    .mark span:nth-child(2),
+    .mark span:nth-child(4),
+    .mark span:nth-child(6) {
+      background: var(--gold);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .nav-links a,
+    .ghost-button {
+      min-height: 36px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 7px 11px;
+      background: transparent;
+      color: var(--muted);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .nav-links a:hover,
+    .ghost-button:hover {
+      color: var(--ink);
+      background: white;
+      border-color: var(--line);
+    }
+
+    .hero {
+      min-height: calc(100vh - 64px);
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      align-items: center;
+      background:
+        linear-gradient(rgba(248, 250, 247, 0.82), rgba(248, 250, 247, 0.94)),
+        url("data:image/svg+xml,%3Csvg width='1400' height='900' viewBox='0 0 1400 900' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='1400' height='900' fill='%23edf2ed'/%3E%3Cg opacity='.95' fill='none' stroke-linecap='round'%3E%3Cpath d='M172 208C380 110 512 286 704 198c178-82 338-94 526 40' stroke='%23205da8' stroke-width='10'/%3E%3Cpath d='M180 482c170-112 332-84 486-16 188 82 370 74 560-48' stroke='%2314745d' stroke-width='10'/%3E%3Cpath d='M230 690c230-110 396-50 560-4 174 48 286 10 410-86' stroke='%23b77914' stroke-width='10'/%3E%3C/g%3E%3Cg opacity='.98'%3E%3Crect x='164' y='162' width='136' height='92' rx='16' fill='%23ffffff'/%3E%3Crect x='392' y='210' width='136' height='92' rx='16' fill='%23ffffff'/%3E%3Crect x='650' y='138' width='136' height='92' rx='16' fill='%23ffffff'/%3E%3Crect x='928' y='160' width='136' height='92' rx='16' fill='%23ffffff'/%3E%3Crect x='1110' y='272' width='136' height='92' rx='16' fill='%23ffffff'/%3E%3Ccircle cx='232' cy='208' r='24' fill='%23205da8'/%3E%3Ccircle cx='460' cy='256' r='24' fill='%2314745d'/%3E%3Ccircle cx='718' cy='184' r='24' fill='%23b77914'/%3E%3Ccircle cx='996' cy='206' r='24' fill='%23b8495f'/%3E%3Ccircle cx='1178' cy='318' r='24' fill='%23205da8'/%3E%3C/g%3E%3C/svg%3E");
+      background-size: cover;
+      background-position: center;
+    }
+
+    .hero-inner {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 76px 0 54px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(330px, 0.88fr);
+      gap: 44px;
+      align-items: center;
+    }
+
+    .kicker {
+      width: fit-content;
+      margin: 0 0 18px;
+      padding: 7px 11px;
+      border-radius: 8px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 0.88rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin: 0;
+      font-size: clamp(3rem, 7vw, 6.6rem);
+      line-height: 0.94;
+      letter-spacing: 0;
+    }
+
+    .hero-copy {
+      max-width: 680px;
+      margin: 24px 0 30px;
+      color: #33404a;
+      font-size: clamp(1.08rem, 2.2vw, 1.32rem);
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .primary-button,
+    .secondary-button {
+      min-height: 46px;
+      border-radius: 8px;
+      border: 1px solid var(--ink);
+      padding: 11px 16px;
+      text-decoration: none;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .primary-button {
+      background: var(--ink);
+      color: white;
+    }
+
+    .secondary-button {
+      background: rgba(255, 255, 255, 0.74);
+      color: var(--ink);
+    }
+
+    .track-panel,
+    .card,
+    .diagram,
+    .lesson,
+    .lab,
+    .quiz,
+    .sources {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .track-panel {
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .meter {
+      width: 66px;
+      height: 66px;
+      border-radius: 50%;
+      background: conic-gradient(var(--blue) calc(var(--progress, 0) * 1%), #e7ebe7 0);
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+    }
+
+    .meter span {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: white;
+      font-weight: 900;
+      font-size: 0.9rem;
+    }
+
+    .checklist {
+      display: grid;
+      gap: 1px;
+      background: var(--line);
+    }
+
+    .check-row {
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      background: white;
+      padding: 14px 16px;
+    }
+
+    .badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-weight: 900;
+    }
+
+    .check-row strong {
+      display: block;
+    }
+
+    .check-row span span {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .check-row input {
+      width: 24px;
+      height: 24px;
+      accent-color: var(--blue);
+      cursor: pointer;
+    }
+
+    main section {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 76px 0;
+    }
+
+    .section-title {
+      max-width: 790px;
+      margin-bottom: 28px;
+    }
+
+    .section-title h2 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 4vw, 3.35rem);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .section-title p,
+    .caption {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.04rem;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .lecture-stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .lecture-note {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 24px;
+    }
+
+    .lecture-note h3 {
+      margin: 0 0 12px;
+      font-size: clamp(1.35rem, 2.4vw, 2rem);
+    }
+
+    .lecture-note p {
+      margin: 0 0 14px;
+      color: #34414b;
+      font-size: 1.03rem;
+    }
+
+    .lecture-note p:last-child {
+      margin-bottom: 0;
+    }
+
+    .lecture-note h4 {
+      margin: 20px 0 8px;
+      font-size: 1rem;
+    }
+
+    .lecture-note ul {
+      margin: 8px 0 0;
+      padding-left: 22px;
+      color: #34414b;
+    }
+
+    .lecture-note li {
+      margin: 6px 0;
+    }
+
+    .lecture-note .example {
+      border-left: 4px solid var(--blue);
+      border-radius: 0 8px 8px 0;
+      background: var(--blue-soft);
+      padding: 12px 14px;
+      margin: 16px 0;
+      color: #243644;
+    }
+
+    .lecture-note pre {
+      overflow-x: auto;
+      border-radius: 8px;
+      background: #141c22;
+      color: #f5f8f5;
+      padding: 16px;
+      margin: 14px 0;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.9rem;
+    }
+
+    .card,
+    .lab,
+    .quiz,
+    .sources {
+      padding: 20px;
+    }
+
+    .card {
+      min-height: 220px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .tile {
+      width: 46px;
+      height: 46px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 900;
+      font-size: 1.1rem;
+    }
+
+    .tile.blue { background: var(--blue); }
+    .tile.green { background: var(--green); }
+    .tile.gold { background: var(--gold); }
+    .tile.rose { background: var(--rose); }
+
+    h3 {
+      margin: 0;
+      font-size: 1.22rem;
+    }
+
+    .card p,
+    .lab p,
+    .quiz p,
+    .sources p,
+    .lesson p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .controls {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .flow-button,
+    .tab {
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: var(--ink);
+      text-align: left;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-weight: 900;
+    }
+
+    .flow-button:hover,
+    .flow-button.active,
+    .tab.active {
+      border-color: var(--blue);
+      background: var(--blue-soft);
+    }
+
+    .diagram {
+      min-height: 420px;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      background:
+        linear-gradient(90deg, rgba(32, 93, 168, 0.07) 1px, transparent 1px),
+        linear-gradient(rgba(32, 93, 168, 0.07) 1px, transparent 1px),
+        white;
+      background-size: 32px 32px;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      align-items: center;
+    }
+
+    .step {
+      min-height: 96px;
+      border: 1px solid rgba(24, 32, 40, 0.16);
+      border-radius: 8px;
+      background: white;
+      padding: 12px;
+      display: grid;
+      align-content: center;
+      gap: 4px;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+
+    .step.highlight,
+    .cache-cell.highlight,
+    .request.highlight {
+      border-color: var(--rose);
+      box-shadow: 0 0 0 4px rgba(184, 73, 95, 0.14);
+      transform: translateY(-2px);
+    }
+
+    .step strong,
+    .cache-cell strong,
+    .request strong {
+      font-size: 0.92rem;
+    }
+
+    .step span,
+    .cache-cell span,
+    .request span {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .attention-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .attention-grid span {
+      aspect-ratio: 1;
+      border-radius: 5px;
+      background: var(--blue-soft);
+      border: 1px solid rgba(32, 93, 168, 0.14);
+    }
+
+    .attention-grid span:nth-child(2n) {
+      background: var(--green-soft);
+    }
+
+    .attention-grid span:nth-child(5n),
+    .attention-grid span:nth-child(7),
+    .attention-grid span:nth-child(13),
+    .attention-grid span:nth-child(21) {
+      background: var(--gold-soft);
+    }
+
+    .vllm-board {
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .request-lane {
+      display: grid;
+      gap: 10px;
+    }
+
+    .request,
+    .cache-cell {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 12px;
+      display: grid;
+      gap: 3px;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+
+    .cache-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .cache-cell {
+      min-height: 78px;
+      background: #fbfcfb;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .tab {
+      text-align: center;
+    }
+
+    .lesson {
+      padding: 22px;
+    }
+
+    .lesson-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .lesson-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0 18px;
+    }
+
+    .pill {
+      border-radius: 8px;
+      background: var(--green-soft);
+      color: var(--green);
+      padding: 6px 9px;
+      font-size: 0.86rem;
+      font-weight: 900;
+    }
+
+    .list {
+      margin: 14px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+    }
+
+    .list li {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 9px;
+      align-items: start;
+      color: #34414b;
+    }
+
+    .dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      display: grid;
+      place-items: center;
+      font-size: 0.8rem;
+      font-weight: 900;
+    }
+
+    .side-note {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfb;
+      padding: 16px;
+    }
+
+    .side-note h4 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+
+    .side-note p {
+      margin-bottom: 12px;
+    }
+
+    pre {
+      margin: 14px 0 0;
+      overflow-x: auto;
+      border-radius: 8px;
+      background: #141c22;
+      color: #f5f8f5;
+      padding: 16px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.9rem;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    pre code {
+      white-space: pre;
+    }
+
+    .quiz-form {
+      display: grid;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .question {
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      color: #34414b;
+      cursor: pointer;
+    }
+
+    .option input {
+      margin-top: 4px;
+      accent-color: var(--blue);
+    }
+
+    .result {
+      min-height: 44px;
+      border-radius: 8px;
+      background: var(--gold-soft);
+      padding: 12px;
+      font-weight: 900;
+    }
+
+    .sources ul {
+      margin: 12px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    .footer {
+      border-top: 1px solid var(--line);
+      padding: 30px 16px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media (max-width: 980px) {
+      .hero-inner,
+      .flow,
+      .lesson-layout,
+      .vllm-board {
+        grid-template-columns: 1fr;
+      }
+
+      .grid-4,
+      .grid-3,
+      .grid-2,
+      .pipeline,
+      .tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      .nav {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 12px 0;
+      }
+
+      .nav-links {
+        justify-content: flex-start;
+      }
+
+      .hero {
+        min-height: auto;
+      }
+
+      .hero-inner {
+        padding-top: 48px;
+      }
+
+      h1 {
+        font-size: clamp(2.8rem, 17vw, 4.8rem);
+      }
+
+      main section {
+        padding: 54px 0;
+      }
+
+      .grid-4,
+      .grid-3,
+      .grid-2,
+      .pipeline,
+      .tabs,
+      .cache-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .check-row {
+        grid-template-columns: 38px 1fr;
+      }
+
+      .check-row input {
+        grid-column: 2;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <nav class="nav" aria-label="Main navigation">
+      <a class="brand" href="#top">
+        <span class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></span>
+        <span>Transformers and vLLM</span>
+      </a>
+      <div class="nav-links">
+        <a href="#mental-model">Model</a>
+        <a href="#lecture-notes">Lectures</a>
+        <a href="#transformer-flow">Transformer</a>
+        <a href="#vllm-flow">vLLM</a>
+        <a href="#plan">7 Days</a>
+        <a href="#labs">Labs</a>
+        <a href="#quiz">Quiz</a>
+        <button class="ghost-button" type="button" id="resetProgress">Reset</button>
+      </div>
+    </nav>
+  </header>
+
+  <section class="hero" id="top">
+    <div class="hero-inner">
+      <div>
+        <p class="kicker">Beginner to serving-aware</p>
+        <h1>Transformers first, vLLM next</h1>
+        <p class="hero-copy">
+          A one-week lecture site for understanding how language models turn tokens into predictions,
+          then how vLLM serves those models efficiently with batching, KV cache management, and an
+          OpenAI-compatible API.
+        </p>
+        <div class="hero-actions">
+          <a class="primary-button" href="#plan">Start day 1</a>
+          <a class="secondary-button" href="#transformer-flow">See the data flow</a>
+        </div>
+      </div>
+
+      <aside class="track-panel" aria-label="Course progress">
+        <div class="panel-head">
+          <div>
+            <h2>Your learning track</h2>
+            <p class="caption">Check off each day after notes, practice, and explanation.</p>
+          </div>
+          <div class="meter" id="progressMeter" style="--progress: 0"><span id="progressText">0%</span></div>
+        </div>
+        <div class="checklist">
+          <label class="check-row"><span class="badge">1</span><span><strong>Tokens and embeddings</strong><span>How text becomes vectors.</span></span><input type="checkbox" data-day="1"></label>
+          <label class="check-row"><span class="badge">2</span><span><strong>Attention</strong><span>Queries, keys, values, and context.</span></span><input type="checkbox" data-day="2"></label>
+          <label class="check-row"><span class="badge">3</span><span><strong>Transformer blocks</strong><span>Layers, heads, MLPs, residuals.</span></span><input type="checkbox" data-day="3"></label>
+          <label class="check-row"><span class="badge">4</span><span><strong>Generation</strong><span>Logits, sampling, and decoding.</span></span><input type="checkbox" data-day="4"></label>
+          <label class="check-row"><span class="badge">5</span><span><strong>Inference bottlenecks</strong><span>Memory, KV cache, latency, throughput.</span></span><input type="checkbox" data-day="5"></label>
+          <label class="check-row"><span class="badge">6</span><span><strong>vLLM serving</strong><span>OpenAI API, batching, PagedAttention.</span></span><input type="checkbox" data-day="6"></label>
+          <label class="check-row"><span class="badge">7</span><span><strong>Capstone</strong><span>Serve, call, measure, and explain.</span></span><input type="checkbox" data-day="7"></label>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <main>
+    <section id="mental-model">
+      <div class="section-title">
+        <h2>The mental model</h2>
+        <p>Transformers are about choosing useful context. vLLM is about serving that context efficiently.</p>
+      </div>
+      <div class="grid-4">
+        <article class="card">
+          <span class="tile blue">T</span>
+          <h3>Tokens</h3>
+          <p>Models do not see words directly. Text is split into token IDs, then mapped into vectors called embeddings.</p>
+        </article>
+        <article class="card">
+          <span class="tile green">A</span>
+          <h3>Attention</h3>
+          <p>Each token asks which other tokens matter right now. Query, key, and value vectors make that scoring possible.</p>
+        </article>
+        <article class="card">
+          <span class="tile gold">K</span>
+          <h3>KV cache</h3>
+          <p>During generation, old key and value vectors can be reused instead of recomputed for every new token.</p>
+        </article>
+        <article class="card">
+          <span class="tile rose">V</span>
+          <h3>vLLM</h3>
+          <p>An inference engine that schedules many requests, manages KV cache memory, and exposes model serving APIs.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="lecture-notes">
+      <div class="section-title">
+        <h2>Lecture notes</h2>
+        <p>These are the actual lessons. Read one per day, then do the matching lab and checkpoint.</p>
+      </div>
+      <div class="lecture-stack">
+        <article class="lecture-note">
+          <h3>Lecture 1: What a Transformer is trying to do</h3>
+          <h4>Learning objectives</h4>
+          <ul>
+            <li>Understand what next-token prediction means.</li>
+            <li>Explain tokens, token IDs, embeddings, and context length.</li>
+            <li>Describe why text must become vectors before a neural network can process it.</li>
+          </ul>
+          <p>
+            A Transformer language model is trained to solve a very simple-looking problem: given a sequence of tokens,
+            predict the next token. If the prompt is "The capital of France is", the model should assign high probability
+            to a token like " Paris". This small objective becomes powerful because the model sees huge amounts of text.
+            To predict the next token well, it has to learn grammar, facts, style, reasoning patterns, and relationships
+            between ideas.
+          </p>
+          <p>
+            The model cannot process raw text directly. First, text is split into tokens. A token can be a word, part of
+            a word, punctuation, whitespace, or a code fragment depending on the tokenizer. Each token maps to an integer
+            ID in the model vocabulary. That ID is then looked up in an embedding table to produce a vector.
+          </p>
+          <p>
+            The embedding vector is the model's starting representation of the token. At the beginning, the vector mainly
+            identifies the token. After passing through Transformer layers, the vector becomes context-aware. The token
+            "bank" should represent different meaning in "river bank" and "bank account"; attention is the mechanism
+            that lets the model use neighboring tokens to make that distinction.
+          </p>
+          <h4>Tokenization example</h4>
+          <pre><code>from transformers import AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
+text = "Transformers serve tokens."
+
+print(tokenizer.tokenize(text))
+print(tokenizer(text)["input_ids"])</code></pre>
+          <h4>Key vocabulary</h4>
+          <ul>
+            <li><strong>Vocabulary:</strong> the full set of tokens the model can represent.</li>
+            <li><strong>Token ID:</strong> the integer assigned to a token.</li>
+            <li><strong>Embedding:</strong> the learned vector for a token ID.</li>
+            <li><strong>Context length:</strong> the maximum number of tokens the model can consider at once.</li>
+          </ul>
+          <p class="example">
+            Checkpoint: if someone says "the model reads words", correct it to "the model receives token IDs, turns them
+            into vectors, and predicts the next token."
+          </p>
+        </article>
+
+        <article class="lecture-note">
+          <h3>Lecture 2: Attention without the scary math</h3>
+          <h4>Learning objectives</h4>
+          <ul>
+            <li>Explain query, key, and value with intuition.</li>
+            <li>Understand why attention weights mix information between tokens.</li>
+            <li>Describe causal masking in decoder-only language models.</li>
+          </ul>
+          <p>
+            Self-attention answers this question for every token: "which other tokens should I use to update my current
+            representation?" Each token creates three learned vectors from its current representation: a query, a key, and
+            a value. A query is what the token is looking for. A key is what the token offers for matching. A value is the
+            information that gets blended into the output if the match is strong.
+          </p>
+          <p>
+            The model compares queries against keys to create attention scores. After scaling and softmax, those scores
+            become attention weights. A high weight means "use more information from this token." The output for a token
+            is a weighted combination of value vectors. This is how information moves across positions in the sequence.
+          </p>
+          <p>
+            In text generation, attention is usually causal. Token 5 can look at tokens 1 through 5, but not token 6.
+            That prevents the model from seeing the future while learning or generating.
+          </p>
+          <h4>The compact formula</h4>
+          <pre><code># X is the sequence of token vectors
+Q = X @ Wq
+K = X @ Wk
+V = X @ Wv
+
+scores = Q @ K.T
+scores = apply_causal_mask(scores)
+weights = softmax(scores)
+output = weights @ V</code></pre>
+          <h4>Common beginner mistake</h4>
+          <p>
+            Attention is not a database lookup and not human attention. It is differentiable vector matching. The model
+            learns the projections that make useful tokens score highly for a given context.
+          </p>
+          <p class="example">
+            Checkpoint: explain why "The animal did not cross the street because it was tired" needs context to decide
+            what "it" refers to.
+          </p>
+        </article>
+
+        <article class="lecture-note">
+          <h3>Lecture 3: Inside one Transformer block</h3>
+          <h4>Learning objectives</h4>
+          <ul>
+            <li>Identify attention, MLP, normalization, and residual connections.</li>
+            <li>Explain what multi-head attention adds.</li>
+            <li>Understand why blocks are stacked many times.</li>
+          </ul>
+          <p>
+            A Transformer is a stack of repeated blocks. A block usually has attention, an MLP, normalization, and
+            residual connections. Attention moves information between token positions. The MLP transforms the information
+            at each token position after attention has mixed the context.
+          </p>
+          <p>
+            Residual connections let the model add improvements to the previous representation instead of replacing it
+            completely. Normalization helps keep values stable across many layers. With many stacked blocks, the model
+            can build richer representations step by step.
+          </p>
+          <h4>Block skeleton</h4>
+          <pre><code># One common decoder block shape
+x = x + self_attention(layer_norm(x))
+x = x + mlp(layer_norm(x))</code></pre>
+          <p>
+            Multi-head attention means the model runs several attention operations in parallel. Each head can learn a
+            different pattern: one may track nearby syntax, another may track matching brackets in code, another may track
+            names and references. The heads are combined so the layer can use multiple relationship types at once.
+          </p>
+          <h4>What changes through layers</h4>
+          <ul>
+            <li>Early layers often represent local patterns such as punctuation, phrase shape, or nearby dependencies.</li>
+            <li>Middle layers can combine broader context and structure.</li>
+            <li>Later layers prepare representations that are useful for predicting the next token.</li>
+          </ul>
+          <p class="example">
+            Mental sentence: attention moves information between tokens; the MLP transforms information inside each token;
+            residuals keep the path stable; stacking blocks builds depth.
+          </p>
+        </article>
+
+        <article class="lecture-note">
+          <h3>Lecture 4: How generation works</h3>
+          <h4>Learning objectives</h4>
+          <ul>
+            <li>Explain logits, probabilities, and sampling.</li>
+            <li>Distinguish greedy decoding, temperature, top-k, and top-p.</li>
+            <li>Understand why LLMs generate one token at a time.</li>
+          </ul>
+          <p>
+            After the final Transformer layer, the model produces logits. Logits are raw scores for every possible next
+            token in the vocabulary. The model can pick the highest-scoring token, or it can sample from likely tokens
+            to produce more varied output.
+          </p>
+          <p>
+            Temperature changes how random sampling feels. Low temperature makes the model more conservative. High
+            temperature makes it more varied, but also more likely to make strange choices. Generation repeats one token
+            at a time: predict, append, predict again, and stop when a stop condition is reached.
+          </p>
+          <h4>Decode loop</h4>
+          <pre><code>tokens = tokenizer(prompt)
+
+while len(tokens) &lt; max_tokens:
+    logits = model(tokens)
+    next_token = sample(
+        logits[-1],
+        temperature=0.7,
+        top_p=0.9
+    )
+    tokens.append(next_token)
+    if next_token == stop_token:
+        break</code></pre>
+          <h4>Sampling settings</h4>
+          <ul>
+            <li><strong>Greedy:</strong> always choose the highest-scoring next token.</li>
+            <li><strong>Temperature:</strong> controls how sharp or flat the probability distribution feels.</li>
+            <li><strong>Top-k:</strong> sample only from the k most likely tokens.</li>
+            <li><strong>Top-p:</strong> sample from the smallest set of tokens whose total probability reaches p.</li>
+          </ul>
+          <p class="example">
+            Common mistake: expecting the whole answer to appear in one model call. Internally, generation is repeated
+            next-token prediction.
+          </p>
+        </article>
+
+        <article class="lecture-note">
+          <h3>Lecture 5: Why inference gets expensive</h3>
+          <h4>Learning objectives</h4>
+          <ul>
+            <li>Separate prefill from decode.</li>
+            <li>Explain KV cache and why it saves compute.</li>
+            <li>Reason about latency, throughput, and memory pressure.</li>
+          </ul>
+          <p>
+            Inference has two major phases. Prefill processes the prompt tokens you already have. Decode generates new
+            tokens one by one. Long prompts make prefill heavier; long answers make decode last longer.
+          </p>
+          <p>
+            The KV cache stores key and value vectors from previous tokens. Without it, the model would recompute the
+            same attention information again and again. With it, generation is faster, but memory usage grows with the
+            number of requests and tokens.
+          </p>
+          <p>
+            This is why serving LLMs is also a systems problem. A server has to balance latency, throughput, GPU memory,
+            batching, and fairness between active users.
+          </p>
+          <h4>Prefill versus decode</h4>
+          <ul>
+            <li><strong>Prefill:</strong> process all prompt tokens and build initial KV cache.</li>
+            <li><strong>Decode:</strong> generate one new token, update KV cache, repeat.</li>
+            <li><strong>Time to first token:</strong> strongly affected by prefill and queueing.</li>
+            <li><strong>Tokens per second:</strong> strongly affected by decode efficiency and batching.</li>
+          </ul>
+          <pre><code># Rough intuition, not an exact formula
+prompt_cost grows with prompt_tokens
+decode_cost grows with generated_tokens
+kv_cache_memory grows with active_requests * sequence_length * layers</code></pre>
+          <h4>Why KV cache helps</h4>
+          <p>
+            Suppose a prompt has 1,000 tokens and the model generates token 1,001. For token 1,002, the first 1,001 tokens
+            are still the same. The model should not recompute all previous keys and values from scratch. The KV cache
+            stores them so each decode step can focus on the new token plus cached context.
+          </p>
+          <p class="example">
+            Checkpoint: long prompts mainly increase prefill work and KV-cache memory; long answers mainly extend the
+            decode loop.
+          </p>
+        </article>
+
+        <article class="lecture-note">
+          <h3>Lecture 6: What vLLM does</h3>
+          <h4>Learning objectives</h4>
+          <ul>
+            <li>Understand vLLM as an inference engine, not a new model architecture.</li>
+            <li>Explain OpenAI-compatible serving, continuous batching, and PagedAttention.</li>
+            <li>Start a small vLLM server and call it with HTTP.</li>
+          </ul>
+          <p>
+            vLLM is an inference and serving engine for large language models. Instead of manually loading a model and
+            writing your own request scheduler, vLLM can run a server that accepts requests through an OpenAI-compatible
+            API.
+          </p>
+          <p>
+            vLLM focuses on keeping the GPU busy and using memory efficiently. Continuous batching means the server can
+            add new requests while other requests are still generating. This is better than waiting for a whole batch to
+            finish before starting new work.
+          </p>
+          <p>
+            vLLM is also known for PagedAttention, which manages KV cache memory in blocks. The intuition is similar to
+            paging in operating systems: requests can use blocks of memory as needed, which reduces waste when requests
+            have different lengths or finish at different times.
+          </p>
+          <h4>Serving a model</h4>
+          <pre><code>pip install vllm
+
+vllm serve Qwen/Qwen2.5-0.5B-Instruct \
+  --host 0.0.0.0 \
+  --port 8000</code></pre>
+          <h4>Calling the server</h4>
+          <pre><code>curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "messages": [
+      {"role": "user", "content": "Explain KV cache simply."}
+    ],
+    "temperature": 0.3
+  }'</code></pre>
+          <h4>What vLLM is doing around the model</h4>
+          <ul>
+            <li>Accepting API requests and validating generation parameters.</li>
+            <li>Scheduling many active requests onto GPU work.</li>
+            <li>Managing KV-cache memory efficiently.</li>
+            <li>Running prefill and decode steps.</li>
+            <li>Returning complete or streamed responses.</li>
+          </ul>
+          <p class="example">
+            Common mistake: thinking vLLM trains or improves the model. vLLM serves existing models efficiently.
+          </p>
+        </article>
+
+        <article class="lecture-note">
+          <h3>Lecture 7: The full path from prompt to response</h3>
+          <h4>Learning objectives</h4>
+          <ul>
+            <li>Trace a request from HTTP input to generated text.</li>
+            <li>Connect model internals to serving-system behavior.</li>
+            <li>Know what to measure in a basic serving demo.</li>
+          </ul>
+          <p>
+            When a user sends a prompt to vLLM, the text becomes tokens. The model turns those tokens into embeddings and
+            processes them through Transformer blocks. Attention lets tokens use context, MLPs transform each token
+            representation, and the final layer produces logits for the next token.
+          </p>
+          <p>
+            Around that model loop, vLLM handles serving work: accepting API requests, batching active sequences,
+            managing KV cache, running decode steps on the GPU, applying sampling settings, and returning generated text.
+            If you understand both the Transformer path and the serving path, you can reason about model quality, speed,
+            memory, and deployment.
+          </p>
+          <h4>Full request path</h4>
+          <ul>
+            <li>Client sends a chat/completions request.</li>
+            <li>vLLM validates the model name, messages, and sampling parameters.</li>
+            <li>The prompt is tokenized.</li>
+            <li>Prefill runs and creates KV cache for the prompt.</li>
+            <li>Decode generates one token per step for active requests.</li>
+            <li>Sampling chooses the next token from logits.</li>
+            <li>vLLM returns tokens as a stream or as a completed response.</li>
+          </ul>
+          <h4>Basic measurements</h4>
+          <pre><code># Quick rough timing
+time curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"Qwen/Qwen2.5-0.5B-Instruct","messages":[{"role":"user","content":"Explain attention in 5 bullets."}],"max_tokens":200}'</code></pre>
+          <h4>What to explain in your capstone</h4>
+          <ul>
+            <li>Quality knobs: temperature, top-p, max tokens, prompt quality.</li>
+            <li>Speed knobs: model size, hardware, batching, prompt length, output length.</li>
+            <li>Memory pressure: model weights plus KV cache for active sequences.</li>
+            <li>Serving value: API compatibility, scheduling, batching, and cache management.</li>
+          </ul>
+          <p class="example">
+            Final checkpoint: explain both paths in one story: prompt to tokens to Transformer logits to sampled tokens,
+            and HTTP request to vLLM scheduler to GPU decode to API response.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="transformer-flow">
+      <div class="section-title">
+        <h2>Transformer data flow</h2>
+        <p>Click each stage. The goal is to know what changes shape as text becomes the next-token prediction.</p>
+      </div>
+      <div class="flow">
+        <div class="controls">
+          <button class="flow-button active" type="button" data-flow="tokens">1. Tokenize</button>
+          <button class="flow-button" type="button" data-flow="embed">2. Embed + position</button>
+          <button class="flow-button" type="button" data-flow="attention">3. Self-attention</button>
+          <button class="flow-button" type="button" data-flow="mlp">4. MLP block</button>
+          <button class="flow-button" type="button" data-flow="logits">5. Logits + sampling</button>
+        </div>
+        <div>
+          <div class="diagram">
+            <div class="pipeline">
+              <div class="step highlight" data-part="tokens"><strong>Text to tokens</strong><span>"Kubernetes" becomes token IDs</span></div>
+              <div class="step" data-part="embed"><strong>Embeddings</strong><span>Token IDs become dense vectors</span></div>
+              <div class="step" data-part="attention"><strong>Attention heads</strong><span>Context is mixed across positions</span></div>
+              <div class="step" data-part="mlp"><strong>Feed-forward</strong><span>Per-token nonlinear processing</span></div>
+              <div class="step" data-part="logits"><strong>Next token</strong><span>Scores become a sampled token</span></div>
+            </div>
+            <div class="attention-grid" aria-label="Attention weight grid">
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+          <p class="caption" id="flowCaption">Tokenization converts text into IDs from the model vocabulary. Everything after this is vector math.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="vllm-flow">
+      <div class="section-title">
+        <h2>What vLLM adds</h2>
+        <p>A model can generate one token at a time. A serving engine has to do that for many users without wasting GPU memory.</p>
+      </div>
+      <div class="flow">
+        <div class="controls">
+          <button class="flow-button active" type="button" data-vllm="api">OpenAI-compatible API</button>
+          <button class="flow-button" type="button" data-vllm="batch">Continuous batching</button>
+          <button class="flow-button" type="button" data-vllm="cache">PagedAttention cache</button>
+          <button class="flow-button" type="button" data-vllm="decode">Decoding loop</button>
+        </div>
+        <div>
+          <div class="diagram">
+            <div class="vllm-board">
+              <div class="request-lane">
+                <div class="request highlight" data-vllm-part="api"><strong>Client request</strong><span>Chat/completions style HTTP call</span></div>
+                <div class="request" data-vllm-part="batch"><strong>Scheduler</strong><span>Adds and removes active sequences</span></div>
+                <div class="request" data-vllm-part="decode"><strong>Decode step</strong><span>Generates the next token for each active request</span></div>
+              </div>
+              <div class="cache-grid">
+                <div class="cache-cell" data-vllm-part="cache"><strong>KV page 01</strong><span>request A</span></div>
+                <div class="cache-cell" data-vllm-part="cache"><strong>KV page 02</strong><span>request A</span></div>
+                <div class="cache-cell" data-vllm-part="cache"><strong>KV page 03</strong><span>request B</span></div>
+                <div class="cache-cell" data-vllm-part="cache"><strong>KV page 04</strong><span>free</span></div>
+                <div class="cache-cell" data-vllm-part="cache"><strong>KV page 05</strong><span>request C</span></div>
+                <div class="cache-cell" data-vllm-part="cache"><strong>KV page 06</strong><span>request B</span></div>
+                <div class="cache-cell" data-vllm-part="cache"><strong>KV page 07</strong><span>free</span></div>
+                <div class="cache-cell" data-vllm-part="cache"><strong>KV page 08</strong><span>request C</span></div>
+              </div>
+            </div>
+          </div>
+          <p class="caption" id="vllmCaption">vLLM can run an OpenAI-compatible server, so many apps can call it through familiar chat/completions APIs.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="plan">
+      <div class="section-title">
+        <h2>Seven-day lecture plan</h2>
+        <p>Start with neural-network intuition, then reach practical local serving by the end of the week.</p>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Daily lesson tabs">
+        <button class="tab active" type="button" data-day-tab="0">Day 1</button>
+        <button class="tab" type="button" data-day-tab="1">Day 2</button>
+        <button class="tab" type="button" data-day-tab="2">Day 3</button>
+        <button class="tab" type="button" data-day-tab="3">Day 4</button>
+        <button class="tab" type="button" data-day-tab="4">Day 5</button>
+        <button class="tab" type="button" data-day-tab="5">Day 6</button>
+        <button class="tab" type="button" data-day-tab="6">Day 7</button>
+      </div>
+      <article class="lesson" id="lessonCard" aria-live="polite"></article>
+    </section>
+
+    <section id="labs">
+      <div class="section-title">
+        <h2>Hands-on labs</h2>
+        <p>These are designed for a GPU machine or cloud instance. If you only have CPU, still study the flow and commands.</p>
+      </div>
+      <div class="grid-3">
+        <article class="lab">
+          <h3>Lab 1: tokenize and inspect</h3>
+          <p>Use a tokenizer to see how text becomes token IDs.</p>
+          <pre><code>from transformers import AutoTokenizer
+tok = AutoTokenizer.from_pretrained("gpt2")
+print(tok.tokenize("Transformers serve tokens."))
+print(tok("Transformers serve tokens.")["input_ids"])</code></pre>
+        </article>
+        <article class="lab">
+          <h3>Lab 2: run vLLM server</h3>
+          <p>Start a small model with an OpenAI-compatible endpoint.</p>
+          <pre><code>pip install vllm
+vllm serve Qwen/Qwen2.5-0.5B-Instruct \
+  --host 0.0.0.0 \
+  --port 8000</code></pre>
+        </article>
+        <article class="lab">
+          <h3>Lab 3: call the endpoint</h3>
+          <p>Send a chat request and change sampling settings.</p>
+          <pre><code>curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"Qwen/Qwen2.5-0.5B-Instruct","messages":[{"role":"user","content":"Explain KV cache in one paragraph."}],"temperature":0.3}'</code></pre>
+        </article>
+      </div>
+    </section>
+
+    <section id="capstone">
+      <div class="section-title">
+        <h2>End-of-week target</h2>
+        <p>By the end, you should be able to explain the model internals and the serving system in one coherent story.</p>
+      </div>
+      <div class="grid-2">
+        <article class="card">
+          <h3>Capstone demo</h3>
+          <ul class="list">
+            <li><span class="dot">1</span><span>Start a vLLM server with a small instruct model.</span></li>
+            <li><span class="dot">2</span><span>Call it with two prompts and compare temperature settings.</span></li>
+            <li><span class="dot">3</span><span>Explain why generation is one token at a time.</span></li>
+            <li><span class="dot">4</span><span>Explain why KV cache matters for long prompts.</span></li>
+            <li><span class="dot">5</span><span>Define latency, throughput, batching, and memory pressure.</span></li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Say it out loud</h3>
+          <p>
+            "A prompt becomes tokens, tokens become embeddings, Transformer layers repeatedly mix context
+            with attention and MLPs, logits score the next token, and decoding appends one token at a time.
+            vLLM serves this loop for many requests by scheduling active sequences and managing KV-cache pages."
+          </p>
+          <pre><code>vllm serve Qwen/Qwen2.5-0.5B-Instruct
+curl http://localhost:8000/v1/models
+curl http://localhost:8000/v1/chat/completions</code></pre>
+        </article>
+      </div>
+    </section>
+
+    <section id="quiz">
+      <div class="section-title">
+        <h2>Checkpoint quiz</h2>
+        <p>This checks the difference between architecture knowledge and serving knowledge.</p>
+      </div>
+      <article class="quiz">
+        <h3>Transformers and vLLM check</h3>
+        <form class="quiz-form" id="quizForm">
+          <div class="question">
+            <strong>1. What does self-attention help a token do?</strong>
+            <label class="option"><input type="radio" name="q1" value="context"> Use relevant context from other tokens</label>
+            <label class="option"><input type="radio" name="q1" value="compile"> Compile Python code</label>
+            <label class="option"><input type="radio" name="q1" value="disk"> Store files on disk</label>
+          </div>
+          <div class="question">
+            <strong>2. What are logits?</strong>
+            <label class="option"><input type="radio" name="q2" value="scores"> Raw scores over possible next tokens</label>
+            <label class="option"><input type="radio" name="q2" value="images"> Model weight images</label>
+            <label class="option"><input type="radio" name="q2" value="users"> User accounts</label>
+          </div>
+          <div class="question">
+            <strong>3. Why does KV cache matter during generation?</strong>
+            <label class="option"><input type="radio" name="q3" value="reuse"> It reuses previous key/value vectors</label>
+            <label class="option"><input type="radio" name="q3" value="train"> It trains a new model from scratch</label>
+            <label class="option"><input type="radio" name="q3" value="tokenize"> It replaces tokenization</label>
+          </div>
+          <div class="question">
+            <strong>4. What is vLLM mainly used for?</strong>
+            <label class="option"><input type="radio" name="q4" value="serve"> Efficient LLM inference and serving</label>
+            <label class="option"><input type="radio" name="q4" value="browser"> Drawing web pages</label>
+            <label class="option"><input type="radio" name="q4" value="database"> Relational database indexing</label>
+          </div>
+          <button class="primary-button" type="submit">Grade quiz</button>
+          <div class="result" id="quizResult">Your score will appear here.</div>
+        </form>
+      </article>
+    </section>
+
+    <section id="sources">
+      <div class="section-title">
+        <h2>Reference sources</h2>
+        <p>Use these after the lectures when you want the original or official wording.</p>
+      </div>
+      <article class="sources">
+        <h3>Primary references</h3>
+        <ul>
+          <li><a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a>, the original Transformer paper.</li>
+          <li><a href="https://docs.vllm.ai/en/latest/getting_started/quickstart/">vLLM Quickstart</a>, including the OpenAI-compatible server workflow.</li>
+          <li><a href="https://docs.vllm.ai/en/stable/index.html">vLLM documentation</a>, for serving, inference, and optimization topics.</li>
+        </ul>
+      </article>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Built for a first week with Transformers and vLLM: model flow, serving flow, practice, and explanation.
+  </footer>
+
+  <script>
+    const lessons = [
+      {
+        title: "Day 1: Text, tokens, and vectors",
+        time: "90 min",
+        outcome: "You can explain why LLMs operate on tokens and vectors instead of raw text.",
+        topics: [
+          "Tokenization and vocabulary",
+          "Token IDs, embeddings, and vector dimensions",
+          "Sequence length and context windows",
+          "Why the model predicts the next token"
+        ],
+        lab: "Tokenize five sentences and compare short words, long words, punctuation, and code.",
+        command: "from transformers import AutoTokenizer\n\ntok = AutoTokenizer.from_pretrained(\"gpt2\")\nprint(tok.tokenize(\"Hello, transformer world!\"))\nprint(tok(\"Hello, transformer world!\")[\"input_ids\"])",
+        checkpoint: "Explain tokenization without saying the model reads English words."
+      },
+      {
+        title: "Day 2: Self-attention",
+        time: "120 min",
+        outcome: "You can describe queries, keys, values, and attention weights.",
+        topics: [
+          "Why every token needs context",
+          "Query, key, and value vectors",
+          "Attention scores and softmax",
+          "Causal masking for text generation"
+        ],
+        lab: "Draw a five-token attention table and mark which past tokens each token can attend to.",
+        command: "scores = Q @ K.T\nmasked_scores = apply_causal_mask(scores)\nweights = softmax(masked_scores)\ncontext = weights @ V",
+        checkpoint: "Explain why the current token cannot look at future tokens in a decoder-only model."
+      },
+      {
+        title: "Day 3: Transformer blocks",
+        time: "150 min",
+        outcome: "You can identify the main parts of a Transformer layer.",
+        topics: [
+          "Multi-head attention",
+          "Feed-forward networks or MLP blocks",
+          "Residual connections and normalization",
+          "Stacking layers to build higher-level features"
+        ],
+        lab: "Annotate a Transformer block diagram and explain one pass through it.",
+        command: "x = x + attention(norm(x))\nx = x + mlp(norm(x))\n# Repeat this pattern across many layers",
+        checkpoint: "Say what attention does and what the MLP does in different words."
+      },
+      {
+        title: "Day 4: Generation and sampling",
+        time: "120 min",
+        outcome: "You can explain logits, temperature, top-p, and why output appears token by token.",
+        topics: [
+          "Logits as scores over the vocabulary",
+          "Greedy decoding versus sampling",
+          "Temperature and top-p in practical terms",
+          "Stop tokens and max token limits"
+        ],
+        lab: "Call a model twice with low and high temperature, then compare outputs.",
+        command: "temperature = 0.2  # steadier\n# temperature = 1.0  # more varied\nnext_token = sample_from_logits(logits, temperature=temperature)",
+        checkpoint: "Explain why higher temperature can make answers more varied and less predictable."
+      },
+      {
+        title: "Day 5: Inference bottlenecks",
+        time: "150 min",
+        outcome: "You can reason about latency, throughput, memory, and KV cache.",
+        topics: [
+          "Prefill phase versus decode phase",
+          "KV cache and long-context memory cost",
+          "Latency versus throughput",
+          "Why batching helps but can be tricky"
+        ],
+        lab: "Compare a short prompt and long prompt, then predict which part gets more expensive.",
+        command: "prefill_cost ~= prompt_tokens\nkv_cache_memory ~= layers * tokens * hidden_size\nthroughput = completed_tokens / second",
+        checkpoint: "Explain why serving one user and serving 100 users are different engineering problems."
+      },
+      {
+        title: "Day 6: vLLM serving",
+        time: "150 min",
+        outcome: "You can start a vLLM server and call it through an OpenAI-compatible endpoint.",
+        topics: [
+          "What an inference engine does around the model",
+          "OpenAI-compatible API server",
+          "Continuous batching and active sequences",
+          "PagedAttention as KV-cache memory management"
+        ],
+        lab: "Run vLLM with a small model and send a chat completion request.",
+        command: "pip install vllm\nvllm serve Qwen/Qwen2.5-0.5B-Instruct --port 8000\ncurl http://localhost:8000/v1/models",
+        checkpoint: "Explain what vLLM adds that a raw model object does not provide."
+      },
+      {
+        title: "Day 7: Capstone and review",
+        time: "180 min",
+        outcome: "You can explain the model path and serving path from user prompt to generated answer.",
+        topics: [
+          "Serve a small instruct model",
+          "Call it with different sampling settings",
+          "Measure basic latency manually",
+          "Teach the full architecture back in your own words"
+        ],
+        lab: "Make a tiny local API demo and present the internals plus serving path.",
+        command: "time curl http://localhost:8000/v1/chat/completions \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\":\"Qwen/Qwen2.5-0.5B-Instruct\",\"messages\":[{\"role\":\"user\",\"content\":\"Explain attention.\"}]}'",
+        checkpoint: "Give a five-minute explanation from tokens to vLLM response."
+      }
+    ];
+
+    const flowCaptions = {
+      tokens: "Tokenization converts text into IDs from the model vocabulary. Everything after this is vector math.",
+      embed: "Embeddings turn token IDs into dense vectors, while positional information helps the model know order.",
+      attention: "Self-attention lets each token build a context-aware representation from other allowed tokens.",
+      mlp: "The MLP processes each position after context has been mixed by attention.",
+      logits: "The final vector becomes logits: scores for every possible next token."
+    };
+
+    const vllmCaptions = {
+      api: "vLLM can run an OpenAI-compatible server, so many apps can call it through familiar chat/completions APIs.",
+      batch: "Continuous batching keeps the GPU busy by mixing requests that are at different decode steps.",
+      cache: "PagedAttention manages KV cache in blocks, reducing memory waste as requests grow and finish.",
+      decode: "The decode loop repeatedly generates the next token, updates cache, and checks stop conditions."
+    };
+
+    const lessonCard = document.getElementById("lessonCard");
+    const tabs = document.querySelectorAll(".tab");
+    const checks = document.querySelectorAll(".check-row input");
+    const progressMeter = document.getElementById("progressMeter");
+    const progressText = document.getElementById("progressText");
+    const progressKey = "transformers-vllm-progress";
+
+    function renderLesson(index) {
+      const lesson = lessons[index];
+      lessonCard.innerHTML = `
+        <div class="lesson-layout">
+          <div>
+            <h3>${lesson.title}</h3>
+            <div class="lesson-meta">
+              <span class="pill">${lesson.time}</span>
+              <span class="pill">${lesson.outcome}</span>
+            </div>
+            <ul class="list">
+              ${lesson.topics.map((topic, topicIndex) => `<li><span class="dot">${topicIndex + 1}</span><span>${topic}</span></li>`).join("")}
+            </ul>
+            <pre><code>${lesson.command}</code></pre>
+          </div>
+          <aside class="side-note">
+            <h4>Lab</h4>
+            <p>${lesson.lab}</p>
+            <h4>Checkpoint</h4>
+            <p>${lesson.checkpoint}</p>
+          </aside>
+        </div>
+      `;
+    }
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const index = Number(tab.dataset.dayTab);
+        tabs.forEach((item) => item.classList.remove("active"));
+        tab.classList.add("active");
+        renderLesson(index);
+      });
+    });
+
+    document.querySelectorAll("[data-flow]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const target = button.dataset.flow;
+        document.querySelectorAll("[data-flow]").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        document.querySelectorAll("[data-part]").forEach((part) => {
+          part.classList.toggle("highlight", part.dataset.part === target);
+        });
+        document.getElementById("flowCaption").textContent = flowCaptions[target];
+      });
+    });
+
+    document.querySelectorAll("[data-vllm]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const target = button.dataset.vllm;
+        document.querySelectorAll("[data-vllm]").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        document.querySelectorAll("[data-vllm-part]").forEach((part) => {
+          part.classList.toggle("highlight", part.dataset.vllmPart === target);
+        });
+        document.getElementById("vllmCaption").textContent = vllmCaptions[target];
+      });
+    });
+
+    function storedProgress() {
+      try {
+        return JSON.parse(localStorage.getItem(progressKey)) || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function updateProgress() {
+      const completed = Array.from(checks).filter((check) => check.checked).length;
+      const percent = Math.round((completed / checks.length) * 100);
+      progressMeter.style.setProperty("--progress", percent);
+      progressText.textContent = `${percent}%`;
+    }
+
+    function saveProgress() {
+      const state = {};
+      checks.forEach((check) => {
+        state[check.dataset.day] = check.checked;
+      });
+      localStorage.setItem(progressKey, JSON.stringify(state));
+      updateProgress();
+    }
+
+    function restoreProgress() {
+      const state = storedProgress();
+      checks.forEach((check) => {
+        check.checked = Boolean(state[check.dataset.day]);
+        check.addEventListener("change", saveProgress);
+      });
+      updateProgress();
+    }
+
+    document.getElementById("resetProgress").addEventListener("click", () => {
+      localStorage.removeItem(progressKey);
+      checks.forEach((check) => {
+        check.checked = false;
+      });
+      updateProgress();
+    });
+
+    document.getElementById("quizForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const answers = new FormData(event.currentTarget);
+      const correct = {
+        q1: "context",
+        q2: "scores",
+        q3: "reuse",
+        q4: "serve"
+      };
+      const score = Object.entries(correct).filter(([key, value]) => answers.get(key) === value).length;
+      document.getElementById("quizResult").textContent =
+        `Score: ${score}/4. ${score === 4 ? "Excellent. You can connect model internals to serving." : "Review the Transformer and vLLM flow diagrams, then try again."}`;
+    });
+
+    renderLesson(0);
+    restoreProgress();
+  </script>
+</body>
+</html>

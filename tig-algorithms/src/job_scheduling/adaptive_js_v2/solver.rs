@@ -2,15 +2,15 @@ use anyhow::Result;
 use serde_json::{Map, Value};
 use tig_challenges::job_scheduling::*;
 
-use super::types::EffortConfig;
-use super::preprocess::build_pre;
-use super::infra::run_simple_greedy_baseline;
 use super::detect::{detect_track, DetectedTrack};
+use super::fjsp_high;
+use super::fjsp_medium;
 use super::flow_shop;
 use super::hybrid_flow_shop;
+use super::infra::run_simple_greedy_baseline;
 use super::job_shop;
-use super::fjsp_medium;
-use super::fjsp_high;
+use super::preprocess::build_pre;
+use super::types::EffortConfig;
 
 fn parse_effort(hyperparameters: &Option<Map<String, Value>>) -> EffortConfig {
     let mut cfg = EffortConfig::default_effort();
@@ -65,21 +65,46 @@ pub fn solve_challenge(
     let effort = parse_effort(hyperparameters);
 
     match track {
-        DetectedTrack::FlowShop => {
-            flow_shop::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
-        DetectedTrack::HybridFlowShop => {
-            hybrid_flow_shop::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
-        DetectedTrack::JobShop => {
-            job_shop::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
-        DetectedTrack::FjspMedium => {
-            fjsp_medium::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
-        DetectedTrack::FjspHigh => {
-            fjsp_high::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
+        DetectedTrack::FlowShop => flow_shop::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
+        DetectedTrack::HybridFlowShop => hybrid_flow_shop::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
+        DetectedTrack::JobShop => job_shop::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
+        DetectedTrack::FjspMedium => fjsp_medium::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
+        DetectedTrack::FjspHigh => fjsp_high::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
     }
 }
 
@@ -100,14 +125,18 @@ pub fn help() {
     println!();
     println!("HYPERPARAMETERS:");
     println!("  effort: \"default\" | \"medium\" | \"high\" | \"extreme\"");
-    println!("    default:    500 restarts, 3000/2600/2000/2000/2000 iters (js/fs/hfs/fjspM/fjspH)");
+    println!(
+        "    default:    500 restarts, 3000/2600/2000/2000/2000 iters (js/fs/hfs/fjspM/fjspH)"
+    );
     println!("    medium:   1,000 restarts, 4000/4000/3000/3000/3000 iters");
     println!("    high:     1,500 restarts, 5000/6000/4000/4000/4000 iters");
     println!("    extreme:  2,000 restarts, 6000/10000/5000/5000/5000 iters");
     println!("  num_restarts: <integer>  (1-20000, constructor restarts for all tracks)");
     println!("  job_shop_iters: <integer>  (100-50000, tabu search iters for job_shop)");
     println!("  flow_shop_iters: <integer>  (100-50000, iterated greedy iters for flow_shop)");
-    println!("  hybrid_flow_shop_iters: <integer>  (100-50000, local search iters for hybrid_flow_shop)");
+    println!(
+        "  hybrid_flow_shop_iters: <integer>  (100-50000, local search iters for hybrid_flow_shop)"
+    );
     println!("  fjsp_medium_iters: <integer>  (100-50000, local search iters for fjsp_medium)");
     println!("  fjsp_high_iters: <integer>  (100-50000, local search iters for fjsp_high)");
     println!();

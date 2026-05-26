@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use serde_json::{Map, Value};
 use tig_challenges::knapsack::*;
 
-
 pub fn solve_challenge(
     challenge: &Challenge,
     save_solution: &dyn Fn(&Solution) -> Result<()>,
@@ -16,7 +15,6 @@ pub fn solve_challenge(
 mod dead_code {
     use anyhow::Result;
     use tig_challenges::knapsack::*;
-
 
     pub fn solve_challenge(challenge: &Challenge) -> anyhow::Result<Option<Solution>> {
         let mut solution = Solution {
@@ -41,7 +39,7 @@ mod dead_code {
         let mut total_weight: u32 = 0;
         let mut wait_map = vec![None; num_items];
         let values: Vec<i32> = challenge.values.iter().map(|&v| v as i32).collect();
-    
+
         let mut items_by_ratio: Vec<(usize, f64)> = (0..num_items)
             .map(|i| {
                 let ratio = values[i] as f64 / challenge.weights[i] as f64;
@@ -49,7 +47,7 @@ mod dead_code {
             })
             .collect();
         items_by_ratio.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-    
+
         let mut interaction_gains = vec![0; num_items];
         let mut weight_reduction_candidates = Vec::with_capacity(num_items);
         let mut available_items = Vec::with_capacity(num_items);
@@ -80,9 +78,10 @@ mod dead_code {
 
             available_items.clear();
             available_items.extend(
-                items_by_ratio.iter()
+                items_by_ratio
+                    .iter()
                     .filter(|&&(i, _)| !selected_items[i] && wait_map[i].is_none())
-                    .copied()
+                    .copied(),
             );
 
             let mut improvement_found = false;
@@ -94,9 +93,10 @@ mod dead_code {
                 let interaction_gain = interaction_gains[i];
                 let gain = individual_value + interaction_gain;
                 let potential_weight = total_weight + challenge.weights[i];
-            
-                if gain >= individual_value ||
-                   (gain >= individual_value - 2 && potential_weight <= weight_threshold) {
+
+                if gain >= individual_value
+                    || (gain >= individual_value - 2 && potential_weight <= weight_threshold)
+                {
                     selected_items[i] = true;
                     total_value += gain;
                     total_weight = potential_weight;
@@ -128,11 +128,12 @@ mod dead_code {
                             if total_value + new_item_value - removal_loss > total_value {
                                 let remove_row = interaction_rows[j];
                                 let add_row = interaction_rows[i];
-                            
+
                                 for k in 0..num_items {
-                                    interaction_gains[k] = interaction_gains[k] - remove_row[k] + add_row[k];
+                                    interaction_gains[k] =
+                                        interaction_gains[k] - remove_row[k] + add_row[k];
                                 }
-                            
+
                                 selected_items[j] = false;
                                 total_value -= removal_loss;
                                 total_weight -= challenge.weights[j];

@@ -220,10 +220,7 @@ impl TigLoader {
                 .map(|row| row.iter().map(|&x| x as isize).collect())
                 .collect(),
             service_times: std::iter::once(0)
-                .chain(
-                    std::iter::repeat(challenge.service_time as isize)
-                        .take(challenge.num_nodes),
-                )
+                .chain(std::iter::repeat(challenge.service_time as isize).take(challenge.num_nodes))
                 .collect(),
             start_tw: challenge.ready_times.iter().map(|&d| d as isize).collect(),
             end_tw: challenge.due_times.iter().map(|&d| d as isize).collect(),

@@ -1,5 +1,5 @@
-use super::instance::Instance;
 use super::config::Config;
+use super::instance::Instance;
 use super::solution::Individual;
 use rand::rngs::SmallRng;
 use rand::Rng;
@@ -45,7 +45,11 @@ impl<'a> GenePool<'a> {
 
     pub fn add(&mut self, ind: Individual, params: &Config) {
         let is_feasible = ind.load_excess == 0 && ind.tw_violation == 0;
-        let sub = if is_feasible { &mut self.feasible } else { &mut self.infeasible };
+        let sub = if is_feasible {
+            &mut self.feasible
+        } else {
+            &mut self.infeasible
+        };
 
         let new_idx = sub.indivs.len();
         sub.indivs.push(ind);
@@ -72,20 +76,36 @@ impl<'a> GenePool<'a> {
         self.since_last_adapt += 1;
 
         if self.since_last_adapt == period {
-            let cap_ok = self.cap_window.iter().rev().take(period).filter(|&&b| b).count();
-            let tw_ok = self.tw_window.iter().rev().take(period).filter(|&&b| b).count();
+            let cap_ok = self
+                .cap_window
+                .iter()
+                .rev()
+                .take(period)
+                .filter(|&&b| b)
+                .count();
+            let tw_ok = self
+                .tw_window
+                .iter()
+                .rev()
+                .take(period)
+                .filter(|&&b| b)
+                .count();
             let frac_cap = (cap_ok as f64) / (period as f64);
             let frac_tw = (tw_ok as f64) / (period as f64);
 
             if frac_cap < params.target_ratio {
-                params.penalty_capa = (((params.penalty_capa as f64) * 1.3).ceil()).clamp(1.0, 10_000.0) as usize;
+                params.penalty_capa =
+                    (((params.penalty_capa as f64) * 1.3).ceil()).clamp(1.0, 10_000.0) as usize;
             } else {
-                params.penalty_capa = (((params.penalty_capa as f64) * 0.7).floor()).clamp(1.0, 10_000.0) as usize;
+                params.penalty_capa =
+                    (((params.penalty_capa as f64) * 0.7).floor()).clamp(1.0, 10_000.0) as usize;
             }
             if frac_tw < params.target_ratio {
-                params.penalty_tw = (((params.penalty_tw as f64) * 1.3).ceil()).clamp(1.0, 10_000.0) as usize;
+                params.penalty_tw =
+                    (((params.penalty_tw as f64) * 1.3).ceil()).clamp(1.0, 10_000.0) as usize;
             } else {
-                params.penalty_tw = (((params.penalty_tw as f64) * 0.7).floor()).clamp(1.0, 10_000.0) as usize;
+                params.penalty_tw =
+                    (((params.penalty_tw as f64) * 0.7).floor()).clamp(1.0, 10_000.0) as usize;
             }
 
             self.since_last_adapt = 0;
@@ -131,7 +151,11 @@ impl<'a> GenePool<'a> {
         let (f2, i2, b2) = pick(rng);
 
         if b1 <= b2 {
-            if f1 { &self.feasible.indivs[i1] } else { &self.infeasible.indivs[i1] }
+            if f1 {
+                &self.feasible.indivs[i1]
+            } else {
+                &self.infeasible.indivs[i1]
+            }
         } else if f2 {
             &self.feasible.indivs[i2]
         } else {
@@ -143,9 +167,15 @@ impl<'a> GenePool<'a> {
         if !self.feasible.indivs.is_empty() {
             let mut best_d = i32::MAX;
             for ind in &self.feasible.indivs {
-                if ind.distance < best_d { best_d = ind.distance; }
+                if ind.distance < best_d {
+                    best_d = ind.distance;
+                }
             }
-            return Metric { feasible: true, distance: best_d, infeas_sum: 0 };
+            return Metric {
+                feasible: true,
+                distance: best_d,
+                infeas_sum: 0,
+            };
         }
         let mut best_sum = i32::MAX;
         let mut best_dist = i32::MAX;
@@ -156,10 +186,21 @@ impl<'a> GenePool<'a> {
                 best_dist = ind.distance;
             }
         }
-        Metric { feasible: false, distance: best_dist, infeas_sum: best_sum }
+        Metric {
+            feasible: false,
+            distance: best_dist,
+            infeas_sum: best_sum,
+        }
     }
 
-    pub fn print_trace(&self, _it_total: usize, _it_no_improve: usize, _elapsed_sec: f64, _params: &Config) {}
+    pub fn print_trace(
+        &self,
+        _it_total: usize,
+        _it_no_improve: usize,
+        _elapsed_sec: f64,
+        _params: &Config,
+    ) {
+    }
 
     fn worst_index_biased_with_clone_priority(sub: &Subpopulation) -> usize {
         const CLONE_EPS: f64 = 1e-6;
@@ -201,7 +242,9 @@ impl<'a> GenePool<'a> {
             list.retain(|&(_, j)| j != idx);
             if last != idx {
                 for pair in list.iter_mut() {
-                    if pair.1 == last { pair.1 = idx; }
+                    if pair.1 == last {
+                        pair.1 = idx;
+                    }
                 }
             }
         }
@@ -215,16 +258,23 @@ impl<'a> GenePool<'a> {
 
     fn update_biased_fitnesses(sub: &mut Subpopulation, params: &Config) {
         let n = sub.indivs.len();
-        if n == 0 { return; }
+        if n == 0 {
+            return;
+        }
         sub.biased_fitness.resize(n, 0.0);
-        if n == 1 { sub.biased_fitness[0] = 0.0; return; }
+        if n == 1 {
+            sub.biased_fitness[0] = 0.0;
+            return;
+        }
 
         let nb_close = params.nb_close.min(n - 1);
         let mut avg_closest = vec![0.0; n];
         for i in 0..n {
             let neighbors = &sub.prox[i];
             let mut sum = 0.0;
-            for t in 0..nb_close { sum += neighbors[t].0; }
+            for t in 0..nb_close {
+                sum += neighbors[t].0;
+            }
             avg_closest[i] = sum / (nb_close as f64);
         }
 
@@ -233,10 +283,14 @@ impl<'a> GenePool<'a> {
 
         let denom = (n - 1) as f64;
         let mut div_rank = vec![0.0; n];
-        for (pos, &(_, idx)) in div_pairs.iter().enumerate() { div_rank[idx] = (pos as f64) / denom; }
+        for (pos, &(_, idx)) in div_pairs.iter().enumerate() {
+            div_rank[idx] = (pos as f64) / denom;
+        }
 
         let mut cost_pos = vec![0usize; n];
-        for (pos, &idx) in sub.order_cost.iter().enumerate() { cost_pos[idx] = pos; }
+        for (pos, &idx) in sub.order_cost.iter().enumerate() {
+            cost_pos[idx] = pos;
+        }
         let fit_rank: Vec<f64> = cost_pos.iter().map(|&p| (p as f64) / denom).collect();
 
         let scale = 1.0 - (params.nb_elite as f64) / (n as f64);
@@ -257,8 +311,12 @@ impl<'a> GenePool<'a> {
         let n_clients = data.nb_nodes - 1;
         let mut differences = 0usize;
         for j in 1..=n_clients {
-            if succ_a[j] != succ_b[j] && succ_a[j] != pred_b[j] { differences += 1; }
-            if pred_a[j] == 0 && pred_b[j] != 0 && succ_b[j] != 0 { differences += 1; }
+            if succ_a[j] != succ_b[j] && succ_a[j] != pred_b[j] {
+                differences += 1;
+            }
+            if pred_a[j] == 0 && pred_b[j] != 0 && succ_b[j] != 0 {
+                differences += 1;
+            }
         }
         (differences as f64) / (n_clients as f64)
     }
@@ -274,8 +332,12 @@ pub struct Metric {
 impl Metric {
     #[inline]
     pub fn better_than(self, other: Metric) -> bool {
-        if self.feasible && !other.feasible { return true; }
-        if !self.feasible && other.feasible { return false; }
+        if self.feasible && !other.feasible {
+            return true;
+        }
+        if !self.feasible && other.feasible {
+            return false;
+        }
         if self.feasible {
             self.distance < other.distance
         } else if self.infeas_sum != other.infeas_sum {

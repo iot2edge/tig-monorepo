@@ -1,7 +1,13 @@
 use super::types::*;
 
 #[inline]
-pub fn slack_urgency(pre: &Pre, target_mk: Option<u32>, time: u32, product: usize, op_idx: usize) -> f64 {
+pub fn slack_urgency(
+    pre: &Pre,
+    target_mk: Option<u32>,
+    time: u32,
+    product: usize,
+    op_idx: usize,
+) -> f64 {
     let Some(tgt) = target_mk else { return 0.0 };
     let lb = (time as u64).saturating_add(pre.product_suf_min[product][op_idx] as u64);
     let slack = (tgt as i64) - (lb as i64);
@@ -14,7 +20,12 @@ pub fn slack_urgency(pre: &Pre, target_mk: Option<u32>, time: u32, product: usiz
 }
 
 #[inline]
-pub fn route_pref_bonus_lite(rp: Option<&RoutePrefLite>, product: usize, op_idx: usize, machine: usize) -> f64 {
+pub fn route_pref_bonus_lite(
+    rp: Option<&RoutePrefLite>,
+    product: usize,
+    op_idx: usize,
+    machine: usize,
+) -> f64 {
     let Some(rp) = rp else { return 0.0 };
     if product >= rp.len() || op_idx >= rp[product].len() {
         return 0.0;
@@ -80,7 +91,8 @@ pub fn score_candidate(
     let reg_n = (regret / pre.avg_op_min.max(1.0)).clamp(0.0, 6.0);
 
     let scarcity_urg = 1.0 / (best_cnt_total as f64).max(1.0);
-    let density_n = ((rem_min / (ops_rem as f64).max(1.0)) / pre.avg_op_min.max(1.0)).clamp(0.0, 4.0);
+    let density_n =
+        ((rem_min / (ops_rem as f64).max(1.0)) / pre.avg_op_min.max(1.0)).clamp(0.0, 4.0);
 
     let next_min = pre.product_next_min[product][op_idx] as f64;
     let next_min_n = next_min / pre.horizon.max(1.0);
@@ -141,9 +153,7 @@ pub fn score_candidate(
                 + jitter
         }
         Rule::LeastFlex => {
-            (1.00 * flex_inv)
-                + (0.28 * rem_min_n)
-                + (0.22 * scarcity_urg)
+            (1.00 * flex_inv) + (0.28 * rem_min_n) + (0.22 * scarcity_urg)
                 - (0.55 * end_n)
                 - pop_pen
                 + (0.35 * job_bias)
@@ -152,22 +162,14 @@ pub fn score_candidate(
                 + jitter
         }
         Rule::ShortestProc => {
-            (-1.00 * proc_n)
-                + (0.25 * rem_min_n)
-                + (0.12 * scarcity_urg)
-                - (0.20 * end_n)
-                - pop_pen
+            (-1.00 * proc_n) + (0.25 * rem_min_n) + (0.12 * scarcity_urg) - (0.20 * end_n) - pop_pen
                 + (0.25 * job_bias)
                 + flow_term
                 + route_term
                 + jitter
         }
         Rule::Regret => {
-            (1.05 * reg_n)
-                + (0.55 * rem_min_n)
-                + (0.22 * scarcity_urg)
-                - (0.68 * end_n)
-                - pop_pen
+            (1.05 * reg_n) + (0.55 * rem_min_n) + (0.22 * scarcity_urg) - (0.68 * end_n) - pop_pen
                 + (0.35 * job_bias)
                 + flow_term
                 + route_term
@@ -226,7 +228,8 @@ pub fn score_candidate(
                 + jitter
         }
         Rule::Adaptive => {
-            let end_w = (0.90 * fl + 0.72 * js) + (0.62 + 0.12 * fl) * progress + 0.18 * pre.high_flex;
+            let end_w =
+                (0.90 * fl + 0.72 * js) + (0.62 + 0.12 * fl) * progress + 0.18 * pre.high_flex;
             let reg_w = (0.50 * fl + 0.78 * js) + 0.18 * (1.0 - progress);
             let bn_w = ((0.45 + 0.40 * js) + 0.25 * (1.0 - progress)) * pre.bn_focus;
 

@@ -53,7 +53,9 @@ impl Builder {
         let mut best_c2 = None;
         let mut best = None;
         for &insert_node in nodes.iter() {
-            if !available[insert_node] || route_demand + data.demands[insert_node] > data.max_capacity {
+            if !available[insert_node]
+                || route_demand + data.demands[insert_node] > data.max_capacity
+            {
                 continue;
             }
 
@@ -68,7 +70,8 @@ impl Builder {
                     break;
                 }
 
-                let c11 = data.dm(curr_node, insert_node) + data.dm(insert_node, next_node) - data.dm(curr_node, next_node);
+                let c11 = data.dm(curr_node, insert_node) + data.dm(insert_node, next_node)
+                    - data.dm(curr_node, next_node);
                 let c2 = data.dm(0, insert_node) - c11;
 
                 let c2_is_better = match best_c2 {
@@ -89,15 +92,21 @@ impl Builder {
                     best = Some((insert_node, pos));
                 }
 
-                curr_time =
-                    data.start_tw[next_node].max(curr_time + data.dm(curr_node, next_node)) + data.service_times[next_node];
+                curr_time = data.start_tw[next_node].max(curr_time + data.dm(curr_node, next_node))
+                    + data.service_times[next_node];
                 curr_node = next_node;
             }
         }
         best
     }
 
-    fn is_feasible(route: &Vec<usize>, mut curr_node: usize, mut curr_time: i32, start_pos: usize, data: &Instance) -> bool {
+    fn is_feasible(
+        route: &Vec<usize>,
+        mut curr_node: usize,
+        mut curr_time: i32,
+        start_pos: usize,
+        data: &Instance,
+    ) -> bool {
         for pos in start_pos..route.len() {
             let next_node = route[pos];
             curr_time += data.dm(curr_node, next_node);

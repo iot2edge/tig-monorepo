@@ -85,8 +85,20 @@ fn apply_best_add_neigh_global(state: &mut State) -> bool {
         return false;
     }
 
-    let edge_lim: usize = if n >= 4500 { 16000 } else if n >= 2500 { 12000 } else { 9000 };
-    let node_lim: usize = if n >= 4500 { 56 } else if n >= 2500 { 64 } else { 72 };
+    let edge_lim: usize = if n >= 4500 {
+        16000
+    } else if n >= 2500 {
+        12000
+    } else {
+        9000
+    };
+    let node_lim: usize = if n >= 4500 {
+        56
+    } else if n >= 2500 {
+        64
+    } else {
+        72
+    };
 
     let start = (((state.total_value as u64) as usize)
         ^ ((state.total_weight as usize).wrapping_mul(911)))
@@ -104,7 +116,7 @@ fn apply_best_add_neigh_global(state: &mut State) -> bool {
     while tries < n && scanned_nodes < node_lim && scanned_edges < edge_lim {
         if state.selected_bit[idx] {
             scanned_nodes += 1;
-            let row = unsafe { neigh.get_unchecked(idx) };
+            let row = neigh.row(idx);
             for &(cj, _vv) in row.iter() {
                 scanned_edges += 1;
                 if scanned_edges > edge_lim {
@@ -230,8 +242,7 @@ fn apply_best_replace12_windowed(state: &mut State, used: &[usize]) -> bool {
                     continue;
                 }
 
-                let delta = (state.contrib[a] as i64)
-                    + (state.contrib[b] as i64)
+                let delta = (state.contrib[a] as i64) + (state.contrib[b] as i64)
                     - (state.contrib[r] as i64)
                     - (state.ch.interaction_values[a][r] as i64)
                     - (state.ch.interaction_values[b][r] as i64)
@@ -400,9 +411,8 @@ fn apply_best_swap_diff_reduce_windowed_cached(state: &mut State, used: &[usize]
                     continue;
                 }
 
-                let delta = state.contrib[cand]
-                    - state.contrib[rm]
-                    - state.ch.interaction_values[cand][rm];
+                let delta =
+                    state.contrib[cand] - state.contrib[rm] - state.ch.interaction_values[cand][rm];
 
                 let sup_diff = (state.support[cand] as i64) - sup_rm;
 
@@ -411,8 +421,7 @@ fn apply_best_swap_diff_reduce_windowed_cached(state: &mut State, used: &[usize]
                         None => true,
                         Some((_bc, _br, bd, bdw, bsd)) => {
                             delta > bd
-                                || (delta == bd
-                                    && (dw > bdw || (dw == bdw && sup_diff > bsd)))
+                                || (delta == bd && (dw > bdw || (dw == bdw && sup_diff > bsd)))
                         }
                     };
                     if take {
@@ -468,9 +477,8 @@ fn apply_best_swap_diff_increase_windowed_cached(state: &mut State, used: &[usiz
                 if state.selected_bit[cand] {
                     continue;
                 }
-                let delta = state.contrib[cand]
-                    - state.contrib[rm]
-                    - state.ch.interaction_values[cand][rm];
+                let delta =
+                    state.contrib[cand] - state.contrib[rm] - state.ch.interaction_values[cand][rm];
                 if delta > 0 {
                     let ratio = (delta as f64) / (dw as f64);
                     if best.map_or(true, |(_, _, br)| ratio > br) {
@@ -499,14 +507,14 @@ fn apply_best_swap_neigh_any(state: &mut State, used: &[usize]) -> bool {
         None => return false,
     };
 
-    let mut best: Option<(usize, usize, i128, i64, i64, i64, i64)> = None;
+    let mut best: Option<(usize, usize, i64, i64, i64, i64, i64)> = None;
 
     for &rm in used {
         if !state.selected_bit[rm] {
             continue;
         }
         let wrm = state.ch.weights[rm];
-        let row = unsafe { neigh.get_unchecked(rm) };
+        let row = neigh.row(rm);
 
         for &(cj, vv) in row.iter() {
             let cand = cj as usize;
@@ -528,21 +536,19 @@ fn apply_best_swap_neigh_any(state: &mut State, used: &[usize]) -> bool {
                 continue;
             }
 
-            let base_score: i128 = if wc == wrm {
-                (delta_i64 as i128) * (1_000_000i128)
+            let base_score: i64 = if wc == wrm {
+                delta_i64 * 1_000_000
             } else if wc < wrm {
-                (delta_i64 as i128) * (1000i128) + (wrm as i128 - wc as i128)
+                delta_i64 * 1000 + (wrm as i64 - wc as i64)
             } else {
-                let dw = (wc - wrm) as i128;
-                ((delta_i64 as i128) * (1000i128)) / dw.max(1)
+                let dw = (wc - wrm) as i64;
+                (delta_i64 * 1000) / dw.max(1)
             };
 
-            let score: i128 = if vv_i64 > 0 {
-                let v = vv_i64 as i128;
-                let d = delta_i64 as i128;
-                base_score - (v * v) / d.max(1)
+            let score: i64 = if vv_i64 > 0 {
+                base_score - (vv_i64 * vv_i64) / delta_i64.max(1)
             } else if vv_i64 < 0 {
-                base_score + (-(vv_i64 as i128))
+                base_score + (-vv_i64)
             } else {
                 base_score
             };
@@ -557,8 +563,7 @@ fn apply_best_swap_neigh_any(state: &mut State, used: &[usize]) -> bool {
                         && (delta_i64 > bd
                             || (delta_i64 == bd
                                 && (bonus > bb
-                                    || (bonus == bb
-                                        && (pen < bp || (pen == bp && sup > bsu)))))))
+                                    || (bonus == bb && (pen < bp || (pen == bp && sup > bsu)))))))
             }) {
                 best = Some((cand, rm, score, delta_i64, bonus, pen, sup));
             }
@@ -644,7 +649,7 @@ fn apply_best_swap_frontier_global(state: &mut State, used: &[usize]) -> bool {
 
     for &u in &state.window_core {
         if state.selected_bit[u] {
-            let row = unsafe { neigh.get_unchecked(u) };
+            let row = neigh.row(u);
             for &(cj, _vv) in row.iter() {
                 let cand = cj as usize;
                 if cand >= n {
@@ -742,7 +747,9 @@ fn apply_best_swap_frontier_global(state: &mut State, used: &[usize]) -> bool {
                 (delta * 1000) / dw.max(1)
             };
 
-            if best.map_or(true, |(_, _, bs, bd)| score > bs || (score == bs && delta > bd)) {
+            if best.map_or(true, |(_, _, bs, bd)| {
+                score > bs || (score == bs && delta > bd)
+            }) {
                 best = Some((cand, r, score, delta));
             }
         }

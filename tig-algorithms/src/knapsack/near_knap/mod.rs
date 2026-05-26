@@ -1,8 +1,8 @@
-use anyhow::{Result};
-use serde_json::{Map, Value};
-use tig_challenges::knapsack::*;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use std::collections::BTreeMap;
+use tig_challenges::knapsack::*;
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct Params {
@@ -17,8 +17,12 @@ impl Params {
             perturbation_strength_base: 3,
         };
         if let Some(m) = h {
-            if let Some(v) = m.get("n_perturbation_rounds").and_then(|v| v.as_u64()) { p.n_perturbation_rounds = v as usize; }
-            if let Some(v) = m.get("perturbation_strength_base").and_then(|v| v.as_u64()) { p.perturbation_strength_base = v as usize; }
+            if let Some(v) = m.get("n_perturbation_rounds").and_then(|v| v.as_u64()) {
+                p.n_perturbation_rounds = v as usize;
+            }
+            if let Some(v) = m.get("perturbation_strength_base").and_then(|v| v.as_u64()) {
+                p.perturbation_strength_base = v as usize;
+            }
         }
         p
     }
@@ -30,11 +34,19 @@ const N_IT_CONSTRUCT: usize = 2;
 
 #[inline]
 fn core_half_for(n: usize) -> usize {
-    if n <= 600 { 60 } else if n <= 1200 { 40 } else { CORE_HALF }
+    if n <= 600 {
+        60
+    } else if n <= 1200 {
+        40
+    } else {
+        CORE_HALF
+    }
 }
 
 #[derive(Clone, Copy)]
-struct Rng { state: u64 }
+struct Rng {
+    state: u64,
+}
 impl Rng {
     fn from_seed(seed: &[u8; 32]) -> Self {
         let mut s: u64 = 0x9E3779B97F4A7C15;
@@ -42,10 +54,13 @@ impl Rng {
             s ^= (b as u64) << ((i & 7) * 8);
             s = s.rotate_left(7).wrapping_mul(0xBF58476D1CE4E5B9);
         }
-        if s == 0 { s = 1; }
+        if s == 0 {
+            s = 1;
+        }
         Self { state: s }
     }
-    #[inline] fn next_u64(&mut self) -> u64 {
+    #[inline]
+    fn next_u64(&mut self) -> u64 {
         let mut x = self.state;
         x ^= x << 7;
         x ^= x >> 9;
@@ -53,7 +68,10 @@ impl Rng {
         self.state = x;
         x
     }
-    #[inline] fn next_u32(&mut self) -> u32 { (self.next_u64() >> 32) as u32 }
+    #[inline]
+    fn next_u32(&mut self) -> u32 {
+        (self.next_u64() >> 32) as u32
+    }
 }
 
 fn set_windows_from_density(
@@ -67,7 +85,9 @@ fn set_windows_from_density(
 
     let mut left = idx_first_rejected.saturating_sub(core_half + 1);
     let right = (idx_last_inserted + core_half + 1).min(n);
-    if left > right { left = right; }
+    if left > right {
+        left = right;
+    }
 
     state.window_locked = by_density[..left].to_vec();
     state.window_core = by_density[left..right].to_vec();
@@ -82,7 +102,9 @@ fn set_windows_from_density(
 
 fn rebuild_windows(state: &mut State) {
     let n = state.ch.num_items;
-    if n == 0 { return; }
+    if n == 0 {
+        return;
+    }
     let cap = state.ch.max_weight;
 
     let mut by_density: Vec<usize> = (0..n).collect();
@@ -114,7 +136,9 @@ fn construct_forward_incremental(state: &mut State, mode: usize, rng: &mut Rng) 
     let n = state.ch.num_items;
     loop {
         let slack = state.slack();
-        if slack == 0 { break; }
+        if slack == 0 {
+            break;
+        }
 
         let mut best_i: Option<usize> = None;
         let mut best_s: i64 = i64::MIN;
@@ -122,11 +146,17 @@ fn construct_forward_incremental(state: &mut State, mode: usize, rng: &mut Rng) 
         let mut second_s: i64 = i64::MIN;
 
         for i in 0..n {
-            if state.selected_bit[i] { continue; }
+            if state.selected_bit[i] {
+                continue;
+            }
             let w_u = state.ch.weights[i];
-            if w_u > slack { continue; }
+            if w_u > slack {
+                continue;
+            }
             let c = state.contrib[i] as i64;
-            if c <= 0 { continue; }
+            if c <= 0 {
+                continue;
+            }
 
             let w = (w_u as i64).max(1);
             let mut s = match mode {
@@ -134,27 +164,38 @@ fn construct_forward_incremental(state: &mut State, mode: usize, rng: &mut Rng) 
                 3 => (c * 1000) / w + (w_u as i64) * 3,
                 _ => (c * 1000) / w,
             };
-            if mode >= 4 {                
+            if mode >= 4 {
                 let mask = if mode >= 5 { 0x7F } else { 0x1F };
                 s += (rng.next_u32() & mask) as i64;
             }
 
             if s > best_s {
-                second_s = best_s; second_i = best_i;
-                best_s = s; best_i = Some(i);
+                second_s = best_s;
+                second_i = best_i;
+                best_s = s;
+                best_i = Some(i);
             } else if s > second_s {
-                second_s = s; second_i = Some(i);
+                second_s = s;
+                second_i = Some(i);
             }
         }
 
         let pick = if mode >= 4 && second_i.is_some() {
             let m = if mode >= 5 { 1 } else { 3 };
-            if (rng.next_u32() & m) == 0 { second_i } else { best_i }
+            if (rng.next_u32() & m) == 0 {
+                second_i
+            } else {
+                best_i
+            }
         } else {
             best_i
         };
 
-        if let Some(i) = pick { state.add_item(i); } else { break; }
+        if let Some(i) = pick {
+            state.add_item(i);
+        } else {
+            break;
+        }
     }
 }
 
@@ -165,22 +206,23 @@ pub struct State<'a> {
     pub total_value: i64,
     pub total_weight: u32,
     pub window_locked: Vec<usize>,
-    pub window_core:   Vec<usize>,
+    pub window_core: Vec<usize>,
     pub window_rejected: Vec<usize>,
-    pub core_bins: Vec<(u32, Vec<usize>)>,    
+    pub core_bins: Vec<(u32, Vec<usize>)>,
     pub usage: Vec<u16>,
     pub dp_cache: Vec<i64>,
-    pub choose_cache: Vec<u8>,    
+    pub choose_cache: Vec<u8>,
     pub snap_bits: Vec<bool>,
     pub snap_contrib: Vec<i32>,
 }
 
 impl<'a> State<'a> {
-
     pub fn new_empty(ch: &'a Challenge) -> Self {
         let n = ch.num_items;
         let mut contrib = vec![0i32; n];
-        for i in 0..n { contrib[i] = ch.values[i] as i32; }
+        for i in 0..n {
+            contrib[i] = ch.values[i] as i32;
+        }
         Self {
             ch,
             selected_bit: vec![false; n],
@@ -188,8 +230,8 @@ impl<'a> State<'a> {
             total_value: 0,
             total_weight: 0,
             window_locked: Vec::new(),
-            window_core:   Vec::new(),
-            window_rejected:   Vec::new(),
+            window_core: Vec::new(),
+            window_rejected: Vec::new(),
             core_bins: Vec::new(),
             usage: vec![0u16; n],
             dp_cache: Vec::new(),
@@ -200,10 +242,15 @@ impl<'a> State<'a> {
     }
 
     pub fn selected_items(&self) -> Vec<usize> {
-        (0..self.ch.num_items).filter(|&i| self.selected_bit[i]).collect()
+        (0..self.ch.num_items)
+            .filter(|&i| self.selected_bit[i])
+            .collect()
     }
 
-    #[inline(always)] pub fn slack(&self)    -> u32 { self.ch.max_weight - self.total_weight }
+    #[inline(always)]
+    pub fn slack(&self) -> u32 {
+        self.ch.max_weight - self.total_weight
+    }
 
     #[inline(always)]
     pub fn add_item(&mut self, i: usize) {
@@ -243,11 +290,7 @@ impl<'a> State<'a> {
         self.add_item(cand);
     }
 
-    pub fn restore_snapshot(
-        &mut self,
-        snap_value: i64,
-        snap_weight: u32,
-    ) {
+    pub fn restore_snapshot(&mut self, snap_value: i64, snap_weight: u32) {
         self.selected_bit.clone_from(&self.snap_bits);
         self.contrib.clone_from(&self.snap_contrib);
         self.total_value = snap_value;
@@ -262,11 +305,11 @@ pub fn build_initial_solution(state: &mut State) {
     for i in 0..n {
         state.add_item(i);
     }
-    
+
     while state.total_weight > cap {
         let mut worst_item = 0;
         let mut worst_score = i64::MAX;
-        
+
         for i in 0..n {
             if state.selected_bit[i] {
                 let contrib = state.contrib[i] as i64;
@@ -276,24 +319,24 @@ pub fn build_initial_solution(state: &mut State) {
                 } else {
                     contrib * 1000
                 };
-                
+
                 if score < worst_score {
                     worst_score = score;
                     worst_item = i;
                 }
             }
         }
-        
+
         state.remove_item(worst_item);
     }
 
-    let mut idx_last_inserted = 0 ;
-    let mut idx_first_rejected = n ;
+    let mut idx_last_inserted = 0;
+    let mut idx_first_rejected = n;
     let mut by_density: Vec<usize> = (0..n).collect();
 
     for _ in 0..=N_IT_CONSTRUCT {
-        idx_last_inserted = 0 ;
-        idx_first_rejected = n ;
+        idx_last_inserted = 0;
+        idx_first_rejected = n;
         let contrib = &state.contrib;
         by_density.sort_unstable_by(|&a, &b| {
             let na = contrib[a] as i64;
@@ -317,19 +360,27 @@ pub fn build_initial_solution(state: &mut State) {
         }
 
         let mut in_target = vec![false; n];
-        for &i in &target_sel { in_target[i] = true; }
+        for &i in &target_sel {
+            in_target[i] = true;
+        }
         let mut to_remove: Vec<usize> = Vec::new();
         let mut to_add: Vec<usize> = Vec::new();
         for i in 0..n {
-            if state.selected_bit[i] && !in_target[i] { to_remove.push(i); }
-            if !state.selected_bit[i] && in_target[i] { to_add.push(i); }
+            if state.selected_bit[i] && !in_target[i] {
+                to_remove.push(i);
+            }
+            if !state.selected_bit[i] && in_target[i] {
+                to_add.push(i);
+            }
         }
 
         if to_remove.is_empty() && to_add.is_empty() {
             break;
         }
 
-        for &r in &to_remove { state.remove_item(r); }
+        for &r in &to_remove {
+            state.remove_item(r);
+        }
         for &a in &to_add {
             state.add_item(a);
         }
@@ -346,7 +397,6 @@ fn integer_core_target(
     dp_cache: &mut Vec<i64>,
     choose_cache: &mut Vec<u8>,
 ) -> Vec<usize> {
-
     let used_locked: u64 = locked.iter().map(|&i| ch.weights[i] as u64).sum();
     let rem_cap = (ch.max_weight as u64).saturating_sub(used_locked) as usize;
 
@@ -394,37 +444,39 @@ fn integer_core_target(
     }
 
     let myw = rem_cap.min(total_core_weight);
-    
+
     let dp_size = myw + 1;
     let choose_size = myk * dp_size;
-    
+
     if dp_cache.len() < dp_size {
         dp_cache.resize(dp_size, i64::MIN / 4);
     }
     if choose_cache.len() < choose_size {
         choose_cache.resize(choose_size, 0);
     }
-    
+
     let init_val = i64::MIN / 4;
     for val in &mut dp_cache[0..dp_size] {
         *val = init_val;
     }
     dp_cache[0] = 0;
-    
+
     choose_cache[0..choose_size].fill(0);
-    
+
     let mut w_hi: usize = 0;
 
     for (t, &it) in core.iter().enumerate() {
         let wt = ch.weights[it] as usize;
-        if wt > myw { continue; }
+        if wt > myw {
+            continue;
+        }
         let val = contrib[it] as i64;
         let new_hi = (w_hi + wt).min(myw);
         for w in (wt..=new_hi).rev() {
             let cand = dp_cache[w - wt] + val;
-            if cand > dp_cache[w] { 
-                dp_cache[w] = cand; 
-                choose_cache[t * dp_size + w] = 1; 
+            if cand > dp_cache[w] {
+                dp_cache[w] = cand;
+                choose_cache[t * dp_size + w] = 1;
             }
         }
         w_hi = new_hi;
@@ -485,23 +537,31 @@ pub fn dp_refinement(state: &mut State) {
 
 fn apply_best_add_windowed(state: &mut State) -> bool {
     let slack = state.slack();
-    if slack == 0 { return false; }
-    let mut best: Option<(usize, i32)> = None;    
-    
+    if slack == 0 {
+        return false;
+    }
+    let mut best: Option<(usize, i32)> = None;
+
     for (bw, items) in &state.core_bins {
-        if *bw > slack { break; }
+        if *bw > slack {
+            break;
+        }
         for &cand in items {
-            if state.selected_bit[cand] { continue; }
+            if state.selected_bit[cand] {
+                continue;
+            }
             let delta = state.contrib[cand];
             if delta > 0 && best.map_or(true, |(_, bd)| delta > bd) {
                 best = Some((cand, delta));
             }
         }
-    }    
-    
+    }
+
     if best.is_none() {
         for &cand in &state.window_rejected {
-            if state.selected_bit[cand] { continue; }
+            if state.selected_bit[cand] {
+                continue;
+            }
             let w = state.ch.weights[cand];
             if w <= slack {
                 let delta = state.contrib[cand];
@@ -511,9 +571,13 @@ fn apply_best_add_windowed(state: &mut State) -> bool {
             }
         }
     }
-    
-    if let Some((cand, _)) = best { state.add_item(cand); true }
-    else { false }
+
+    if let Some((cand, _)) = best {
+        state.add_item(cand);
+        true
+    } else {
+        false
+    }
 }
 
 #[inline]
@@ -524,17 +588,23 @@ fn apply_best_swap11_equal_windowed_cached(state: &mut State, used: &[usize]) ->
         if let Ok(idx) = state.core_bins.binary_search_by_key(&w_rm, |(w, _)| *w) {
             let items = &state.core_bins[idx].1;
             for &cand in items {
-                if state.selected_bit[cand] { continue; }
-                let delta = state.contrib[cand] - state.contrib[rm]
-                    - state.ch.interaction_values[cand][rm];
+                if state.selected_bit[cand] {
+                    continue;
+                }
+                let delta =
+                    state.contrib[cand] - state.contrib[rm] - state.ch.interaction_values[cand][rm];
                 if delta > 0 && best.map_or(true, |(_, _, bd)| delta > bd) {
                     best = Some((cand, rm, delta));
                 }
             }
         }
     }
-    if let Some((cand, rm, _)) = best { state.replace_item(rm, cand); true }
-    else { false }
+    if let Some((cand, rm, _)) = best {
+        state.replace_item(rm, cand);
+        true
+    } else {
+        false
+    }
 }
 
 #[inline]
@@ -542,43 +612,65 @@ fn apply_best_swap_diff_reduce_windowed_cached(state: &mut State, used: &[usize]
     let mut best: Option<(usize, usize, i32)> = None;
     for &rm in used {
         let w_rm = state.ch.weights[rm];
-        if w_rm == 0 { continue; }
+        if w_rm == 0 {
+            continue;
+        }
         let w_min = w_rm.saturating_sub(DIFF_LIM as u32);
         for (bw, items) in &state.core_bins {
-            if *bw >= w_rm { break; }
-            if *bw < w_min { continue; }
+            if *bw >= w_rm {
+                break;
+            }
+            if *bw < w_min {
+                continue;
+            }
             for &cand in items {
-                if state.selected_bit[cand] { continue; }
-                let delta = state.contrib[cand] - state.contrib[rm]
-                    - state.ch.interaction_values[cand][rm];
+                if state.selected_bit[cand] {
+                    continue;
+                }
+                let delta =
+                    state.contrib[cand] - state.contrib[rm] - state.ch.interaction_values[cand][rm];
                 if delta > 0 && best.map_or(true, |(_, _, bd)| delta > bd) {
                     best = Some((cand, rm, delta));
                 }
             }
         }
     }
-    if let Some((cand, rm, _)) = best { state.replace_item(rm, cand); true }
-    else { false }
+    if let Some((cand, rm, _)) = best {
+        state.replace_item(rm, cand);
+        true
+    } else {
+        false
+    }
 }
 
 #[inline]
 fn apply_best_swap_diff_increase_windowed_cached(state: &mut State, used: &[usize]) -> bool {
     let slack = state.slack();
-    if slack == 0 { return false; }
+    if slack == 0 {
+        return false;
+    }
     let mut best: Option<(usize, usize, f64)> = None;
     for &rm in used {
         let w_rm = state.ch.weights[rm];
         let max_dw = (DIFF_LIM as u32).min(slack);
         let w_max = w_rm.saturating_add(max_dw);
         for (bw, items) in &state.core_bins {
-            if *bw <= w_rm { continue; }
-            if *bw > w_max { break; }
+            if *bw <= w_rm {
+                continue;
+            }
+            if *bw > w_max {
+                break;
+            }
             let dw = *bw - w_rm;
-            if dw > slack { break; }
+            if dw > slack {
+                break;
+            }
             for &cand in items {
-                if state.selected_bit[cand] { continue; }
-                let delta = state.contrib[cand] - state.contrib[rm]
-                    - state.ch.interaction_values[cand][rm];
+                if state.selected_bit[cand] {
+                    continue;
+                }
+                let delta =
+                    state.contrib[cand] - state.contrib[rm] - state.ch.interaction_values[cand][rm];
                 if delta > 0 {
                     let ratio = (delta as f64) / (dw as f64);
                     if best.map_or(true, |(_, _, br)| ratio > br) {
@@ -588,37 +680,55 @@ fn apply_best_swap_diff_increase_windowed_cached(state: &mut State, used: &[usiz
             }
         }
     }
-    if let Some((cand, rm, _)) = best { state.replace_item(rm, cand); true }
-    else { false }
+    if let Some((cand, rm, _)) = best {
+        state.replace_item(rm, cand);
+        true
+    } else {
+        false
+    }
 }
 
 pub fn local_search_vnd(state: &mut State) {
     let mut iterations = 0;
-    let n = state.ch.num_items;    
-    let max_iterations =
-        if n >= 4500 { 220 }
-        else if n >= 3000 { 320 }
-        else if n >= 1000 { 350 }
-        else { 80 };
+    let n = state.ch.num_items;
+    let max_iterations = if n >= 4500 {
+        220
+    } else if n >= 3000 {
+        320
+    } else if n >= 1000 {
+        350
+    } else {
+        80
+    };
     let mut used: Vec<usize> = Vec::new();
-    
+
     loop {
         iterations += 1;
-        if iterations > max_iterations { break; }
-        
-        if apply_best_add_windowed(state) { continue; }
-        
+        if iterations > max_iterations {
+            break;
+        }
+
+        if apply_best_add_windowed(state) {
+            continue;
+        }
+
         used.clear();
         for &i in &state.window_core {
             if state.selected_bit[i] {
                 used.push(i);
             }
         }
-        
-        if apply_best_swap_diff_reduce_windowed_cached(state, &used) { continue; }
-        if apply_best_swap11_equal_windowed_cached(state, &used) { continue; }
-        if apply_best_swap_diff_increase_windowed_cached(state, &used) { continue; }
-        
+
+        if apply_best_swap_diff_reduce_windowed_cached(state, &used) {
+            continue;
+        }
+        if apply_best_swap11_equal_windowed_cached(state, &used) {
+            continue;
+        }
+        if apply_best_swap_diff_increase_windowed_cached(state, &used) {
+            continue;
+        }
+
         break;
     }
 }
@@ -626,21 +736,20 @@ pub fn local_search_vnd(state: &mut State) {
 fn perturb_by_strategy(state: &mut State, strength: usize, stall_count: usize, strategy: usize) {
     let selected = state.selected_items();
     let mut removal_candidates: Vec<(usize, i32)>;
-    
+
     match strategy {
         0 => {
-            removal_candidates = selected.iter()
-                .map(|&i| (i, state.contrib[i]))
-                .collect();
+            removal_candidates = selected.iter().map(|&i| (i, state.contrib[i])).collect();
             removal_candidates.sort_unstable_by_key(|&(_, c)| c);
-        },
+        }
         1 => {
-            removal_candidates = selected.iter()
+            removal_candidates = selected
+                .iter()
                 .map(|&i| (i, -(state.ch.weights[i] as i32)))
                 .collect();
             removal_candidates.sort_unstable_by_key(|&(_, w)| w);
-        },
-        2 => {            
+        }
+        2 => {
             removal_candidates = selected
                 .iter()
                 .map(|&i| {
@@ -649,43 +758,54 @@ fn perturb_by_strategy(state: &mut State, strength: usize, stall_count: usize, s
                 })
                 .collect();
             removal_candidates.sort_unstable_by_key(|&(_, s)| s);
-        },
+        }
         3 => {
-            removal_candidates = selected.iter().map(|&i| {
-                let score = if state.ch.weights[i] > 0 {
-                    (state.contrib[i] as i64 * 1000) / (state.ch.weights[i] as i64)
-                } else {
-                    state.contrib[i] as i64 * 1000
-                };
-                (i, -(score as i32))
-            }).collect();
+            removal_candidates = selected
+                .iter()
+                .map(|&i| {
+                    let score = if state.ch.weights[i] > 0 {
+                        (state.contrib[i] as i64 * 1000) / (state.ch.weights[i] as i64)
+                    } else {
+                        state.contrib[i] as i64 * 1000
+                    };
+                    (i, -(score as i32))
+                })
+                .collect();
             removal_candidates.sort_unstable_by_key(|&(_, s)| s);
-        },
+        }
         4 => {
-            removal_candidates = selected.iter().map(|&i| {
-                let density = if state.ch.weights[i] > 0 {
-                    (state.contrib[i] as i64 * 100) / (state.ch.weights[i] as i64)
-                } else {
-                    i64::MAX
-                };
-                let score = state.ch.weights[i] as i64 - density;
-                (i, -(score as i32))
-            }).collect();
+            removal_candidates = selected
+                .iter()
+                .map(|&i| {
+                    let density = if state.ch.weights[i] > 0 {
+                        (state.contrib[i] as i64 * 100) / (state.ch.weights[i] as i64)
+                    } else {
+                        i64::MAX
+                    };
+                    let score = state.ch.weights[i] as i64 - density;
+                    (i, -(score as i32))
+                })
+                .collect();
             removal_candidates.sort_unstable_by_key(|&(_, s)| s);
-        },
+        }
         _ => {
-            removal_candidates = selected.iter().map(|&i| {
-                let usage_penalty = state.usage[i] as i32;
-                let score = state.contrib[i] - usage_penalty;
-                (i, score)
-            }).collect();
+            removal_candidates = selected
+                .iter()
+                .map(|&i| {
+                    let usage_penalty = state.usage[i] as i32;
+                    let score = state.contrib[i] - usage_penalty;
+                    (i, score)
+                })
+                .collect();
             removal_candidates.sort_unstable_by_key(|&(_, s)| s);
         }
     }
-    
+
     let base_remove = (selected.len() / 10).max(1);
     let adaptive_mult = 1 + (stall_count / 2);
-    let n_remove = (base_remove * adaptive_mult).min(strength).min(selected.len() / 3);
+    let n_remove = (base_remove * adaptive_mult)
+        .min(strength)
+        .min(selected.len() / 3);
     for j in 0..n_remove {
         if j < removal_candidates.len() {
             state.remove_item(removal_candidates[j].0);
@@ -696,30 +816,30 @@ fn perturb_by_strategy(state: &mut State, strength: usize, stall_count: usize, s
 fn greedy_reconstruct(state: &mut State, strategy: usize) {
     let n = state.ch.num_items;
     let cap = state.ch.max_weight;
-    
-    let mut candidates: Vec<usize> = (0..n)
-        .filter(|&i| !state.selected_bit[i])
-        .collect();
-    
+
+    let mut candidates: Vec<usize> = (0..n).filter(|&i| !state.selected_bit[i]).collect();
+
     match strategy {
-        0 => {            
+        0 => {
             candidates.sort_unstable_by_key(|&i| -state.contrib[i]);
-        },
-        1 => {            
+        }
+        1 => {
             candidates.sort_unstable_by(|&a, &b| {
-                state.ch.weights[a].cmp(&state.ch.weights[b])
+                state.ch.weights[a]
+                    .cmp(&state.ch.weights[b])
                     .then(state.contrib[b].cmp(&state.contrib[a]))
             });
-        },
+        }
         2 => {
             candidates.sort_unstable_by_key(|&i| {
-                let total_synergy: i64 = state.ch.interaction_values[i].iter()
+                let total_synergy: i64 = state.ch.interaction_values[i]
+                    .iter()
                     .take(n.min(100))
                     .map(|&v| v as i64)
                     .sum();
                 -(total_synergy + state.contrib[i] as i64 / 10)
             });
-        },
+        }
         3 => {
             candidates.sort_unstable_by_key(|&i| {
                 let w = state.ch.weights[i] as i64;
@@ -730,14 +850,14 @@ fn greedy_reconstruct(state: &mut State, strategy: usize) {
                     i64::MIN
                 }
             });
-        },
+        }
         4 => {
             candidates.sort_unstable_by_key(|&i| {
                 let w = state.ch.weights[i] as i64;
                 let c = state.contrib[i] as i64;
                 -(c * w * w / 100)
             });
-        },
+        }
         _ => {
             candidates.sort_unstable_by_key(|&i| {
                 let w = (state.ch.weights[i] as i64).max(1);
@@ -747,7 +867,7 @@ fn greedy_reconstruct(state: &mut State, strategy: usize) {
             });
         }
     }
-    
+
     for &i in &candidates {
         let w = state.ch.weights[i];
         if state.total_weight + w <= cap {
@@ -766,16 +886,30 @@ fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
     for i in 0..sample {
         for j in 0..i {
             tot += 1;
-            if challenge.interaction_values[i][j] != 0 { nz += 1; }
+            if challenge.interaction_values[i][j] != 0 {
+                nz += 1;
+            }
         }
     }
-    let dens = if tot > 0 { (nz as f64) / (tot as f64) } else { 1.0 };
+    let dens = if tot > 0 {
+        (nz as f64) / (tot as f64)
+    } else {
+        1.0
+    };
     let hard = dens < 0.10;
 
     let n_starts: usize = if n <= 600 {
-        if hard { 4 } else { 3 }
+        if hard {
+            4
+        } else {
+            3
+        }
     } else if n <= 1500 {
-        if hard { 3 } else { 2 }
+        if hard {
+            3
+        } else {
+            2
+        }
     } else {
         1
     };
@@ -787,9 +921,15 @@ fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
         let mut st = State::new_empty(challenge);
 
         match sid {
-            0 => build_initial_solution(&mut st), 
-            1 => { construct_forward_incremental(&mut st, 1, &mut rng); rebuild_windows(&mut st); }
-            2 => { construct_forward_incremental(&mut st, 2, &mut rng); rebuild_windows(&mut st); }
+            0 => build_initial_solution(&mut st),
+            1 => {
+                construct_forward_incremental(&mut st, 1, &mut rng);
+                rebuild_windows(&mut st);
+            }
+            2 => {
+                construct_forward_incremental(&mut st, 2, &mut rng);
+                rebuild_windows(&mut st);
+            }
             _ => {
                 let m = if hard { 5 } else { 4 };
                 construct_forward_incremental(&mut st, m, &mut rng);
@@ -803,10 +943,16 @@ fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
         }
         local_search_vnd(&mut st);
 
-        if best.as_ref().map_or(true, |b| st.total_value > b.total_value) {
+        if best
+            .as_ref()
+            .map_or(true, |b| st.total_value > b.total_value)
+        {
             second = best;
             best = Some(st);
-        } else if second.as_ref().map_or(true, |b| st.total_value > b.total_value) {
+        } else if second
+            .as_ref()
+            .map_or(true, |b| st.total_value > b.total_value)
+        {
             second = Some(st);
         }
     }
@@ -822,7 +968,8 @@ fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
                 let b1 = best.as_ref().unwrap();
                 let b2 = second.as_ref().unwrap();
                 for i in 0..n {
-                    if b1.selected_bit[i] && b2.selected_bit[i]
+                    if b1.selected_bit[i]
+                        && b2.selected_bit[i]
                         && hyb.total_weight + challenge.weights[i] <= challenge.max_weight
                     {
                         hyb.add_item(i);
@@ -849,8 +996,12 @@ fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
             for i in 0..n {
                 let a = b1.selected_bit[i];
                 let b = b2.selected_bit[i];
-                if a || b { union_cnt += 1; }
-                if a && b { inter_cnt += 1; }
+                if a || b {
+                    union_cnt += 1;
+                }
+                if a && b {
+                    inter_cnt += 1;
+                }
             }
             (inter_cnt, union_cnt)
         };
@@ -871,13 +1022,22 @@ fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
                 let mut worst_item: Option<usize> = None;
                 let mut worst_score: i64 = i64::MAX;
                 for i in 0..n {
-                    if !hyb.selected_bit[i] { continue; }
+                    if !hyb.selected_bit[i] {
+                        continue;
+                    }
                     let c = hyb.contrib[i] as i64;
                     let w = challenge.weights[i] as i64;
                     let s = if w > 0 { (c * 1000) / w } else { c * 1000 };
-                    if s < worst_score { worst_score = s; worst_item = Some(i); }
+                    if s < worst_score {
+                        worst_score = s;
+                        worst_item = Some(i);
+                    }
                 }
-                if let Some(wi) = worst_item { hyb.remove_item(wi); } else { break; }
+                if let Some(wi) = worst_item {
+                    hyb.remove_item(wi);
+                } else {
+                    break;
+                }
             }
 
             construct_forward_incremental(&mut hyb, 4, &mut rng);
@@ -892,7 +1052,9 @@ fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
             }
         }
 
-        if let Some(s) = best_new { best = Some(s); }
+        if let Some(s) = best_new {
+            best = Some(s);
+        }
     }
 
     let mut state = best.unwrap();
@@ -919,24 +1081,25 @@ fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
     } else if n >= 2000 {
         max_rounds = max_rounds.min(13);
     }
-    
+
     for perturbation_round in 0..max_rounds {
         let is_last_round = perturbation_round >= max_rounds - 1;
-        
+
         state.snap_bits.clone_from(&state.selected_bit);
         state.snap_contrib.clone_from(&state.contrib);
-        let prev_val    = state.total_value;
+        let prev_val = state.total_value;
         let prev_weight = state.total_weight;
-        
-        let apply_dp = !is_last_round && if n >= 4000 {
-            perturbation_round < 3 || (perturbation_round % 4 == 0 && stall_count < 2)
-        } else if n >= 2000 {
-            perturbation_round % 2 == 0 && stall_count < 4
-        } else if n >= 1000 {
-            stall_count < 5
-        } else {
-            true
-        };
+
+        let apply_dp = !is_last_round
+            && if n >= 4000 {
+                perturbation_round < 3 || (perturbation_round % 4 == 0 && stall_count < 2)
+            } else if n >= 2000 {
+                perturbation_round % 2 == 0 && stall_count < 4
+            } else if n >= 1000 {
+                stall_count < 5
+            } else {
+                true
+            };
         if apply_dp {
             if n <= 2500 && (stall_count > 0 || (perturbation_round & 3) == 0) {
                 rebuild_windows(&mut state);
@@ -944,7 +1107,7 @@ fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
             dp_refinement(&mut state);
         }
         local_search_vnd(&mut state);
-        
+
         if state.total_value > best_val {
             best_val = state.total_value;
             best_sel.clear();
@@ -958,22 +1121,21 @@ fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
             }
             stall_count = 0;
         }
-        
+
         if state.total_value <= prev_val {
             state.restore_snapshot(prev_val, prev_weight);
-            
+
             if perturbation_round >= 7 && stall_count >= 6 {
                 break;
             }
-            
+
             if perturbation_round >= max_rounds - 1 {
                 break;
             }
             stall_count += 1;
-            
+
             let strategy = perturbation_round % 6;
-            let strength =
-                params.perturbation_strength_base + (perturbation_round as usize) / 2;
+            let strength = params.perturbation_strength_base + (perturbation_round as usize) / 2;
             perturb_by_strategy(&mut state, strength, stall_count, strategy);
             greedy_reconstruct(&mut state, strategy);
             if n <= 2500 {

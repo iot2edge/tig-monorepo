@@ -65,7 +65,10 @@ impl Params {
                 p.extra_starts = v as usize;
             }
 
-            if let Some(v) = m.get("max_frontier_swaps_override").and_then(|v| v.as_u64()) {
+            if let Some(v) = m
+                .get("max_frontier_swaps_override")
+                .and_then(|v| v.as_u64())
+            {
                 p.max_frontier_swaps_override = Some(v as usize);
             }
 

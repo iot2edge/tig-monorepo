@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Result};
-use rand::{rngs::SmallRng, Rng, SeedableRng, seq::SliceRandom};
-use tig_challenges::job_scheduling::*;
 use super::types::GreedyRule;
+use anyhow::{anyhow, Result};
+use rand::{rngs::SmallRng, seq::SliceRandom, Rng, SeedableRng};
+use tig_challenges::job_scheduling::*;
 
 pub fn run_simple_greedy_baseline(challenge: &Challenge) -> Result<(Solution, u32)> {
     let num_jobs = challenge.num_jobs;
@@ -12,25 +12,43 @@ pub fn run_simple_greedy_baseline(challenge: &Challenge) -> Result<(Solution, u3
         }
     }
 
-    let job_ops_len: Vec<usize> = job_products.iter()
+    let job_ops_len: Vec<usize> = job_products
+        .iter()
         .map(|&p| challenge.product_processing_times[p].len())
         .collect();
 
-    let job_total_work: Vec<f64> = job_products.iter().map(|&p| {
-        challenge.product_processing_times[p].iter()
-            .map(|op| {
-                let avg: f64 = op.values().sum::<u32>() as f64 / op.len().max(1) as f64;
-                avg
-            })
-            .sum()
-    }).collect();
+    let job_total_work: Vec<f64> = job_products
+        .iter()
+        .map(|&p| {
+            challenge.product_processing_times[p]
+                .iter()
+                .map(|op| {
+                    let avg: f64 = op.values().sum::<u32>() as f64 / op.len().max(1) as f64;
+                    avg
+                })
+                .sum()
+        })
+        .collect();
 
-    let rules = [GreedyRule::MostWork, GreedyRule::MostOps, GreedyRule::LeastFlex, GreedyRule::ShortestProc, GreedyRule::LongestProc];
+    let rules = [
+        GreedyRule::MostWork,
+        GreedyRule::MostOps,
+        GreedyRule::LeastFlex,
+        GreedyRule::ShortestProc,
+        GreedyRule::LongestProc,
+    ];
     let mut best_mk = u32::MAX;
     let mut best_sol: Option<Solution> = None;
 
     for rule in rules {
-        let (sol, mk) = run_greedy_rule(challenge, &job_products, &job_ops_len, &job_total_work, rule, None)?;
+        let (sol, mk) = run_greedy_rule(
+            challenge,
+            &job_products,
+            &job_ops_len,
+            &job_total_work,
+            rule,
+            None,
+        )?;
         if mk < best_mk {
             best_mk = mk;
             best_sol = Some(sol);
@@ -44,14 +62,24 @@ pub fn run_simple_greedy_baseline(challenge: &Challenge) -> Result<(Solution, u3
         let random_top_k = rng.gen_range(2..=5);
         let mut local_rng = SmallRng::seed_from_u64(seed);
 
-        let (sol, mk) = run_greedy_rule(challenge, &job_products, &job_ops_len, &job_total_work, rule, Some((random_top_k, &mut local_rng)))?;
+        let (sol, mk) = run_greedy_rule(
+            challenge,
+            &job_products,
+            &job_ops_len,
+            &job_total_work,
+            rule,
+            Some((random_top_k, &mut local_rng)),
+        )?;
         if mk < best_mk {
             best_mk = mk;
             best_sol = Some(sol);
         }
     }
 
-    Ok((best_sol.ok_or_else(|| anyhow!("No greedy solution"))?, best_mk))
+    Ok((
+        best_sol.ok_or_else(|| anyhow!("No greedy solution"))?,
+        best_mk,
+    ))
 }
 
 pub fn run_greedy_rule(
@@ -68,7 +96,8 @@ pub fn run_greedy_rule(
     let mut job_next_op = vec![0usize; num_jobs];
     let mut job_ready = vec![0u32; num_jobs];
     let mut machine_avail = vec![0u32; num_machines];
-    let mut job_schedule: Vec<Vec<(usize, u32)>> = job_ops_len.iter()
+    let mut job_schedule: Vec<Vec<(usize, u32)>> = job_ops_len
+        .iter()
         .map(|&len| Vec::with_capacity(len))
         .collect();
     let mut job_work_left = job_total_work.to_vec();
@@ -111,9 +140,11 @@ pub fn run_greedy_rule(
                     None => continue,
                 };
 
-                let earliest = op_times.iter()
+                let earliest = op_times
+                    .iter()
                     .map(|(&mm, &ppt)| time.max(machine_avail[mm]) + ppt)
-                    .min().unwrap_or(u32::MAX);
+                    .min()
+                    .unwrap_or(u32::MAX);
                 let this_end = time.max(machine_avail[m]) + pt;
                 if this_end != earliest {
                     continue;
@@ -129,7 +160,13 @@ pub fn run_greedy_rule(
                     GreedyRule::LongestProc => pt as f64,
                 };
 
-                candidates.push(Candidate { job: j, priority, end: this_end, pt, flex });
+                candidates.push(Candidate {
+                    job: j,
+                    priority,
+                    end: this_end,
+                    pt,
+                    flex,
+                });
             }
 
             if candidates.is_empty() {

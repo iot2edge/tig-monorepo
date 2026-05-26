@@ -13,7 +13,7 @@ pub fn solve_challenge(
     module: Arc<CudaModule>,
     stream: Arc<CudaStream>,
     prop: &cudaDeviceProp,
-) -> anyhow::Result<()> {    
+) -> anyhow::Result<()> {
     let dummy_partition: Vec<u32> = (0..challenge.num_nodes as u32)
         .map(|i| i % challenge.num_parts as u32)
         .collect();
@@ -67,7 +67,7 @@ pub fn solve_challenge(
 
     let mut d_pref_parts = stream.alloc_zeros::<i32>(challenge.num_nodes as usize)?;
     let mut d_pref_priorities = stream.alloc_zeros::<i32>(challenge.num_nodes as usize)?;
-   
+
     let mut d_move_priorities = stream.alloc_zeros::<i32>(challenge.num_nodes as usize)?;
 
     let mut d_num_valid_moves = stream.alloc_zeros::<i32>(1)?;
@@ -87,7 +87,9 @@ pub fn solve_challenge(
         .map(|v| v.clamp(256, 1_000_000) as usize)
         .unwrap_or(if is_sparse {
             262_144
-        } else if challenge.num_hyperedges as usize >= 150_000 || challenge.num_nodes as usize >= 250_000 {
+        } else if challenge.num_hyperedges as usize >= 150_000
+            || challenge.num_nodes as usize >= 250_000
+        {
             131_072
         } else {
             200_000
@@ -162,8 +164,16 @@ pub fn solve_challenge(
     let mut valid_moves: Vec<(usize, i32)> = Vec::with_capacity(challenge.num_nodes as usize);
 
     let mut stagnant_rounds = 0;
-    let early_exit_round = if challenge.num_hyperedges < 20_000 { 90 } else { 70 };
-    let max_stagnant_rounds = if challenge.num_hyperedges < 20_000 { 30 } else { 20 };
+    let early_exit_round = if challenge.num_hyperedges < 20_000 {
+        90
+    } else {
+        70
+    };
+    let max_stagnant_rounds = if challenge.num_hyperedges < 20_000 {
+        30
+    } else {
+        20
+    };
 
     for round in 0..refinement_rounds {
         unsafe {
@@ -425,5 +435,7 @@ pub fn help() {
     println!("                  More iterations = better quality, longer runtime");
     println!("  post_refinement Extra balance passes after main solve (0-128, default: 64)");
     println!("                  Improves partition balance, slight runtime cost");
-    println!("  You can override the default adaptive values by setting the hyperparameters explicitly.");
+    println!(
+        "  You can override the default adaptive values by setting the hyperparameters explicitly."
+    );
 }

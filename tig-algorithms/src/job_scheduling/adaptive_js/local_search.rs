@@ -1,9 +1,13 @@
+use super::helpers::*;
+use super::types::*;
 use anyhow::{anyhow, Result};
 use tig_challenges::job_scheduling::*;
-use super::types::*;
-use super::helpers::*;
 
-pub fn build_disj_from_solution(pre: &Pre, challenge: &Challenge, sol: &Solution) -> Result<DisjSchedule> {
+pub fn build_disj_from_solution(
+    pre: &Pre,
+    challenge: &Challenge,
+    sol: &Solution,
+) -> Result<DisjSchedule> {
     let num_jobs = challenge.num_jobs;
     let num_machines = challenge.num_machines;
 
@@ -326,7 +330,15 @@ fn descent_phase(
                                 let score = buf.start[seq[tgt_idx]];
                                 push_top_k_move(
                                     &mut cands,
-                                    MoveCand { kind: 0, m_from: m, from, m_to: m, to: to_after, new_pt: 0, score },
+                                    MoveCand {
+                                        kind: 0,
+                                        m_from: m,
+                                        from,
+                                        m_to: m,
+                                        to: to_after,
+                                        new_pt: 0,
+                                        score,
+                                    },
                                     top_cands,
                                 );
                             }
@@ -337,7 +349,15 @@ fn descent_phase(
                             let score = buf.start[seq[bend]];
                             push_top_k_move(
                                 &mut cands,
-                                MoveCand { kind: 0, m_from: m, from, m_to: m, to: to_after, new_pt: 0, score },
+                                MoveCand {
+                                    kind: 0,
+                                    m_from: m,
+                                    from,
+                                    m_to: m,
+                                    to: to_after,
+                                    new_pt: 0,
+                                    score,
+                                },
                                 top_cands,
                             );
                         }
@@ -348,7 +368,15 @@ fn descent_phase(
                             let score = buf.start[seq[bstart]];
                             push_top_k_move(
                                 &mut cands,
-                                MoveCand { kind: 2, m_from: m, from: bstart - 1, m_to: m, to: 0, new_pt: 0, score },
+                                MoveCand {
+                                    kind: 2,
+                                    m_from: m,
+                                    from: bstart - 1,
+                                    m_to: m,
+                                    to: 0,
+                                    new_pt: 0,
+                                    score,
+                                },
                                 top_cands,
                             );
                         }
@@ -356,7 +384,15 @@ fn descent_phase(
                             let score = buf.start[seq[bend]];
                             push_top_k_move(
                                 &mut cands,
-                                MoveCand { kind: 2, m_from: m, from: bend, m_to: m, to: 0, new_pt: 0, score },
+                                MoveCand {
+                                    kind: 2,
+                                    m_from: m,
+                                    from: bend,
+                                    m_to: m,
+                                    to: 0,
+                                    new_pt: 0,
+                                    score,
+                                },
                                 top_cands,
                             );
                         }
@@ -364,14 +400,30 @@ fn descent_phase(
                             let score = buf.start[seq[bstart + 1]];
                             push_top_k_move(
                                 &mut cands,
-                                MoveCand { kind: 2, m_from: m, from: bstart, m_to: m, to: 0, new_pt: 0, score },
+                                MoveCand {
+                                    kind: 2,
+                                    m_from: m,
+                                    from: bstart,
+                                    m_to: m,
+                                    to: 0,
+                                    new_pt: 0,
+                                    score,
+                                },
                                 top_cands,
                             );
                             if bend >= 1 && bend - 1 >= bstart {
                                 let score2 = buf.start[seq[bend]];
                                 push_top_k_move(
                                     &mut cands,
-                                    MoveCand { kind: 2, m_from: m, from: bend - 1, m_to: m, to: 0, new_pt: 0, score: score2 },
+                                    MoveCand {
+                                        kind: 2,
+                                        m_from: m,
+                                        from: bend - 1,
+                                        m_to: m,
+                                        to: 0,
+                                        new_pt: 0,
+                                        score: score2,
+                                    },
                                     top_cands,
                                 );
                             }
@@ -402,7 +454,11 @@ fn descent_phase(
 
                         let best2 = best_two_by_pt(op);
                         for &(m_to, new_pt) in &best2 {
-                            if m_to == NONE_USIZE || m_to >= ds.num_machines || m_to == old_m || new_pt >= INF {
+                            if m_to == NONE_USIZE
+                                || m_to >= ds.num_machines
+                                || m_to == old_m
+                                || new_pt >= INF
+                            {
                                 continue;
                             }
                             let w_to = pre.machine_weight[m_to].max(1e-9);
@@ -412,13 +468,18 @@ fn descent_phase(
                             }
 
                             let desired = buf.start[node];
-                            let pos0 = find_insert_pos_by_start(&ds.machine_seq[m_to], &buf.start, desired);
+                            let pos0 = find_insert_pos_by_start(
+                                &ds.machine_seq[m_to],
+                                &buf.start,
+                                desired,
+                            );
                             for pos in [pos0, pos0.saturating_add(1)] {
                                 if pos > ds.machine_seq[m_to].len() {
                                     continue;
                                 }
 
-                                let diffw = ((w_from - w_to).max(0.0) * pre.avg_op_min).max(0.0) as u32;
+                                let diffw =
+                                    ((w_from - w_to).max(0.0) * pre.avg_op_min).max(0.0) as u32;
                                 let difpt = old_pt.saturating_sub(new_pt);
                                 let score = desired
                                     .saturating_add(old_pt)
@@ -427,7 +488,15 @@ fn descent_phase(
 
                                 push_top_k_move(
                                     &mut cands,
-                                    MoveCand { kind: 1, m_from: old_m, from: idx, m_to, to: pos, new_pt, score },
+                                    MoveCand {
+                                        kind: 1,
+                                        m_from: old_m,
+                                        from: idx,
+                                        m_to,
+                                        to: pos,
+                                        new_pt,
+                                        score,
+                                    },
                                     top_cands,
                                 );
                             }
@@ -549,7 +618,8 @@ fn descent_phase(
                         improved = true;
                         accepted = true;
                     } else {
-                        let _ = undo_reroute(ds, bc.m_from, bc.from, bc.m_to, ins_idx, node2, old_pt);
+                        let _ =
+                            undo_reroute(ds, bc.m_from, bc.from, bc.m_to, ins_idx, node2, old_pt);
                     }
                 } else {
                     let _ = undo_reroute(ds, bc.m_from, bc.from, bc.m_to, ins_idx, node2, old_pt);
@@ -582,9 +652,19 @@ pub fn critical_block_move_local_search(
     };
     let initial_mk = cur_eval.0;
 
-    descent_phase(&mut ds, &mut buf, &mut crit, pre, &mut cur_eval, max_iters, top_cands);
+    descent_phase(
+        &mut ds,
+        &mut buf,
+        &mut crit,
+        pre,
+        &mut cur_eval,
+        max_iters,
+        top_cands,
+    );
 
-    let Some((mk_after, _)) = eval_disj(&ds, &mut buf) else { return Ok(None) };
+    let Some((mk_after, _)) = eval_disj(&ds, &mut buf) else {
+        return Ok(None);
+    };
 
     let mut global_best_mk = mk_after;
     let mut global_best_ds = ds.clone();
@@ -602,15 +682,16 @@ pub fn critical_block_move_local_search(
         }
     }
 
-    let mut pseed: u64 = (challenge.seed[0] as u64)
-        .wrapping_mul(0x9E3779B97F4A7C15)
+    let mut pseed: u64 = (challenge.seed[0] as u64).wrapping_mul(0x9E3779B97F4A7C15)
         ^ (initial_mk as u64).wrapping_shl(16)
         ^ (ds.n as u64)
         ^ sol_hash;
 
     for _cycle in 0..perturb_cycles {
         ds = global_best_ds.clone();
-        let Some((_, mk_node)) = eval_disj(&ds, &mut buf) else { break };
+        let Some((_, mk_node)) = eval_disj(&ds, &mut buf) else {
+            break;
+        };
 
         crit.fill(false);
         let mut u = mk_node;
@@ -680,7 +761,15 @@ pub fn critical_block_move_local_search(
             None => continue,
         }
 
-        descent_phase(&mut ds, &mut buf, &mut crit, pre, &mut cur_eval, max_iters, top_cands);
+        descent_phase(
+            &mut ds,
+            &mut buf,
+            &mut crit,
+            pre,
+            &mut cur_eval,
+            max_iters,
+            top_cands,
+        );
 
         if let Some((mk_now, _)) = eval_disj(&ds, &mut buf) {
             if mk_now < global_best_mk {
@@ -695,7 +784,9 @@ pub fn critical_block_move_local_search(
     }
 
     ds = global_best_ds;
-    let Some((mk_final, _)) = eval_disj(&ds, &mut buf) else { return Ok(None) };
+    let Some((mk_final, _)) = eval_disj(&ds, &mut buf) else {
+        return Ok(None);
+    };
     let sol = disj_to_solution(pre, &ds, &buf.start)?;
     Ok(Some((sol, mk_final)))
 }

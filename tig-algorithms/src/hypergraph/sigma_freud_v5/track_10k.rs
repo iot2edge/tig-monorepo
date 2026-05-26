@@ -1,5 +1,5 @@
 use cudarc::{
-    driver::{safe::LaunchConfig, CudaModule, CudaStream, PushKernelArg}, 
+    driver::{safe::LaunchConfig, CudaModule, CudaStream, PushKernelArg},
     runtime::sys::cudaDeviceProp,
 };
 use serde_json::{Map, Value};
@@ -73,7 +73,7 @@ pub fn solve(
 
     let mut d_pref_parts = stream.alloc_zeros::<i32>(challenge.num_nodes as usize)?;
     let mut d_pref_priorities = stream.alloc_zeros::<i32>(challenge.num_nodes as usize)?;
-   
+
     let mut d_move_priorities = stream.alloc_zeros::<i32>(challenge.num_nodes as usize)?;
 
     let mut d_num_valid_moves = stream.alloc_zeros::<i32>(1)?;
@@ -136,7 +136,9 @@ pub fn solve(
         .map(|v| v.clamp(256, 1_000_000) as usize)
         .unwrap_or(if is_sparse {
             262_144
-        } else if challenge.num_hyperedges as usize >= 150_000 || challenge.num_nodes as usize >= 250_000 {
+        } else if challenge.num_hyperedges as usize >= 150_000
+            || challenge.num_nodes as usize >= 250_000
+        {
             131_072
         } else {
             200_000
@@ -181,7 +183,9 @@ pub fn solve(
 
     let mut indices: Vec<usize> = (0..challenge.num_nodes as usize).collect();
     indices.sort_unstable_by(|&a, &b| {
-        pref_priorities[b].cmp(&pref_priorities[a]).then_with(|| a.cmp(&b))
+        pref_priorities[b]
+            .cmp(&pref_priorities[a])
+            .then_with(|| a.cmp(&b))
     });
 
     let sorted_nodes: Vec<i32> = indices.iter().map(|&i| i as i32).collect();
@@ -202,7 +206,7 @@ pub fn solve(
             .arg(&mut d_nodes_in_part)
             .launch(one_thread_cfg.clone())?;
     }
-    
+
     let mut sorted_move_nodes: Vec<i32> = Vec::with_capacity(challenge.num_nodes as usize);
     let mut sorted_move_parts: Vec<i32> = Vec::with_capacity(challenge.num_nodes as usize);
 
@@ -210,7 +214,7 @@ pub fn solve(
 
     let mut stagnant_rounds = 0;
     let max_stagnant_rounds = 30;
-    
+
     let mut node_tabu_until: Vec<usize> = vec![0; challenge.num_nodes as usize];
 
     let mut tgt_used: Vec<usize> = vec![0; num_parts_usize];
@@ -264,7 +268,7 @@ pub fn solve(
         valid_moves.clear();
         let max_gain = move_keys.iter().map(|&k| k >> 16).max().unwrap_or(0);
         let aspiration_threshold = (max_gain * 3) / 4;
-        
+
         for (node, &key) in move_keys.iter().enumerate() {
             if key > 0 {
                 let gain = key >> 16;
@@ -281,7 +285,7 @@ pub fn solve(
         let cmp = |a: &(usize, i32), b: &(usize, i32)| b.1.cmp(&a.1).then(a.0.cmp(&b.0));
 
         let mut k_base = valid_moves.len();
-        
+
         let adaptive_limit = if round < 50 {
             move_limit / 2
         } else if round < 200 {
@@ -289,7 +293,7 @@ pub fn solve(
         } else {
             move_limit / 3
         };
-        
+
         if k_base > adaptive_limit {
             k_base = adaptive_limit;
         }
@@ -305,7 +309,13 @@ pub fn solve(
         }
 
         let nodes_in_part_host = stream.memcpy_dtov(&d_nodes_in_part)?;
-        let slack = if round < 64 { 8usize } else if round < 256 { 4usize } else { 2usize };
+        let slack = if round < 64 {
+            8usize
+        } else if round < 256 {
+            4usize
+        } else {
+            2usize
+        };
 
         tgt_used.fill(0);
         for p in 0..num_parts_usize {
@@ -385,7 +395,7 @@ pub fn solve(
 
         if moves_executed == 0 {
             stagnant_rounds += 1;
-            
+
             if stagnant_rounds >= 5 && round < refinement_rounds.saturating_sub(50) {
                 let mini_seed = 987654321u64 + (round as u64) * 123456789u64;
                 unsafe {
@@ -410,9 +420,9 @@ pub fn solve(
     }
 
     let perturb_strength = 1i32;
-    
+
     let mut d_connectivity = stream.alloc_zeros::<i32>(challenge.num_hyperedges as usize)?;
-    
+
     unsafe {
         stream
             .launch_builder(&compute_connectivity_kernel)
@@ -423,19 +433,19 @@ pub fn solve(
             .arg(&mut d_connectivity)
             .launch(hedge_cfg.clone())?;
     }
-    
+
     let connectivity_vec = stream.memcpy_dtov(&d_connectivity)?;
     let mut best_connectivity: i32 = connectivity_vec.iter().sum();
-    
+
     let mut best_partition_host = stream.memcpy_dtov(&d_partition)?;
     let mut best_nodes_in_part_host = stream.memcpy_dtov(&d_nodes_in_part)?;
-    
+
     for ils_iter in 0..ils_iterations {
         let d_partition_restored = stream.memcpy_stod(&best_partition_host)?;
         let d_nodes_in_part_restored = stream.memcpy_stod(&best_nodes_in_part_host)?;
         d_partition = d_partition_restored;
         d_nodes_in_part = d_nodes_in_part_restored;
-        
+
         let seed = 123456789u64 + (ils_iter as u64) * 987654321u64;
         unsafe {
             stream
@@ -449,7 +459,7 @@ pub fn solve(
                 .arg(&seed)
                 .launch(one_thread_cfg.clone())?;
         }
-        
+
         for _ in 0..ils_quick_refine {
             unsafe {
                 stream
@@ -458,7 +468,7 @@ pub fn solve(
                     .arg(&mut d_moves_executed)
                     .launch(one_thread_cfg.clone())?;
             }
-            
+
             unsafe {
                 stream
                     .launch_builder(&precompute_edge_flags_kernel)
@@ -471,7 +481,7 @@ pub fn solve(
                     .arg(&mut d_edge_flags_double)
                     .launch(hedge_cfg.clone())?;
             }
-            
+
             unsafe {
                 stream
                     .launch_builder(&compute_moves_kernel)
@@ -488,27 +498,27 @@ pub fn solve(
                     .arg(&mut d_num_valid_moves)
                     .launch(cfg.clone())?;
             }
-            
+
             let num_valid_moves = stream.memcpy_dtov(&d_num_valid_moves)?[0];
             if num_valid_moves == 0 {
                 break;
             }
-            
+
             let move_keys = stream.memcpy_dtov(&d_move_priorities)?;
-            
+
             valid_moves.clear();
             for (node, &key) in move_keys.iter().enumerate() {
                 if key > 0 {
                     valid_moves.push((node, key));
                 }
             }
-            
+
             if valid_moves.is_empty() {
                 break;
             }
-            
+
             let cmp = |a: &(usize, i32), b: &(usize, i32)| b.1.cmp(&a.1).then(a.0.cmp(&b.0));
-            
+
             let mut k_base = valid_moves.len();
             if k_base > move_limit {
                 k_base = move_limit;
@@ -548,12 +558,13 @@ pub fn solve(
             if sorted_move_nodes.is_empty() {
                 let take = std::cmp::min(k_base, k_cand);
                 sorted_move_nodes.extend(valid_moves[..take].iter().map(|(n, _)| *n as i32));
-                sorted_move_parts.extend(valid_moves[..take].iter().map(|(_, key)| (key & 63) as i32));
+                sorted_move_parts
+                    .extend(valid_moves[..take].iter().map(|(_, key)| (key & 63) as i32));
             }
-            
+
             let d_sorted_move_nodes = stream.memcpy_stod(&sorted_move_nodes)?;
             let d_sorted_move_parts = stream.memcpy_stod(&sorted_move_parts)?;
-            
+
             unsafe {
                 stream
                     .launch_builder(&execute_moves_kernel)
@@ -566,13 +577,13 @@ pub fn solve(
                     .arg(&mut d_moves_executed)
                     .launch(one_thread_cfg.clone())?;
             }
-            
+
             let moves_executed = stream.memcpy_dtov(&d_moves_executed)?[0];
             if moves_executed == 0 {
                 break;
             }
         }
-        
+
         unsafe {
             stream
                 .launch_builder(&compute_connectivity_kernel)
@@ -583,10 +594,10 @@ pub fn solve(
                 .arg(&mut d_connectivity)
                 .launch(hedge_cfg.clone())?;
         }
-        
+
         let connectivity_vec = stream.memcpy_dtov(&d_connectivity)?;
         let new_connectivity: i32 = connectivity_vec.iter().sum();
-        
+
         let delta = new_connectivity - best_connectivity;
         let temperature = 1000.0 * (1.0 - (ils_iter as f64 / ils_iterations as f64)).powi(2);
         let accept_probability = if delta < 0 {
@@ -594,21 +605,22 @@ pub fn solve(
         } else {
             (-delta as f64 / temperature).exp()
         };
-        
-        let random_val = ((123456789u64 + ils_iter as u64 * 111111111u64) % 1000000) as f64 / 1000000.0;
-        
+
+        let random_val =
+            ((123456789u64 + ils_iter as u64 * 111111111u64) % 1000000) as f64 / 1000000.0;
+
         if random_val < accept_probability {
             best_connectivity = new_connectivity;
             best_partition_host = stream.memcpy_dtov(&d_partition)?;
             best_nodes_in_part_host = stream.memcpy_dtov(&d_nodes_in_part)?;
         }
     }
-    
+
     let d_partition_final = stream.memcpy_stod(&best_partition_host)?;
     let d_nodes_in_part_final = stream.memcpy_stod(&best_nodes_in_part_host)?;
     d_partition = d_partition_final;
     d_nodes_in_part = d_nodes_in_part_final;
-    
+
     for _ in 0..post_ils_polish {
         unsafe {
             stream
@@ -617,7 +629,7 @@ pub fn solve(
                 .arg(&mut d_moves_executed)
                 .launch(one_thread_cfg.clone())?;
         }
-        
+
         unsafe {
             stream
                 .launch_builder(&precompute_edge_flags_kernel)
@@ -630,7 +642,7 @@ pub fn solve(
                 .arg(&mut d_edge_flags_double)
                 .launch(hedge_cfg.clone())?;
         }
-        
+
         unsafe {
             stream
                 .launch_builder(&compute_moves_kernel)
@@ -647,27 +659,27 @@ pub fn solve(
                 .arg(&mut d_num_valid_moves)
                 .launch(cfg.clone())?;
         }
-        
+
         let num_valid_moves = stream.memcpy_dtov(&d_num_valid_moves)?[0];
         if num_valid_moves == 0 {
             break;
         }
-        
+
         let move_keys = stream.memcpy_dtov(&d_move_priorities)?;
-        
+
         valid_moves.clear();
         for (node, &key) in move_keys.iter().enumerate() {
             if key > 0 {
                 valid_moves.push((node, key));
             }
         }
-        
+
         if valid_moves.is_empty() {
             break;
         }
-        
+
         let cmp = |a: &(usize, i32), b: &(usize, i32)| b.1.cmp(&a.1).then(a.0.cmp(&b.0));
-        
+
         let polish_limit = 100_000usize;
         let k_base = std::cmp::min(valid_moves.len(), polish_limit);
         let extra_window = 16_384usize;
@@ -707,10 +719,10 @@ pub fn solve(
             sorted_move_nodes.extend(valid_moves[..take].iter().map(|(n, _)| *n as i32));
             sorted_move_parts.extend(valid_moves[..take].iter().map(|(_, key)| (key & 63) as i32));
         }
-        
+
         let d_sorted_move_nodes = stream.memcpy_stod(&sorted_move_nodes)?;
         let d_sorted_move_parts = stream.memcpy_stod(&sorted_move_parts)?;
-        
+
         unsafe {
             stream
                 .launch_builder(&execute_moves_kernel)
@@ -723,7 +735,7 @@ pub fn solve(
                 .arg(&mut d_moves_executed)
                 .launch(one_thread_cfg.clone())?;
         }
-        
+
         let moves_executed = stream.memcpy_dtov(&d_moves_executed)?[0];
         if moves_executed == 0 {
             break;
@@ -807,9 +819,9 @@ pub fn solve(
         let cmp = |a: &(usize, i32), b: &(usize, i32)| b.1.cmp(&a.1).then(a.0.cmp(&b.0));
 
         let mut k = valid_moves.len();
-        
+
         let adaptive_limit = move_limit / 2;
-        
+
         if k > adaptive_limit {
             k = adaptive_limit;
             valid_moves.select_nth_unstable_by(k - 1, cmp);

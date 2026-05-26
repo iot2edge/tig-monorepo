@@ -2,15 +2,15 @@ use anyhow::Result;
 use serde_json::{Map, Value};
 use tig_challenges::job_scheduling::*;
 
-use super::types::EffortConfig;
-use super::preprocessing::build_pre;
-use super::greedy::run_simple_greedy_baseline;
 use super::detect::{detect_track, DetectedTrack};
-use super::track_strict;
+use super::greedy::run_simple_greedy_baseline;
+use super::preprocessing::build_pre;
+use super::track_chaotic;
+use super::track_complex;
 use super::track_parallel;
 use super::track_random;
-use super::track_complex;
-use super::track_chaotic;
+use super::track_strict;
+use super::types::EffortConfig;
 
 fn parse_effort(hyperparameters: &Option<Map<String, Value>>) -> EffortConfig {
     if let Some(map) = hyperparameters {
@@ -39,21 +39,46 @@ pub fn solve_challenge(
     let effort = parse_effort(hyperparameters);
 
     match track {
-        DetectedTrack::Strict => {
-            track_strict::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
-        DetectedTrack::Parallel => {
-            track_parallel::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
-        DetectedTrack::Random => {
-            track_random::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
-        DetectedTrack::Complex => {
-            track_complex::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
-        DetectedTrack::Chaotic => {
-            track_chaotic::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
+        DetectedTrack::Strict => track_strict::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
+        DetectedTrack::Parallel => track_parallel::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
+        DetectedTrack::Random => track_random::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
+        DetectedTrack::Complex => track_complex::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
+        DetectedTrack::Chaotic => track_chaotic::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
     }
 }
 

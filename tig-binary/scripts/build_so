@@ -30,14 +30,22 @@ RUST_TARGET=$(if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
 else
     echo "x86_64-unknown-linux-gnu";
 fi)
-RUSTFLAGS="--emit=llvm-ir -C embed-bitcode=yes -C codegen-units=1 -C opt-level=3 -C lto=no -C debuginfo=2 -C relocation-model=pic" \
-cargo +nightly-2025-02-10 build \
-    -p tig-binary \
-    --target=$RUST_TARGET \
-    --release \
-    -Z build-std=core,alloc,std \
-    -Z build-std-features=panic-unwind \
-    --features="$FEATURES"
+if [ "${TIG_REUSE_LL:-0}" != "1" ]; then
+    find "target/$RUST_TARGET/release/deps" -name "*.ll" -delete 2>/dev/null || true
+    BUILD_STD_ARGS="-Z build-std=core,alloc,std -Z build-std-features=panic-unwind"
+    if [ "${TIG_NO_BUILD_STD:-0}" = "1" ]; then
+        BUILD_STD_ARGS=""
+    fi
+    RUSTFLAGS="--emit=llvm-ir -C embed-bitcode=yes -C codegen-units=1 -C opt-level=3 -C lto=no -C debuginfo=${TIG_DEBUGINFO:-2} -C relocation-model=pic" \
+    cargo +nightly-2025-02-10 build \
+        -p tig-binary \
+        --target=$RUST_TARGET \
+        --release \
+        $BUILD_STD_ARGS \
+        --features="$FEATURES"
+else
+    echo "Reusing existing .ll files"
+fi
 
 ll_files=()
 while IFS= read -r line; do
@@ -93,9 +101,17 @@ process_file() {
     
     echo "Processing $ll_file"
 
+    local fuel_plugin="${TIG_LLVM_DIR:-/opt/llvm}/lib/LLVMFuelRTSig.so"
+    if [ ! -f "$fuel_plugin" ]; then
+        sed '/^[[:space:]]*#dbg_/d' "$ll_file" | \
+        llc -relocation-model=pic -o - | \
+        clang -fPIC -c -x assembler - -o "$temp_obj"
+        return $?
+    fi
+
     cat "$ll_file" | \
     IS_FIRST_SRC=$is_first INSTRUMENT_FUEL=1 INSTRUMENT_RTSIG=1 INSTRUMENT_MEMORY=1 LL_FILE_BASENAME="$basename" opt \
-            -load-pass-plugin /opt/llvm/lib/LLVMFuelRTSig.so \
+            -load-pass-plugin "$fuel_plugin" \
             -passes="fuel-rt-sig" -S -o - | \
     llc -relocation-model=pic -o - | \
     clang -fPIC -c -x assembler - -o "$temp_obj"
@@ -200,13 +216,13 @@ done
 
 echo "Successfully processed all files"
 
-RUST_TARGET_LIBDIR=$(rustc --print target-libdir --target=$RUST_TARGET)
-LIBSTD_HASH=$(find "$RUST_TARGET_LIBDIR" -name "libstd-*.rlib" -exec basename {} \; | head -n1 | sed -E 's/libstd-(.*)\..*$/\1/')
+fuel_symbols_obj=$(mktemp).o
+clang -fPIC -c tig-binary/src/fuel_symbols.c -o "$fuel_symbols_obj"
+object_files+=("$fuel_symbols_obj")
 
-if [ ! -L "$RUST_TARGET_LIBDIR/libstd.so" ]
-then
-    ln -sf "$RUST_TARGET_LIBDIR/libstd-$LIBSTD_HASH.so" "$RUST_TARGET_LIBDIR/libstd.so"
-fi
+
+RUST_TARGET_LIBDIR=$(rustc +nightly-2025-02-10 --print target-libdir --target=$RUST_TARGET)
+LIBSTD_SO=$(find "$RUST_TARGET_LIBDIR" -name "libstd-*.so" | head -n1)
 
 ARCH=$(if [ "$(uname -i)" = "aarch64" ] || [ "$(uname -i)" = "arm64" ] || [ "$(arch 2>/dev/null || echo "")" = "aarch64" ] || [ "$(arch 2>/dev/null || echo "")" = "arm64" ]; then
     echo "arm64"
@@ -240,8 +256,9 @@ clang "${object_files[@]}" \
     -fPIC \
     -o $output \
     -L "$RUST_TARGET_LIBDIR" \
+    -Wl,--allow-multiple-definition \
     -lm \
-    -lstd \
+    "$LIBSTD_SO" \
     -Wl,--gc-sections \
     -ffunction-sections \
     -fdata-sections \

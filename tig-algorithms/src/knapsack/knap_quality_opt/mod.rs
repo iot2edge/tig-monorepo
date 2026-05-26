@@ -12,7 +12,9 @@ pub struct Hyperparameters {
 }
 
 #[derive(Clone, Copy)]
-struct Rng { state: u64 }
+struct Rng {
+    state: u64,
+}
 impl Rng {
     fn from_seed(seed: &[u8; 32]) -> Self {
         let mut s: u64 = 0x9E3779B97F4A7C15;
@@ -20,10 +22,13 @@ impl Rng {
             s ^= (b as u64) << ((i & 7) * 8);
             s = s.rotate_left(7).wrapping_mul(0xBF58476D1CE4E5B9);
         }
-        if s == 0 { s = 1; }
+        if s == 0 {
+            s = 1;
+        }
         Self { state: s }
     }
-    #[inline] fn next_u64(&mut self) -> u64 {
+    #[inline]
+    fn next_u64(&mut self) -> u64 {
         let mut x = self.state;
         x ^= x << 7;
         x ^= x >> 9;
@@ -31,10 +36,19 @@ impl Rng {
         self.state = x;
         x
     }
-    #[inline] fn next_u32(&mut self) -> u32 { (self.next_u64() >> 32) as u32 }
-    #[inline] fn next_f64(&mut self) -> f64 { (self.next_u64() >> 11) as f64 / (1u64 << 53) as f64 }
-    #[inline] fn next_usize(&mut self, bound: usize) -> usize {
-        if bound == 0 { return 0; }
+    #[inline]
+    fn next_u32(&mut self) -> u32 {
+        (self.next_u64() >> 32) as u32
+    }
+    #[inline]
+    fn next_f64(&mut self) -> f64 {
+        (self.next_u64() >> 11) as f64 / (1u64 << 53) as f64
+    }
+    #[inline]
+    fn next_usize(&mut self, bound: usize) -> usize {
+        if bound == 0 {
+            return 0;
+        }
         (self.next_u64() % bound as u64) as usize
     }
 }
@@ -53,7 +67,9 @@ impl<'a> State<'a> {
     fn new_empty(ch: &'a Challenge) -> Self {
         let n = ch.num_items;
         let mut contrib = vec![0i32; n];
-        for i in 0..n { contrib[i] = ch.values[i] as i32; }
+        for i in 0..n {
+            contrib[i] = ch.values[i] as i32;
+        }
         Self {
             ch,
             selected_bit: vec![false; n],
@@ -65,7 +81,10 @@ impl<'a> State<'a> {
         }
     }
 
-    #[inline(always)] fn slack(&self) -> u32 { self.ch.max_weight - self.total_weight }
+    #[inline(always)]
+    fn slack(&self) -> u32 {
+        self.ch.max_weight - self.total_weight
+    }
 
     #[inline(always)]
     fn add_item(&mut self, i: usize) {
@@ -106,7 +125,9 @@ impl<'a> State<'a> {
     }
 
     fn selected_items(&self) -> Vec<usize> {
-        (0..self.ch.num_items).filter(|&i| self.selected_bit[i]).collect()
+        (0..self.ch.num_items)
+            .filter(|&i| self.selected_bit[i])
+            .collect()
     }
 
     fn clone_solution(&self) -> SolState {
@@ -137,7 +158,9 @@ struct SolState {
 fn build_greedy_density(state: &mut State) {
     let n = state.ch.num_items;
     let cap = state.ch.max_weight;
-    for i in 0..n { state.add_item(i); }
+    for i in 0..n {
+        state.add_item(i);
+    }
     while state.total_weight > cap {
         let mut worst = 0;
         let mut worst_s = i64::MAX;
@@ -146,7 +169,10 @@ fn build_greedy_density(state: &mut State) {
                 let c = state.contrib[i] as i64;
                 let w = (state.ch.weights[i] as i64).max(1);
                 let s = (c * 1000) / w;
-                if s < worst_s { worst_s = s; worst = i; }
+                if s < worst_s {
+                    worst_s = s;
+                    worst = i;
+                }
             }
         }
         state.remove_item(worst);
@@ -165,17 +191,30 @@ fn build_greedy_density(state: &mut State) {
         let mut target = vec![false; n];
         let mut rem = cap;
         for &i in &by_density {
-            if state.ch.weights[i] <= rem { target[i] = true; rem -= state.ch.weights[i]; }
+            if state.ch.weights[i] <= rem {
+                target[i] = true;
+                rem -= state.ch.weights[i];
+            }
         }
         let mut to_rm = Vec::new();
         let mut to_add = Vec::new();
         for i in 0..n {
-            if state.selected_bit[i] && !target[i] { to_rm.push(i); }
-            if !state.selected_bit[i] && target[i] { to_add.push(i); }
+            if state.selected_bit[i] && !target[i] {
+                to_rm.push(i);
+            }
+            if !state.selected_bit[i] && target[i] {
+                to_add.push(i);
+            }
         }
-        if to_rm.is_empty() && to_add.is_empty() { break; }
-        for &r in &to_rm { state.remove_item(r); }
-        for &a in &to_add { state.add_item(a); }
+        if to_rm.is_empty() && to_add.is_empty() {
+            break;
+        }
+        for &r in &to_rm {
+            state.remove_item(r);
+        }
+        for &a in &to_add {
+            state.add_item(a);
+        }
     }
 }
 
@@ -185,36 +224,55 @@ fn build_greedy_value(state: &mut State) {
     let mut order: Vec<usize> = (0..n).collect();
     order.sort_unstable_by_key(|&i| std::cmp::Reverse(state.ch.values[i]));
     for &i in &order {
-        if state.total_weight + state.ch.weights[i] <= cap { state.add_item(i); }
+        if state.total_weight + state.ch.weights[i] <= cap {
+            state.add_item(i);
+        }
     }
 }
 
 fn build_greedy_hub(state: &mut State) {
     let n = state.ch.num_items;
     let cap = state.ch.max_weight;
-    let mut hub_scores: Vec<(usize, i64)> = (0..n).map(|i| {
-        let s: i64 = state.ch.interaction_values[i].iter().map(|&v| v as i64).sum();
-        (i, s)
-    }).collect();
+    let mut hub_scores: Vec<(usize, i64)> = (0..n)
+        .map(|i| {
+            let s: i64 = state.ch.interaction_values[i]
+                .iter()
+                .map(|&v| v as i64)
+                .sum();
+            (i, s)
+        })
+        .collect();
     hub_scores.sort_unstable_by_key(|&(_, s)| std::cmp::Reverse(s));
     for &(i, _) in &hub_scores {
-        if state.total_weight + state.ch.weights[i] <= cap { state.add_item(i); }
+        if state.total_weight + state.ch.weights[i] <= cap {
+            state.add_item(i);
+        }
     }
 }
 
 fn build_greedy_synergy_weight(state: &mut State) {
     let n = state.ch.num_items;
     let cap = state.ch.max_weight;
-    let mut scores: Vec<(usize, i64)> = (0..n).map(|i| {
-        let avg_syn: i64 = if n > 1 {
-            state.ch.interaction_values[i].iter().map(|&v| v as i64).sum::<i64>() / (n as i64 - 1)
-        } else { 0 };
-        let w = (state.ch.weights[i] as i64).max(1);
-        (i, (state.ch.values[i] as i64 + avg_syn) * 100 / w)
-    }).collect();
+    let mut scores: Vec<(usize, i64)> = (0..n)
+        .map(|i| {
+            let avg_syn: i64 = if n > 1 {
+                state.ch.interaction_values[i]
+                    .iter()
+                    .map(|&v| v as i64)
+                    .sum::<i64>()
+                    / (n as i64 - 1)
+            } else {
+                0
+            };
+            let w = (state.ch.weights[i] as i64).max(1);
+            (i, (state.ch.values[i] as i64 + avg_syn) * 100 / w)
+        })
+        .collect();
     scores.sort_unstable_by_key(|&(_, s)| std::cmp::Reverse(s));
     for &(i, _) in &scores {
-        if state.total_weight + state.ch.weights[i] <= cap { state.add_item(i); }
+        if state.total_weight + state.ch.weights[i] <= cap {
+            state.add_item(i);
+        }
     }
 }
 
@@ -222,16 +280,24 @@ fn construct_forward_incremental(state: &mut State, mode: usize, rng: &mut Rng) 
     let n = state.ch.num_items;
     loop {
         let slack = state.slack();
-        if slack == 0 { break; }
+        if slack == 0 {
+            break;
+        }
         let mut best_i: Option<usize> = None;
         let mut best_s: i64 = i64::MIN;
         let mut second_i: Option<usize> = None;
         let mut second_s: i64 = i64::MIN;
         for i in 0..n {
-            if state.selected_bit[i] { continue; }
-            if state.ch.weights[i] > slack { continue; }
+            if state.selected_bit[i] {
+                continue;
+            }
+            if state.ch.weights[i] > slack {
+                continue;
+            }
             let c = state.contrib[i] as i64;
-            if c <= 0 { continue; }
+            if c <= 0 {
+                continue;
+            }
             let w = (state.ch.weights[i] as i64).max(1);
             let mut s = match mode {
                 2 => c,
@@ -243,17 +309,30 @@ fn construct_forward_incremental(state: &mut State, mode: usize, rng: &mut Rng) 
                 s += (rng.next_u32() & mask) as i64;
             }
             if s > best_s {
-                second_s = best_s; second_i = best_i;
-                best_s = s; best_i = Some(i);
+                second_s = best_s;
+                second_i = best_i;
+                best_s = s;
+                best_i = Some(i);
             } else if s > second_s {
-                second_s = s; second_i = Some(i);
+                second_s = s;
+                second_i = Some(i);
             }
         }
         let pick = if mode >= 4 && second_i.is_some() {
             let m = if mode >= 5 { 1 } else { 3 };
-            if (rng.next_u32() & m) == 0 { second_i } else { best_i }
-        } else { best_i };
-        if let Some(i) = pick { state.add_item(i); } else { break; }
+            if (rng.next_u32() & m) == 0 {
+                second_i
+            } else {
+                best_i
+            }
+        } else {
+            best_i
+        };
+        if let Some(i) = pick {
+            state.add_item(i);
+        } else {
+            break;
+        }
     }
 }
 
@@ -262,7 +341,7 @@ fn build_hub_pair_kth(state: &mut State, k: usize) {
     let cap = state.ch.max_weight;
     let mut pairs: Vec<(i32, usize, usize)> = Vec::new();
     for i in 0..n {
-        for j in (i+1)..n {
+        for j in (i + 1)..n {
             if state.ch.weights[i] + state.ch.weights[j] <= cap {
                 pairs.push((state.ch.interaction_values[i][j], i, j));
             }
@@ -272,7 +351,9 @@ fn build_hub_pair_kth(state: &mut State, k: usize) {
     let mut used = Vec::new();
     let mut count = 0;
     for &(_, pi, pj) in &pairs {
-        if used.contains(&pi) || used.contains(&pj) { continue; }
+        if used.contains(&pi) || used.contains(&pj) {
+            continue;
+        }
         if count == k {
             state.add_item(pi);
             state.add_item(pj);
@@ -284,19 +365,34 @@ fn build_hub_pair_kth(state: &mut State, k: usize) {
     }
     loop {
         let slack = state.slack();
-        if slack == 0 { break; }
+        if slack == 0 {
+            break;
+        }
         let mut best_i: Option<usize> = None;
         let mut best_s: i64 = 0;
         for i in 0..n {
-            if state.selected_bit[i] { continue; }
-            if state.ch.weights[i] > slack { continue; }
+            if state.selected_bit[i] {
+                continue;
+            }
+            if state.ch.weights[i] > slack {
+                continue;
+            }
             let c = state.contrib[i] as i64;
-            if c <= 0 { continue; }
+            if c <= 0 {
+                continue;
+            }
             let w = (state.ch.weights[i] as i64).max(1);
             let s = (c * 1000) / w;
-            if s > best_s { best_s = s; best_i = Some(i); }
+            if s > best_s {
+                best_s = s;
+                best_i = Some(i);
+            }
         }
-        if let Some(i) = best_i { state.add_item(i); } else { break; }
+        if let Some(i) = best_i {
+            state.add_item(i);
+        } else {
+            break;
+        }
     }
 }
 
@@ -319,8 +415,12 @@ fn dp_refinement_hp(state: &mut State, core_half: usize) {
     let mut rem = cap;
     for (idx, &i) in by_density.iter().enumerate() {
         let w = weights[i];
-        if w <= rem { rem -= w; idx_last_inserted = idx; }
-        else if idx_first_rejected == n { idx_first_rejected = idx; }
+        if w <= rem {
+            rem -= w;
+            idx_last_inserted = idx;
+        } else if idx_first_rejected == n {
+            idx_first_rejected = idx;
+        }
     }
 
     let left = idx_first_rejected.saturating_sub(core_half + 1);
@@ -331,7 +431,9 @@ fn dp_refinement_hp(state: &mut State, core_half: usize) {
     let used_locked: u64 = locked.iter().map(|&i| weights[i] as u64).sum();
     let rem_cap = (cap as u64).saturating_sub(used_locked) as usize;
     let myk = core.len();
-    if myk == 0 || rem_cap == 0 { return; }
+    if myk == 0 || rem_cap == 0 {
+        return;
+    }
 
     let mut total_core_weight: usize = 0;
     let mut total_pos_weight: usize = 0;
@@ -341,30 +443,44 @@ fn dp_refinement_hp(state: &mut State, core_half: usize) {
         total_core_weight += wt;
         if contrib[it] > 0 {
             total_pos_weight += wt;
-            if total_pos_weight > rem_cap { all_pos_fit = false; }
+            if total_pos_weight > rem_cap {
+                all_pos_fit = false;
+            }
         }
     }
 
     let target_sel = if all_pos_fit {
         let mut sel: Vec<usize> = locked.clone();
-        for &it in &core { if contrib[it] > 0 { sel.push(it); } }
+        for &it in &core {
+            if contrib[it] > 0 {
+                sel.push(it);
+            }
+        }
         sel.sort_unstable();
         sel
     } else {
         let myw = rem_cap.min(total_core_weight);
         let dp_size = myw + 1;
         let choose_size = myk * dp_size;
-        if state.dp_cache.len() < dp_size { state.dp_cache.resize(dp_size, i64::MIN / 4); }
-        if state.choose_cache.len() < choose_size { state.choose_cache.resize(choose_size, 0); }
+        if state.dp_cache.len() < dp_size {
+            state.dp_cache.resize(dp_size, i64::MIN / 4);
+        }
+        if state.choose_cache.len() < choose_size {
+            state.choose_cache.resize(choose_size, 0);
+        }
         let init_val = i64::MIN / 4;
-        for v in &mut state.dp_cache[..dp_size] { *v = init_val; }
+        for v in &mut state.dp_cache[..dp_size] {
+            *v = init_val;
+        }
         state.dp_cache[0] = 0;
         state.choose_cache[..choose_size].fill(0);
 
         let mut w_hi: usize = 0;
         for (t, &it) in core.iter().enumerate() {
             let wt = weights[it] as usize;
-            if wt > myw { continue; }
+            if wt > myw {
+                continue;
+            }
             let val = contrib[it] as i64;
             let new_hi = (w_hi + wt).min(myw);
             for w in (wt..=new_hi).rev() {
@@ -397,27 +513,50 @@ fn dp_refinement_hp(state: &mut State, core_half: usize) {
     let m = target_sel.len();
     for i in 0..n {
         let in_target = j < m && target_sel[j] == i;
-        if in_target { j += 1; }
-        if state.selected_bit[i] && !in_target { to_rm.push(i); }
-        else if in_target && !state.selected_bit[i] { to_add.push(i); }
+        if in_target {
+            j += 1;
+        }
+        if state.selected_bit[i] && !in_target {
+            to_rm.push(i);
+        } else if in_target && !state.selected_bit[i] {
+            to_add.push(i);
+        }
     }
-    for &r in &to_rm { state.remove_item(r); }
-    for &a in &to_add { state.add_item(a); }
+    for &r in &to_rm {
+        state.remove_item(r);
+    }
+    for &a in &to_add {
+        state.add_item(a);
+    }
 }
 
 fn apply_best_add(state: &mut State) -> bool {
     let slack = state.slack();
-    if slack == 0 { return false; }
+    if slack == 0 {
+        return false;
+    }
     let n = state.ch.num_items;
     let mut best_i: Option<usize> = None;
     let mut best_d: i32 = 0;
     for i in 0..n {
-        if state.selected_bit[i] { continue; }
-        if state.ch.weights[i] > slack { continue; }
+        if state.selected_bit[i] {
+            continue;
+        }
+        if state.ch.weights[i] > slack {
+            continue;
+        }
         let d = state.contrib[i];
-        if d > best_d { best_d = d; best_i = Some(i); }
+        if d > best_d {
+            best_d = d;
+            best_i = Some(i);
+        }
     }
-    if let Some(i) = best_i { state.add_item(i); true } else { false }
+    if let Some(i) = best_i {
+        state.add_item(i);
+        true
+    } else {
+        false
+    }
 }
 
 fn apply_best_swap_1_1(state: &mut State, selected: &[usize]) -> bool {
@@ -428,26 +567,41 @@ fn apply_best_swap_1_1(state: &mut State, selected: &[usize]) -> bool {
         let w_rm = state.ch.weights[rm];
         let max_w = w_rm + slack;
         for cand in 0..n {
-            if state.selected_bit[cand] { continue; }
+            if state.selected_bit[cand] {
+                continue;
+            }
             let wc = state.ch.weights[cand];
-            if wc > max_w { continue; }
-            let delta = state.contrib[cand] - state.contrib[rm]
-                - state.ch.interaction_values[cand][rm];
+            if wc > max_w {
+                continue;
+            }
+            let delta =
+                state.contrib[cand] - state.contrib[rm] - state.ch.interaction_values[cand][rm];
             if delta > 0 && best.map_or(true, |(_, _, bd)| delta > bd) {
                 best = Some((cand, rm, delta));
             }
         }
     }
-    if let Some((cand, rm, _)) = best { state.replace_item(rm, cand); true } else { false }
+    if let Some((cand, rm, _)) = best {
+        state.replace_item(rm, cand);
+        true
+    } else {
+        false
+    }
 }
 
 fn apply_pair_add(state: &mut State) -> bool {
     let slack = state.slack();
-    if slack < 2 { return false; }
+    if slack < 2 {
+        return false;
+    }
     let n = state.ch.num_items;
-    let unsel: Vec<usize> = (0..n).filter(|&i| !state.selected_bit[i] && state.ch.weights[i] < slack).collect();
+    let unsel: Vec<usize> = (0..n)
+        .filter(|&i| !state.selected_bit[i] && state.ch.weights[i] < slack)
+        .collect();
     let m = unsel.len();
-    if m < 2 { return false; }
+    if m < 2 {
+        return false;
+    }
 
     let mut best_delta: i64 = 0;
     let mut best_pair: Option<(usize, usize)> = None;
@@ -455,9 +609,11 @@ fn apply_pair_add(state: &mut State) -> bool {
         let a = unsel[ai];
         let wa = state.ch.weights[a];
         let ca = state.contrib[a] as i64;
-        for bi in (ai+1)..m {
+        for bi in (ai + 1)..m {
             let b = unsel[bi];
-            if wa + state.ch.weights[b] > slack { continue; }
+            if wa + state.ch.weights[b] > slack {
+                continue;
+            }
             let delta = ca + state.contrib[b] as i64 + state.ch.interaction_values[a][b] as i64;
             if delta > best_delta {
                 best_delta = delta;
@@ -469,7 +625,9 @@ fn apply_pair_add(state: &mut State) -> bool {
         state.add_item(a);
         state.add_item(b);
         true
-    } else { false }
+    } else {
+        false
+    }
 }
 
 fn apply_chain_move(state: &mut State) -> bool {
@@ -489,13 +647,17 @@ fn apply_chain_move(state: &mut State) -> bool {
         for ui in 0..unsel.len() {
             let a1 = unsel[ui];
             let w_a1 = state.ch.weights[a1] as i64;
-            if w_a1 >= budget { continue; }
+            if w_a1 >= budget {
+                continue;
+            }
             let c_a1 = state.contrib[a1] as i64 - state.ch.interaction_values[a1][rm] as i64;
 
-            for uj in (ui+1)..unsel.len() {
+            for uj in (ui + 1)..unsel.len() {
                 let a2 = unsel[uj];
                 let w_a2 = state.ch.weights[a2] as i64;
-                if w_a1 + w_a2 > budget { continue; }
+                if w_a1 + w_a2 > budget {
+                    continue;
+                }
 
                 let c_a2 = state.contrib[a2] as i64 - state.ch.interaction_values[a2][rm] as i64;
                 let syn = state.ch.interaction_values[a1][a2] as i64;
@@ -517,7 +679,9 @@ fn apply_chain_move(state: &mut State) -> bool {
         state.add_item(a1);
         state.add_item(a2);
         true
-    } else { false }
+    } else {
+        false
+    }
 }
 
 fn apply_reverse_chain(state: &mut State) -> bool {
@@ -539,12 +703,14 @@ fn apply_reverse_chain(state: &mut State) -> bool {
             let c_r1 = state.contrib[r1] as i64;
             let c_add_r1 = state.ch.interaction_values[add][r1] as i64;
 
-            for sj in (si+1)..sel.len() {
+            for sj in (si + 1)..sel.len() {
                 let r2 = sel[sj];
                 let w_r2 = state.ch.weights[r2] as i64;
                 let freed = w_r1 + w_r2;
                 let new_w = state.total_weight as i64 - freed + w_add;
-                if new_w > cap as i64 || new_w < 0 { continue; }
+                if new_w > cap as i64 || new_w < 0 {
+                    continue;
+                }
 
                 let c_r2 = state.contrib[r2] as i64;
                 let syn_r1_r2 = state.ch.interaction_values[r1][r2] as i64;
@@ -567,7 +733,9 @@ fn apply_reverse_chain(state: &mut State) -> bool {
         state.remove_item(r2);
         state.add_item(add);
         true
-    } else { false }
+    } else {
+        false
+    }
 }
 
 fn apply_swap_2_2_bounded(state: &mut State, k: usize) -> bool {
@@ -594,7 +762,7 @@ fn apply_swap_2_2_bounded(state: &mut State, k: usize) -> bool {
         let r1 = sel_ranked[si].0;
         let w_r1 = state.ch.weights[r1] as i64;
         let c_r1 = state.contrib[r1] as i64;
-        for sj in (si+1)..sel_ranked.len() {
+        for sj in (si + 1)..sel_ranked.len() {
             let r2 = sel_ranked[sj].0;
             let w_r2 = state.ch.weights[r2] as i64;
             let c_r2 = state.contrib[r2] as i64;
@@ -606,14 +774,18 @@ fn apply_swap_2_2_bounded(state: &mut State, k: usize) -> bool {
             for ui in 0..unsel_ranked.len() {
                 let a1 = unsel_ranked[ui].0;
                 let w_a1 = state.ch.weights[a1] as i64;
-                if w_a1 > budget { continue; }
+                if w_a1 > budget {
+                    continue;
+                }
                 let c_a1 = state.contrib[a1] as i64
                     - state.ch.interaction_values[a1][r1] as i64
                     - state.ch.interaction_values[a1][r2] as i64;
-                for uj in (ui+1)..unsel_ranked.len() {
+                for uj in (ui + 1)..unsel_ranked.len() {
                     let a2 = unsel_ranked[uj].0;
                     let w_a2 = state.ch.weights[a2] as i64;
-                    if w_a1 + w_a2 > budget { continue; }
+                    if w_a1 + w_a2 > budget {
+                        continue;
+                    }
                     let c_a2 = state.contrib[a2] as i64
                         - state.ch.interaction_values[a2][r1] as i64
                         - state.ch.interaction_values[a2][r2] as i64;
@@ -636,17 +808,27 @@ fn apply_swap_2_2_bounded(state: &mut State, k: usize) -> bool {
         state.add_item(a1);
         state.add_item(a2);
         true
-    } else { false }
+    } else {
+        false
+    }
 }
 
 fn local_search_vnd_fast(state: &mut State) {
     let n = state.ch.num_items;
     let mut selected_buf: Vec<usize> = Vec::with_capacity(n);
     for _ in 0..80 {
-        if apply_best_add(state) { continue; }
+        if apply_best_add(state) {
+            continue;
+        }
         selected_buf.clear();
-        for i in 0..n { if state.selected_bit[i] { selected_buf.push(i); } }
-        if apply_best_swap_1_1(state, &selected_buf) { continue; }
+        for i in 0..n {
+            if state.selected_bit[i] {
+                selected_buf.push(i);
+            }
+        }
+        if apply_best_swap_1_1(state, &selected_buf) {
+            continue;
+        }
         break;
     }
 }
@@ -655,12 +837,24 @@ fn local_search_vnd_medium(state: &mut State, k: usize) {
     let n = state.ch.num_items;
     let mut selected_buf: Vec<usize> = Vec::with_capacity(n);
     for _ in 0..120 {
-        if apply_best_add(state) { continue; }
+        if apply_best_add(state) {
+            continue;
+        }
         selected_buf.clear();
-        for i in 0..n { if state.selected_bit[i] { selected_buf.push(i); } }
-        if apply_best_swap_1_1(state, &selected_buf) { continue; }
-        if apply_pair_add(state) { continue; }
-        if apply_swap_2_2_bounded(state, k) { continue; }
+        for i in 0..n {
+            if state.selected_bit[i] {
+                selected_buf.push(i);
+            }
+        }
+        if apply_best_swap_1_1(state, &selected_buf) {
+            continue;
+        }
+        if apply_pair_add(state) {
+            continue;
+        }
+        if apply_swap_2_2_bounded(state, k) {
+            continue;
+        }
         break;
     }
 }
@@ -677,14 +871,30 @@ fn local_search_vnd_heavy(state: &mut State) {
     let n = state.ch.num_items;
     let mut selected_buf: Vec<usize> = Vec::with_capacity(n);
     for _ in 0..300 {
-        if apply_best_add(state) { continue; }
+        if apply_best_add(state) {
+            continue;
+        }
         selected_buf.clear();
-        for i in 0..n { if state.selected_bit[i] { selected_buf.push(i); } }
-        if apply_best_swap_1_1(state, &selected_buf) { continue; }
-        if apply_pair_add(state) { continue; }
-        if apply_swap_2_2_bounded(state, 25) { continue; }
-        if apply_chain_move(state) { continue; }
-        if apply_reverse_chain(state) { continue; }
+        for i in 0..n {
+            if state.selected_bit[i] {
+                selected_buf.push(i);
+            }
+        }
+        if apply_best_swap_1_1(state, &selected_buf) {
+            continue;
+        }
+        if apply_pair_add(state) {
+            continue;
+        }
+        if apply_swap_2_2_bounded(state, 25) {
+            continue;
+        }
+        if apply_chain_move(state) {
+            continue;
+        }
+        if apply_reverse_chain(state) {
+            continue;
+        }
         break;
     }
 }
@@ -706,7 +916,9 @@ fn simulated_annealing(state: &mut State, rng: &mut Rng, n_rounds: usize, n_iter
             unsel.push(i);
         }
     }
-    if sel.is_empty() || unsel.is_empty() { return; }
+    if sel.is_empty() || unsel.is_empty() {
+        return;
+    }
 
     let mut best_snap = state.clone_solution();
 
@@ -714,22 +926,31 @@ fn simulated_annealing(state: &mut State, rng: &mut Rng, n_rounds: usize, n_iter
     for _ in 0..100 {
         let rm = sel[rng.next_usize(sel.len())];
         let add = unsel[rng.next_usize(unsel.len())];
-        let d = state.contrib[add] as f64 - state.contrib[rm] as f64
+        let d = state.contrib[add] as f64
+            - state.contrib[rm] as f64
             - state.ch.interaction_values[add][rm] as f64;
-        if d < 0.0 { deltas.push(-d); }
+        if d < 0.0 {
+            deltas.push(-d);
+        }
     }
-    if deltas.is_empty() { return; }
+    if deltas.is_empty() {
+        return;
+    }
     deltas.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
     let p75 = deltas[deltas.len() * 3 / 4];
     let t0 = p75 / 0.693;
-    if t0 < 1.0 { return; }
+    if t0 < 1.0 {
+        return;
+    }
 
     let alpha = 0.95f64;
     let mut temp = t0;
 
     for _ in 0..n_rounds {
         for _ in 0..n_iter {
-            if sel.is_empty() || unsel.is_empty() { continue; }
+            if sel.is_empty() || unsel.is_empty() {
+                continue;
+            }
 
             let coin = rng.next_u32() % 10;
             if coin < 8 {
@@ -738,8 +959,11 @@ fn simulated_annealing(state: &mut State, rng: &mut Rng, n_rounds: usize, n_iter
                 let rm = sel[si];
                 let add = unsel[ui];
                 let w_new = state.total_weight - state.ch.weights[rm] + state.ch.weights[add];
-                if w_new > cap { continue; }
-                let delta = state.contrib[add] as i64 - state.contrib[rm] as i64
+                if w_new > cap {
+                    continue;
+                }
+                let delta = state.contrib[add] as i64
+                    - state.contrib[rm] as i64
                     - state.ch.interaction_values[add][rm] as i64;
                 if delta > 0 || rng.next_f64() < (-delta as f64 / temp).exp() {
                     state.replace_item(rm, add);
@@ -762,10 +986,14 @@ fn simulated_annealing(state: &mut State, rng: &mut Rng, n_rounds: usize, n_iter
                 }
             } else if coin == 8 {
                 let slack = state.slack();
-                if slack == 0 { continue; }
+                if slack == 0 {
+                    continue;
+                }
                 let ui = rng.next_usize(unsel.len());
                 let add = unsel[ui];
-                if state.ch.weights[add] > slack { continue; }
+                if state.ch.weights[add] > slack {
+                    continue;
+                }
                 let delta = state.contrib[add] as i64;
                 if delta > 0 || rng.next_f64() < (-delta as f64 / temp).exp() {
                     state.add_item(add);
@@ -808,7 +1036,11 @@ fn crossover_frequency(population: &[SolState], ch: &Challenge, rng: &mut Rng) -
     let pop_size = population.len();
     let mut freq = vec![0usize; n];
     for sol in population {
-        for i in 0..n { if sol.bits[i] { freq[i] += 1; } }
+        for i in 0..n {
+            if sol.bits[i] {
+                freq[i] += 1;
+            }
+        }
     }
     let threshold = (pop_size * 3) / 4;
     let mut child_bits = vec![false; n];
@@ -816,8 +1048,11 @@ fn crossover_frequency(population: &[SolState], ch: &Challenge, rng: &mut Rng) -
     let mut consensus: Vec<usize> = Vec::new();
     let mut exploratory: Vec<usize> = Vec::new();
     for i in 0..n {
-        if freq[i] > threshold { consensus.push(i); }
-        else if freq[i] > 0 { exploratory.push(i); }
+        if freq[i] > threshold {
+            consensus.push(i);
+        } else if freq[i] > 0 {
+            exploratory.push(i);
+        }
     }
     for &i in &consensus {
         if child_weight + ch.weights[i] <= ch.max_weight {
@@ -834,7 +1069,12 @@ fn crossover_frequency(population: &[SolState], ch: &Challenge, rng: &mut Rng) -
     child_bits
 }
 
-fn crossover_uniform(sol_a: &SolState, sol_b: &SolState, ch: &Challenge, rng: &mut Rng) -> Vec<bool> {
+fn crossover_uniform(
+    sol_a: &SolState,
+    sol_b: &SolState,
+    ch: &Challenge,
+    rng: &mut Rng,
+) -> Vec<bool> {
     let n = ch.num_items;
     let mut bits = vec![false; n];
     let mut weight: u32 = 0;
@@ -847,7 +1087,9 @@ fn crossover_uniform(sol_a: &SolState, sol_b: &SolState, ch: &Challenge, rng: &m
         }
     }
     for i in 0..n {
-        if bits[i] { continue; }
+        if bits[i] {
+            continue;
+        }
         if sol_a.bits[i] || sol_b.bits[i] {
             if rng.next_u32() % 2 == 0 && weight + ch.weights[i] <= ch.max_weight {
                 bits[i] = true;
@@ -861,10 +1103,14 @@ fn crossover_uniform(sol_a: &SolState, sol_b: &SolState, ch: &Challenge, rng: &m
 fn set_state_from_bits(state: &mut State, bits: &[bool]) {
     let n = state.ch.num_items;
     for i in (0..n).rev() {
-        if state.selected_bit[i] { state.remove_item(i); }
+        if state.selected_bit[i] {
+            state.remove_item(i);
+        }
     }
     for i in 0..n {
-        if bits[i] { state.add_item(i); }
+        if bits[i] {
+            state.add_item(i);
+        }
     }
 }
 
@@ -874,17 +1120,28 @@ fn build_windows(state: &State, k: usize) -> (Vec<usize>, Vec<usize>) {
     let mut used_r: Vec<(usize, f64)> = Vec::with_capacity(n);
     for i in 0..n {
         let r = state.contrib[i] as f64 / (state.ch.weights[i] as f64).max(1.0);
-        if state.selected_bit[i] { used_r.push((i, r)); } else { unused_r.push((i, r)); }
+        if state.selected_bit[i] {
+            used_r.push((i, r));
+        } else {
+            unused_r.push((i, r));
+        }
     }
     let ku = k.min(unused_r.len());
     if ku > 0 && ku < unused_r.len() {
-        unused_r.select_nth_unstable_by(ku - 1, |a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        unused_r.select_nth_unstable_by(ku - 1, |a, b| {
+            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+        });
     }
     let ks = k.min(used_r.len());
     if ks > 0 && ks < used_r.len() {
-        used_r.select_nth_unstable_by(ks - 1, |a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        used_r.select_nth_unstable_by(ks - 1, |a, b| {
+            a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
+        });
     }
-    (unused_r[..ku].iter().map(|x| x.0).collect(), used_r[..ks].iter().map(|x| x.0).collect())
+    (
+        unused_r[..ku].iter().map(|x| x.0).collect(),
+        used_r[..ks].iter().map(|x| x.0).collect(),
+    )
 }
 
 fn local_search_vnd_windowed(state: &mut State, window_k: usize) {
@@ -896,11 +1153,19 @@ fn local_search_vnd_windowed(state: &mut State, window_k: usize) {
         if slack > 0 {
             let mut ba: Option<(usize, i32)> = None;
             for &c in &best_unused {
-                if state.ch.weights[c] > slack { continue; }
+                if state.ch.weights[c] > slack {
+                    continue;
+                }
                 let d = state.contrib[c];
-                if d > 0 && ba.map_or(true, |(_, bd)| d > bd) { ba = Some((c, d)); }
+                if d > 0 && ba.map_or(true, |(_, bd)| d > bd) {
+                    ba = Some((c, d));
+                }
             }
-            if let Some((c, _)) = ba { state.add_item(c); improved = true; continue; }
+            if let Some((c, _)) = ba {
+                state.add_item(c);
+                improved = true;
+                continue;
+            }
         }
 
         {
@@ -908,17 +1173,30 @@ fn local_search_vnd_windowed(state: &mut State, window_k: usize) {
             for &rm in &worst_used {
                 let max_w = state.ch.weights[rm] + state.slack();
                 for &c in &best_unused {
-                    if state.ch.weights[c] > max_w { continue; }
-                    let d = state.contrib[c] - state.contrib[rm] - state.ch.interaction_values[c][rm];
-                    if d > 0 && bs.map_or(true, |(_, _, bd)| d > bd) { bs = Some((c, rm, d)); }
+                    if state.ch.weights[c] > max_w {
+                        continue;
+                    }
+                    let d =
+                        state.contrib[c] - state.contrib[rm] - state.ch.interaction_values[c][rm];
+                    if d > 0 && bs.map_or(true, |(_, _, bd)| d > bd) {
+                        bs = Some((c, rm, d));
+                    }
                 }
             }
-            if let Some((c, rm, _)) = bs { state.replace_item(rm, c); improved = true; continue; }
+            if let Some((c, rm, _)) = bs {
+                state.replace_item(rm, c);
+                improved = true;
+                continue;
+            }
         }
 
         let slack = state.slack();
         if slack >= 2 {
-            let fits: Vec<usize> = best_unused.iter().copied().filter(|&i| state.ch.weights[i] < slack).collect();
+            let fits: Vec<usize> = best_unused
+                .iter()
+                .copied()
+                .filter(|&i| state.ch.weights[i] < slack)
+                .collect();
             let m = fits.len();
             if m >= 2 {
                 let mut bp: Option<(usize, usize, i64)> = None;
@@ -926,14 +1204,24 @@ fn local_search_vnd_windowed(state: &mut State, window_k: usize) {
                     let a = fits[ai];
                     let wa = state.ch.weights[a];
                     let ca = state.contrib[a] as i64;
-                    for bi in (ai+1)..m {
+                    for bi in (ai + 1)..m {
                         let b = fits[bi];
-                        if wa + state.ch.weights[b] > slack { continue; }
-                        let d = ca + state.contrib[b] as i64 + state.ch.interaction_values[a][b] as i64;
-                        if d > 0 && bp.map_or(true, |(_, _, bd)| d > bd) { bp = Some((a, b, d)); }
+                        if wa + state.ch.weights[b] > slack {
+                            continue;
+                        }
+                        let d =
+                            ca + state.contrib[b] as i64 + state.ch.interaction_values[a][b] as i64;
+                        if d > 0 && bp.map_or(true, |(_, _, bd)| d > bd) {
+                            bp = Some((a, b, d));
+                        }
                     }
                 }
-                if let Some((a, b, _)) = bp { state.add_item(a); state.add_item(b); improved = true; continue; }
+                if let Some((a, b, _)) = bp {
+                    state.add_item(a);
+                    state.add_item(b);
+                    improved = true;
+                    continue;
+                }
             }
         }
 
@@ -943,14 +1231,25 @@ fn local_search_vnd_windowed(state: &mut State, window_k: usize) {
                 let w_rm = state.ch.weights[rm] as i64;
                 for &c in &best_unused {
                     let w_c = state.ch.weights[c] as i64;
-                    if w_c >= w_rm { continue; }
+                    if w_c >= w_rm {
+                        continue;
+                    }
                     let dw = (w_rm - w_c) as usize;
-                    if dw == 0 || dw > 4 { continue; }
-                    let d = state.contrib[c] - state.contrib[rm] - state.ch.interaction_values[c][rm];
-                    if d > 0 && bs.map_or(true, |(_, _, bd)| d > bd) { bs = Some((c, rm, d)); }
+                    if dw == 0 || dw > 4 {
+                        continue;
+                    }
+                    let d =
+                        state.contrib[c] - state.contrib[rm] - state.ch.interaction_values[c][rm];
+                    if d > 0 && bs.map_or(true, |(_, _, bd)| d > bd) {
+                        bs = Some((c, rm, d));
+                    }
                 }
             }
-            if let Some((c, rm, _)) = bs { state.replace_item(rm, c); improved = true; continue; }
+            if let Some((c, rm, _)) = bs {
+                state.replace_item(rm, c);
+                improved = true;
+                continue;
+            }
         }
 
         if state.slack() > 0 {
@@ -959,79 +1258,127 @@ fn local_search_vnd_windowed(state: &mut State, window_k: usize) {
                 let w_rm = state.ch.weights[rm] as i64;
                 for &c in &best_unused {
                     let w_c = state.ch.weights[c] as i64;
-                    if w_c <= w_rm { continue; }
+                    if w_c <= w_rm {
+                        continue;
+                    }
                     let dw = w_c - w_rm;
-                    if dw as usize > 4 || state.slack() < dw as u32 { continue; }
-                    let d = state.contrib[c] - state.contrib[rm] - state.ch.interaction_values[c][rm];
+                    if dw as usize > 4 || state.slack() < dw as u32 {
+                        continue;
+                    }
+                    let d =
+                        state.contrib[c] - state.contrib[rm] - state.ch.interaction_values[c][rm];
                     if d > 0 {
                         let r = d as f64 / dw as f64;
-                        if bs.map_or(true, |(_, _, br)| r > br) { bs = Some((c, rm, r)); }
+                        if bs.map_or(true, |(_, _, br)| r > br) {
+                            bs = Some((c, rm, r));
+                        }
                     }
                 }
             }
-            if let Some((c, rm, _)) = bs { state.replace_item(rm, c); improved = true; continue; }
+            if let Some((c, rm, _)) = bs {
+                state.replace_item(rm, c);
+                improved = true;
+                continue;
+            }
         }
 
-        if !improved { break; }
+        if !improved {
+            break;
+        }
     }
 }
 
-fn perturb_by_strategy(state: &mut State, strength: usize, stall_count: usize, strategy: usize, rng: &mut Rng, hp: &Hparams) {
+fn perturb_by_strategy(
+    state: &mut State,
+    strength: usize,
+    stall_count: usize,
+    strategy: usize,
+    rng: &mut Rng,
+    hp: &Hparams,
+) {
     let selected = state.selected_items();
-    if selected.is_empty() { return; }
+    if selected.is_empty() {
+        return;
+    }
     let mut removal_candidates: Vec<(usize, i64)>;
 
     match strategy {
         0 => {
-            removal_candidates = selected.iter().map(|&i| (i, state.contrib[i] as i64)).collect();
+            removal_candidates = selected
+                .iter()
+                .map(|&i| (i, state.contrib[i] as i64))
+                .collect();
             removal_candidates.sort_unstable_by_key(|&(_, c)| c);
-        },
+        }
         1 => {
-            removal_candidates = selected.iter().map(|&i| (i, -(state.ch.weights[i] as i64))).collect();
+            removal_candidates = selected
+                .iter()
+                .map(|&i| (i, -(state.ch.weights[i] as i64)))
+                .collect();
             removal_candidates.sort_unstable_by_key(|&(_, w)| w);
-        },
+        }
         2 => {
-            removal_candidates = selected.iter().map(|&i| {
-                let syn = state.contrib[i] as i64 - state.ch.values[i] as i64;
-                (i, syn)
-            }).collect();
+            removal_candidates = selected
+                .iter()
+                .map(|&i| {
+                    let syn = state.contrib[i] as i64 - state.ch.values[i] as i64;
+                    (i, syn)
+                })
+                .collect();
             removal_candidates.sort_unstable_by_key(|&(_, s)| s);
-        },
+        }
         3 => {
-            removal_candidates = selected.iter().map(|&i| {
-                let w = (state.ch.weights[i] as i64).max(1);
-                (i, (state.contrib[i] as i64 * 1000) / w)
-            }).collect();
+            removal_candidates = selected
+                .iter()
+                .map(|&i| {
+                    let w = (state.ch.weights[i] as i64).max(1);
+                    (i, (state.contrib[i] as i64 * 1000) / w)
+                })
+                .collect();
             removal_candidates.sort_unstable_by_key(|&(_, s)| s);
-        },
+        }
         4 => {
-            removal_candidates = selected.iter().map(|&i| {
-                let w = (state.ch.weights[i] as i64).max(1);
-                let density = (state.contrib[i] as i64 * 100) / w;
-                (i, state.ch.weights[i] as i64 - density)
-            }).collect();
+            removal_candidates = selected
+                .iter()
+                .map(|&i| {
+                    let w = (state.ch.weights[i] as i64).max(1);
+                    let density = (state.contrib[i] as i64 * 100) / w;
+                    (i, state.ch.weights[i] as i64 - density)
+                })
+                .collect();
             removal_candidates.sort_unstable_by_key(|&(_, s)| s);
-        },
+        }
         5 => {
-            removal_candidates = selected.iter().map(|&i| {
-                let w = (state.ch.weights[i] as i64).max(1);
-                (i, (state.contrib[i] as i64 * 10000) / (w * w))
-            }).collect();
+            removal_candidates = selected
+                .iter()
+                .map(|&i| {
+                    let w = (state.ch.weights[i] as i64).max(1);
+                    (i, (state.contrib[i] as i64 * 10000) / (w * w))
+                })
+                .collect();
             removal_candidates.sort_unstable_by_key(|&(_, s)| s);
-        },
+        }
         6 => {
-            removal_candidates = selected.iter().map(|&i| (i, rng.next_u32() as i64)).collect();
+            removal_candidates = selected
+                .iter()
+                .map(|&i| (i, rng.next_u32() as i64))
+                .collect();
             removal_candidates.sort_unstable_by_key(|&(_, s)| s);
-        },
+        }
         _ => {
-            removal_candidates = selected.iter().map(|&i| (i, -(state.contrib[i] as i64))).collect();
+            removal_candidates = selected
+                .iter()
+                .map(|&i| (i, -(state.contrib[i] as i64)))
+                .collect();
             removal_candidates.sort_unstable_by_key(|&(_, s)| s);
         }
     }
 
     let base_remove = (selected.len() / hp.perturb_base_frac).max(2);
     let adaptive_mult = 1 + (stall_count / 2);
-    let n_remove = (base_remove * adaptive_mult).min(strength).min(selected.len() * 2 / hp.perturb_max_frac);
+    let n_remove = (base_remove * adaptive_mult)
+        .min(strength)
+        .min(selected.len() * 2 / hp.perturb_max_frac);
     for j in 0..n_remove {
         if j < removal_candidates.len() {
             state.remove_item(removal_candidates[j].0);
@@ -1047,12 +1394,16 @@ fn greedy_reconstruct(state: &mut State, strategy: usize) {
     match strategy % 4 {
         0 => candidates.sort_unstable_by_key(|&i| -state.contrib[i]),
         1 => candidates.sort_unstable_by(|&a, &b| {
-            state.ch.weights[a].cmp(&state.ch.weights[b])
+            state.ch.weights[a]
+                .cmp(&state.ch.weights[b])
                 .then(state.contrib[b].cmp(&state.contrib[a]))
         }),
         2 => candidates.sort_unstable_by_key(|&i| {
-            let syn: i64 = state.ch.interaction_values[i].iter()
-                .take(n.min(100)).map(|&v| v as i64).sum();
+            let syn: i64 = state.ch.interaction_values[i]
+                .iter()
+                .take(n.min(100))
+                .map(|&v| v as i64)
+                .sum();
             -(syn + state.contrib[i] as i64 / 10)
         }),
         _ => candidates.sort_unstable_by_key(|&i| {
@@ -1062,7 +1413,9 @@ fn greedy_reconstruct(state: &mut State, strategy: usize) {
     }
 
     for &i in &candidates {
-        if state.total_weight + state.ch.weights[i] <= cap { state.add_item(i); }
+        if state.total_weight + state.ch.weights[i] <= cap {
+            state.add_item(i);
+        }
     }
 }
 
@@ -1090,40 +1443,80 @@ impl Hparams {
         if n <= 1200 {
             if budget <= 5 {
                 Self {
-                    n_random_starts: 4, n_crossover_gen: 12, sa_rounds: 40,
-                    sa_iter: 300, n_sa_members: 3, ils_rounds: 250,
-                    ils_restart_interval: 12, perturb_base_frac: 4,
-                    perturb_max_frac: 5, ils_vnd_level: 0, bounded_2_2_k: 10,
-                    n_full_restarts: 1, use_hub_pair: true,
-                    use_heavy_polish: true, window_k: n, core_half_dp: 60,
+                    n_random_starts: 4,
+                    n_crossover_gen: 12,
+                    sa_rounds: 40,
+                    sa_iter: 300,
+                    n_sa_members: 3,
+                    ils_rounds: 250,
+                    ils_restart_interval: 12,
+                    perturb_base_frac: 4,
+                    perturb_max_frac: 5,
+                    ils_vnd_level: 0,
+                    bounded_2_2_k: 10,
+                    n_full_restarts: 1,
+                    use_hub_pair: true,
+                    use_heavy_polish: true,
+                    window_k: n,
+                    core_half_dp: 60,
                 }
             } else if budget <= 10 {
                 Self {
-                    n_random_starts: 4, n_crossover_gen: 12, sa_rounds: 30,
-                    sa_iter: 300, n_sa_members: 3, ils_rounds: 300,
-                    ils_restart_interval: 12, perturb_base_frac: 4,
-                    perturb_max_frac: 5, ils_vnd_level: 0, bounded_2_2_k: 10,
-                    n_full_restarts: 1, use_hub_pair: true,
-                    use_heavy_polish: true, window_k: n, core_half_dp: 60,
+                    n_random_starts: 4,
+                    n_crossover_gen: 12,
+                    sa_rounds: 30,
+                    sa_iter: 300,
+                    n_sa_members: 3,
+                    ils_rounds: 300,
+                    ils_restart_interval: 12,
+                    perturb_base_frac: 4,
+                    perturb_max_frac: 5,
+                    ils_vnd_level: 0,
+                    bounded_2_2_k: 10,
+                    n_full_restarts: 1,
+                    use_hub_pair: true,
+                    use_heavy_polish: true,
+                    window_k: n,
+                    core_half_dp: 60,
                 }
             } else {
                 Self {
-                    n_random_starts: 3, n_crossover_gen: 8, sa_rounds: 15,
-                    sa_iter: 300, n_sa_members: 3, ils_rounds: 200,
-                    ils_restart_interval: 12, perturb_base_frac: 4,
-                    perturb_max_frac: 5, ils_vnd_level: 0, bounded_2_2_k: 0,
-                    n_full_restarts: 1, use_hub_pair: true,
-                    use_heavy_polish: false, window_k: 300, core_half_dp: 60,
+                    n_random_starts: 3,
+                    n_crossover_gen: 8,
+                    sa_rounds: 15,
+                    sa_iter: 300,
+                    n_sa_members: 3,
+                    ils_rounds: 200,
+                    ils_restart_interval: 12,
+                    perturb_base_frac: 4,
+                    perturb_max_frac: 5,
+                    ils_vnd_level: 0,
+                    bounded_2_2_k: 0,
+                    n_full_restarts: 1,
+                    use_hub_pair: true,
+                    use_heavy_polish: false,
+                    window_k: 300,
+                    core_half_dp: 60,
                 }
             }
         } else {
             Self {
-                n_random_starts: 4, n_crossover_gen: 0, sa_rounds: 0,
-                sa_iter: 0, n_sa_members: 0, ils_rounds: 120,
-                ils_restart_interval: 12, perturb_base_frac: 8,
-                perturb_max_frac: 5, ils_vnd_level: 0, bounded_2_2_k: 0,
-                n_full_restarts: 1, use_hub_pair: false,
-                use_heavy_polish: false, window_k: 200, core_half_dp: 50,
+                n_random_starts: 4,
+                n_crossover_gen: 0,
+                sa_rounds: 0,
+                sa_iter: 0,
+                n_sa_members: 0,
+                ils_rounds: 120,
+                ils_restart_interval: 12,
+                perturb_base_frac: 8,
+                perturb_max_frac: 5,
+                ils_vnd_level: 0,
+                bounded_2_2_k: 0,
+                n_full_restarts: 1,
+                use_hub_pair: false,
+                use_heavy_polish: false,
+                window_k: 200,
+                core_half_dp: 50,
             }
         }
     }
@@ -1131,20 +1524,48 @@ impl Hparams {
     fn from_map(h: &Option<Map<String, Value>>, n: usize, budget: u32) -> Self {
         let mut p = Self::for_size(n, budget);
         if let Some(m) = h {
-            if let Some(v) = m.get("n_random_starts").and_then(|v| v.as_u64()) { p.n_random_starts = v as usize; }
-            if let Some(v) = m.get("n_crossover_gen").and_then(|v| v.as_u64()) { p.n_crossover_gen = v as usize; }
-            if let Some(v) = m.get("sa_rounds").and_then(|v| v.as_u64()) { p.sa_rounds = v as usize; }
-            if let Some(v) = m.get("sa_iter").and_then(|v| v.as_u64()) { p.sa_iter = v as usize; }
-            if let Some(v) = m.get("n_sa_members").and_then(|v| v.as_u64()) { p.n_sa_members = v as usize; }
-            if let Some(v) = m.get("ils_rounds").and_then(|v| v.as_u64()) { p.ils_rounds = v as usize; }
-            if let Some(v) = m.get("ils_restart_interval").and_then(|v| v.as_u64()) { p.ils_restart_interval = v as usize; }
-            if let Some(v) = m.get("perturb_base_frac").and_then(|v| v.as_u64()) { p.perturb_base_frac = v as usize; }
-            if let Some(v) = m.get("perturb_max_frac").and_then(|v| v.as_u64()) { p.perturb_max_frac = v as usize; }
-            if let Some(v) = m.get("ils_vnd_level").and_then(|v| v.as_u64()) { p.ils_vnd_level = v as usize; }
-            if let Some(v) = m.get("bounded_2_2_k").and_then(|v| v.as_u64()) { p.bounded_2_2_k = v as usize; }
-            if let Some(v) = m.get("n_full_restarts").and_then(|v| v.as_u64()) { p.n_full_restarts = v as usize; }
-            if let Some(v) = m.get("window_k").and_then(|v| v.as_u64()) { p.window_k = v as usize; }
-            if let Some(v) = m.get("core_half_dp").and_then(|v| v.as_u64()) { p.core_half_dp = v as usize; }
+            if let Some(v) = m.get("n_random_starts").and_then(|v| v.as_u64()) {
+                p.n_random_starts = v as usize;
+            }
+            if let Some(v) = m.get("n_crossover_gen").and_then(|v| v.as_u64()) {
+                p.n_crossover_gen = v as usize;
+            }
+            if let Some(v) = m.get("sa_rounds").and_then(|v| v.as_u64()) {
+                p.sa_rounds = v as usize;
+            }
+            if let Some(v) = m.get("sa_iter").and_then(|v| v.as_u64()) {
+                p.sa_iter = v as usize;
+            }
+            if let Some(v) = m.get("n_sa_members").and_then(|v| v.as_u64()) {
+                p.n_sa_members = v as usize;
+            }
+            if let Some(v) = m.get("ils_rounds").and_then(|v| v.as_u64()) {
+                p.ils_rounds = v as usize;
+            }
+            if let Some(v) = m.get("ils_restart_interval").and_then(|v| v.as_u64()) {
+                p.ils_restart_interval = v as usize;
+            }
+            if let Some(v) = m.get("perturb_base_frac").and_then(|v| v.as_u64()) {
+                p.perturb_base_frac = v as usize;
+            }
+            if let Some(v) = m.get("perturb_max_frac").and_then(|v| v.as_u64()) {
+                p.perturb_max_frac = v as usize;
+            }
+            if let Some(v) = m.get("ils_vnd_level").and_then(|v| v.as_u64()) {
+                p.ils_vnd_level = v as usize;
+            }
+            if let Some(v) = m.get("bounded_2_2_k").and_then(|v| v.as_u64()) {
+                p.bounded_2_2_k = v as usize;
+            }
+            if let Some(v) = m.get("n_full_restarts").and_then(|v| v.as_u64()) {
+                p.n_full_restarts = v as usize;
+            }
+            if let Some(v) = m.get("window_k").and_then(|v| v.as_u64()) {
+                p.window_k = v as usize;
+            }
+            if let Some(v) = m.get("core_half_dp").and_then(|v| v.as_u64()) {
+                p.core_half_dp = v as usize;
+            }
         }
         p
     }
@@ -1161,7 +1582,9 @@ fn vnd_dispatch(state: &mut State, hp: &Hparams) {
 fn run_one_instance(challenge: &Challenge, hp: &Hparams, rng_offset: usize) -> Solution {
     let n = challenge.num_items;
     let mut rng = Rng::from_seed(&challenge.seed);
-    for _ in 0..rng_offset * 100 { rng.next_u32(); }
+    for _ in 0..rng_offset * 100 {
+        rng.next_u32();
+    }
     let ch = hp.core_half_dp;
 
     let mut population: Vec<SolState> = Vec::with_capacity(16);
@@ -1176,8 +1599,11 @@ fn run_one_instance(challenge: &Challenge, hp: &Hparams, rng_offset: usize) -> S
             _ => build_greedy_hub(&mut st),
         }
         dp_refinement_hp(&mut st, ch);
-        if hp.use_heavy_polish { local_search_vnd_heavy(&mut st); }
-        else { vnd_dispatch(&mut st, hp); }
+        if hp.use_heavy_polish {
+            local_search_vnd_heavy(&mut st);
+        } else {
+            vnd_dispatch(&mut st, hp);
+        }
         population.push(st.clone_solution());
     }
 
@@ -1215,7 +1641,8 @@ fn run_one_instance(challenge: &Challenge, hp: &Hparams, rng_offset: usize) -> S
             let a = gen % population.len().min(4);
             let b = (gen + 1) % population.len().min(4);
             if a != b {
-                let child_bits = crossover_uniform(&population[a], &population[b], challenge, &mut rng);
+                let child_bits =
+                    crossover_uniform(&population[a], &population[b], challenge, &mut rng);
                 set_state_from_bits(&mut state, &child_bits);
                 dp_refinement_hp(&mut state, ch);
                 vnd_dispatch(&mut state, hp);
@@ -1232,7 +1659,9 @@ fn run_one_instance(challenge: &Challenge, hp: &Hparams, rng_offset: usize) -> S
             simulated_annealing(&mut state, &mut rng, hp.sa_rounds, hp.sa_iter);
             vnd_dispatch(&mut state, hp);
             let sol = state.clone_solution();
-            if sol.value > population[pi].value { population.push(sol); }
+            if sol.value > population[pi].value {
+                population.push(sol);
+            }
         }
         population.sort_unstable_by_key(|s| std::cmp::Reverse(s.value));
         population.truncate(8);
@@ -1243,15 +1672,21 @@ fn run_one_instance(challenge: &Challenge, hp: &Hparams, rng_offset: usize) -> S
     let mut best_sel: Vec<usize> = state.selected_items();
 
     let mut tabu_hashes: Vec<u64> = Vec::with_capacity(128);
-    let zobrist_table: Vec<u64> = (0..n).map(|i| {
-        let mut h: u64 = 0x517CC1B727220A95;
-        h ^= (i as u64).wrapping_mul(0x9E3779B97F4A7C15);
-        h = h.rotate_left(17).wrapping_mul(0xBF58476D1CE4E5B9);
-        h
-    }).collect();
+    let zobrist_table: Vec<u64> = (0..n)
+        .map(|i| {
+            let mut h: u64 = 0x517CC1B727220A95;
+            h ^= (i as u64).wrapping_mul(0x9E3779B97F4A7C15);
+            h = h.rotate_left(17).wrapping_mul(0xBF58476D1CE4E5B9);
+            h
+        })
+        .collect();
     let compute_hash = |bits: &[bool]| -> u64 {
         let mut h: u64 = 0;
-        for i in 0..n { if bits[i] { h ^= zobrist_table[i]; } }
+        for i in 0..n {
+            if bits[i] {
+                h ^= zobrist_table[i];
+            }
+        }
         h
     };
     tabu_hashes.push(compute_hash(&state.selected_bit));
@@ -1273,7 +1708,10 @@ fn run_one_instance(challenge: &Challenge, hp: &Hparams, rng_offset: usize) -> S
             state.restore_solution(&snap);
             stall_count += 1;
 
-            if hp.ils_restart_interval > 0 && stall_count > 0 && stall_count % hp.ils_restart_interval == 0 {
+            if hp.ils_restart_interval > 0
+                && stall_count > 0
+                && stall_count % hp.ils_restart_interval == 0
+            {
                 let pi = (stall_count / hp.ils_restart_interval) % population.len();
                 state.restore_solution(&population[pi]);
             }
@@ -1292,8 +1730,11 @@ fn run_one_instance(challenge: &Challenge, hp: &Hparams, rng_offset: usize) -> S
                 vnd_dispatch(&mut state, hp);
             }
             let h2 = compute_hash(&state.selected_bit);
-            if tabu_hashes.len() < 128 { tabu_hashes.push(h2); }
-            else { tabu_hashes[round % 128] = h2; }
+            if tabu_hashes.len() < 128 {
+                tabu_hashes.push(h2);
+            } else {
+                tabu_hashes[round % 128] = h2;
+            }
 
             if state.total_value > best_val {
                 best_val = state.total_value;
@@ -1303,31 +1744,41 @@ fn run_one_instance(challenge: &Challenge, hp: &Hparams, rng_offset: usize) -> S
         } else {
             stall_count = 0;
             let h = compute_hash(&state.selected_bit);
-            if tabu_hashes.len() < 128 { tabu_hashes.push(h); }
+            if tabu_hashes.len() < 128 {
+                tabu_hashes.push(h);
+            }
         }
     }
 
     let mut final_state = State::new_empty(challenge);
-    for &i in &best_sel { final_state.add_item(i); }
+    for &i in &best_sel {
+        final_state.add_item(i);
+    }
 
     if hp.use_heavy_polish {
         loop {
             let v_before = final_state.total_value;
             local_search_vnd_heavy(&mut final_state);
             dp_refinement_hp(&mut final_state, ch);
-            if final_state.total_value <= v_before { break; }
+            if final_state.total_value <= v_before {
+                break;
+            }
         }
     } else {
         loop {
             let v_before = final_state.total_value;
             local_search_vnd_windowed(&mut final_state, hp.window_k);
             dp_refinement_hp(&mut final_state, ch);
-            if final_state.total_value <= v_before { break; }
+            if final_state.total_value <= v_before {
+                break;
+            }
         }
     }
 
     if final_state.total_value > best_val {
-        Solution { items: final_state.selected_items() }
+        Solution {
+            items: final_state.selected_items(),
+        }
     } else {
         Solution { items: best_sel }
     }
@@ -1343,7 +1794,11 @@ impl Solver {
     ) -> Result<Option<Solution>> {
         let n = challenge.num_items;
         let sum_w: u64 = challenge.weights.iter().map(|&w| w as u64).sum();
-        let budget_pct = if sum_w > 0 { ((challenge.max_weight as u64) * 100 / sum_w) as u32 } else { 10 };
+        let budget_pct = if sum_w > 0 {
+            ((challenge.max_weight as u64) * 100 / sum_w) as u32
+        } else {
+            10
+        };
         let hp = Hparams::from_map(hyperparameters, n, budget_pct);
         let n_restarts = hp.n_full_restarts.max(1);
         let mut best_sol: Option<Solution> = None;

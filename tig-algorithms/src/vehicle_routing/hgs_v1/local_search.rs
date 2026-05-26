@@ -1,9 +1,9 @@
-use super::problem::Problem;
 use super::params::Params;
+use super::problem::Problem;
 use super::sequence::Sequence;
-use std::cmp::min;
-use rand::{rngs::SmallRng, Rng};
 use rand::seq::SliceRandom;
+use rand::{rngs::SmallRng, Rng};
+use std::cmp::min;
 
 #[derive(Clone, Debug, Default)]
 pub struct Node {
@@ -19,7 +19,10 @@ pub struct Node {
 impl Node {
     #[inline]
     fn new(id: usize) -> Self {
-        Self { id, ..Default::default() }
+        Self {
+            id,
+            ..Default::default()
+        }
     }
 }
 
@@ -53,14 +56,13 @@ pub struct LocalSearch<'a> {
     pub node_route: Vec<usize>,
     pub node_pos: Vec<usize>,
     pub empty_routes: Vec<usize>,
-    pub when_last_modified: Vec<usize>,   // per route
-    pub when_last_tested: Vec<usize>,     // per customer id
-    pub nb_moves: usize,                  // monotone counter of applied moves
+    pub when_last_modified: Vec<usize>, // per route
+    pub when_last_tested: Vec<usize>,   // per customer id
+    pub nb_moves: usize,                // monotone counter of applied moves
 }
 
 impl<'a> LocalSearch<'a> {
     pub fn new(data: &'a Problem, params: Params) -> Self {
-
         let n = data.nb_nodes;
         let cap = n.saturating_sub(2);
         let keep = min(params.granularity as usize, cap);
@@ -69,8 +71,10 @@ impl<'a> LocalSearch<'a> {
         for i in 1..n {
             let mut prox: Vec<(i32, usize)> = Vec::with_capacity(cap);
             for j in 1..n {
-                if j == i { continue; }
-                let tji  = data.dm(j,i);
+                if j == i {
+                    continue;
+                }
+                let tji = data.dm(j, i);
                 let wait = (data.start_tw[i] - tji - data.service_times[j] - data.end_tw[j]).max(0);
                 let late = (data.start_tw[j] + data.service_times[j] + tji - data.end_tw[i]).max(0);
                 let proxy10 = 10 * tji + 2 * wait + 10 * late;
@@ -85,9 +89,11 @@ impl<'a> LocalSearch<'a> {
             let di = data.demands[i];
             let mut prox: Vec<(i32, usize)> = Vec::with_capacity(n.saturating_sub(1));
             for j in 1..n {
-                if j == i { continue; }
+                if j == i {
+                    continue;
+                }
                 if (data.demands[j] - di).abs() <= 1 {
-                    let dij = data.dm(i,j); // distance “i->j” as proximity
+                    let dij = data.dm(i, j); // distance “i->j” as proximity
                     prox.push((dij, j));
                 }
             }
@@ -130,7 +136,9 @@ impl<'a> LocalSearch<'a> {
             let mut merged = routes[keep].clone();
             merged.pop(); // remove trailing depot
             for r in routes.iter().skip(fleet) {
-                if r.len() > 2 { merged.extend_from_slice(&r[1..r.len() - 1]); }
+                if r.len() > 2 {
+                    merged.extend_from_slice(&r[1..r.len() - 1]);
+                }
             }
             merged.push(0); // re-add trailing depot
             src.push(merged);
@@ -152,10 +160,11 @@ impl<'a> LocalSearch<'a> {
         self.when_last_tested = vec![0; n];
         self.nb_moves = 1;
 
-        for rid in 0..self.routes.len() { self.update_route(rid); }
+        for rid in 0..self.routes.len() {
+            self.update_route(rid);
+        }
         self.cost = self.routes.iter().map(|r| r.cost).sum();
     }
-
 
     fn write_back_to_routes(&self, out: &mut Vec<Vec<usize>>) {
         out.clear();
@@ -163,7 +172,7 @@ impl<'a> LocalSearch<'a> {
             self.routes
                 .iter()
                 .filter(|r| r.nodes.len() > 2)
-                .map(|r| r.nodes.iter().map(|n| n.id).collect::<Vec<usize>>())
+                .map(|r| r.nodes.iter().map(|n| n.id).collect::<Vec<usize>>()),
         );
     }
 
@@ -197,24 +206,30 @@ impl<'a> LocalSearch<'a> {
             r.nodes[pos].seq1 = Sequence::singleton(data, id);
             if pos + 1 < len {
                 let id_next = r.nodes[pos + 1].id;
-                r.nodes[pos].seq12 = Sequence::join2(data,
-                                                     &Sequence::singleton(data, id),
-                                                     &Sequence::singleton(data, id_next));
-                r.nodes[pos].seq21 = Sequence::join2(data,
-                                                     &Sequence::singleton(data, id_next),
-                                                     &Sequence::singleton(data, id));
+                r.nodes[pos].seq12 = Sequence::join2(
+                    data,
+                    &Sequence::singleton(data, id),
+                    &Sequence::singleton(data, id_next),
+                );
+                r.nodes[pos].seq21 = Sequence::join2(
+                    data,
+                    &Sequence::singleton(data, id_next),
+                    &Sequence::singleton(data, id),
+                );
                 if pos + 2 < len {
                     let id_next2 = r.nodes[pos + 2].id;
-                    r.nodes[pos].seq123 = Sequence::join2(data,
-                                                          &r.nodes[pos].seq12,
-                                                          &Sequence::singleton(data, id_next2));
+                    r.nodes[pos].seq123 = Sequence::join2(
+                        data,
+                        &r.nodes[pos].seq12,
+                        &Sequence::singleton(data, id_next2),
+                    );
                 }
             }
         }
 
         let end = r.nodes[len - 1].seq0_i;
         r.load = end.load;
-        r.tw   = end.tw;
+        r.tw = end.tw;
         r.distance = end.distance;
         r.cost = end.eval(data, &self.params);
 
@@ -229,7 +244,9 @@ impl<'a> LocalSearch<'a> {
         let pos = self.empty_routes.iter().position(|&eid| eid == rid);
         match (is_empty, pos) {
             (true, None) => self.empty_routes.push(rid),
-            (false, Some(i)) => { self.empty_routes.swap_remove(i); }
+            (false, Some(i)) => {
+                self.empty_routes.swap_remove(i);
+            }
             _ => {}
         }
         self.when_last_modified[rid] = self.nb_moves;
@@ -238,7 +255,9 @@ impl<'a> LocalSearch<'a> {
     pub fn run_intra_route_relocate(&mut self, r1: usize, pos1: usize) -> bool {
         let route = &self.routes[r1];
         let len = route.nodes.len();
-        if len < pos1 + 4 { return false; }
+        if len < pos1 + 4 {
+            return false;
+        }
 
         debug_assert!(pos1 > 0); // U is a client
         debug_assert!(self.routes[r1].nodes[pos1].id != 0); // U is a client
@@ -247,14 +266,18 @@ impl<'a> LocalSearch<'a> {
         let mut acc_left = route.nodes[0].seq0_i;
         for p in 1..len {
             left_excl[p] = acc_left;
-            if p != pos1 { acc_left = Sequence::join2(self.data, &acc_left, &route.nodes[p].seq1); }
+            if p != pos1 {
+                acc_left = Sequence::join2(self.data, &acc_left, &route.nodes[p].seq1);
+            }
         }
 
         let mut right_excl: Vec<Sequence> = vec![Sequence::default(); len];
-        let mut acc_right = route.nodes[len-1].seq1;
-        right_excl[len-1] = acc_right;
+        let mut acc_right = route.nodes[len - 1].seq1;
+        right_excl[len - 1] = acc_right;
         for p in (1..len - 1).rev() {
-            if p != pos1 { acc_right = Sequence::join2(self.data, &route.nodes[p].seq1, &acc_right); }
+            if p != pos1 {
+                acc_right = Sequence::join2(self.data, &route.nodes[p].seq1, &acc_right);
+            }
             right_excl[p] = acc_right;
         }
 
@@ -263,8 +286,16 @@ impl<'a> LocalSearch<'a> {
         let mut best_pos: Option<usize> = None;
 
         for t in 1..len {
-            if t == pos1 || t == pos1 + 1 { continue; }
-            let new_cost = Sequence::eval3(self.data, &self.params, &left_excl[t], &route.nodes[pos1].seq1, &right_excl[t]);
+            if t == pos1 || t == pos1 + 1 {
+                continue;
+            }
+            let new_cost = Sequence::eval3(
+                self.data,
+                &self.params,
+                &left_excl[t],
+                &route.nodes[pos1].seq1,
+                &right_excl[t],
+            );
             if new_cost < best_cost {
                 best_cost = new_cost;
                 best_pos = Some(t);
@@ -279,13 +310,17 @@ impl<'a> LocalSearch<'a> {
             self.update_route(r1);
             self.cost += self.routes[r1].cost - old_cost;
             true
-        } else { false }
+        } else {
+            false
+        }
     }
 
     pub fn run_intra_route_swap_right(&mut self, r1: usize, pos1: usize) -> bool {
         let route = &self.routes[r1];
-        let len   = route.nodes.len();
-        if len < pos1 + 4 { return false; } // need at least [0, U, X, V, 0]
+        let len = route.nodes.len();
+        if len < pos1 + 4 {
+            return false;
+        } // need at least [0, U, X, V, 0]
 
         debug_assert!(pos1 > 0); // U is a client
         debug_assert!(self.routes[r1].nodes[pos1].id != 0); // U is a client
@@ -296,12 +331,17 @@ impl<'a> LocalSearch<'a> {
 
         let mut acc_mid = route.nodes[pos1 + 1].seq1;
         for pos2 in (pos1 + 2)..(len - 1) {
-            let new_cost = Sequence::eval_n(self.data, &self.params,
-                                            &[route.nodes[pos1 - 1].seq0_i,
-                                                route.nodes[pos2].seq1,
-                                                acc_mid,
-                                                route.nodes[pos1].seq1,
-                                                route.nodes[pos2 + 1].seqi_n]);
+            let new_cost = Sequence::eval_n(
+                self.data,
+                &self.params,
+                &[
+                    route.nodes[pos1 - 1].seq0_i,
+                    route.nodes[pos2].seq1,
+                    acc_mid,
+                    route.nodes[pos1].seq1,
+                    route.nodes[pos2 + 1].seqi_n,
+                ],
+            );
             if new_cost < best_cost {
                 best_cost = new_cost;
                 best_pos = Some(pos2);
@@ -315,7 +355,9 @@ impl<'a> LocalSearch<'a> {
             self.update_route(r1);
             self.cost += self.routes[r1].cost - old_cost;
             true
-        } else { false }
+        } else {
+            false
+        }
     }
 
     pub fn run_2optstar(&mut self, r1: usize, pos1: usize, r2: usize, pos2: usize) -> bool {
@@ -326,8 +368,18 @@ impl<'a> LocalSearch<'a> {
         let route1 = &self.routes[r1];
         let route2 = &self.routes[r2];
 
-        let new1 = Sequence::eval2(self.data, &self.params, &route1.nodes[pos1 - 1].seq0_i, &route2.nodes[pos2].seqi_n);
-        let new2 = Sequence::eval2(self.data, &self.params, &route2.nodes[pos2 - 1].seq0_i, &route1.nodes[pos1].seqi_n);
+        let new1 = Sequence::eval2(
+            self.data,
+            &self.params,
+            &route1.nodes[pos1 - 1].seq0_i,
+            &route2.nodes[pos2].seqi_n,
+        );
+        let new2 = Sequence::eval2(
+            self.data,
+            &self.params,
+            &route2.nodes[pos2 - 1].seq0_i,
+            &route1.nodes[pos1].seqi_n,
+        );
 
         let old_cost = route1.cost + route2.cost;
         let new_cost = new1 + new2;
@@ -342,13 +394,17 @@ impl<'a> LocalSearch<'a> {
             self.update_route(r2);
             self.cost += new_cost - old_cost;
             true
-        } else { false }
+        } else {
+            false
+        }
     }
 
     pub fn run_2opt(&mut self, r1: usize, pos1: usize) -> bool {
         let route = &self.routes[r1];
         let len = route.nodes.len();
-        if len < pos1 + 3 { return false; } // need at least [0, U, V, 0]
+        if len < pos1 + 3 {
+            return false;
+        } // need at least [0, U, V, 0]
 
         debug_assert!(pos1 > 0); // U is a client
         debug_assert!(self.routes[r1].nodes[pos1].id != 0); // U is a client
@@ -359,12 +415,20 @@ impl<'a> LocalSearch<'a> {
 
         let mut mid_rev = route.nodes[pos1].seq21;
         for pos2 in (pos1 + 1)..(len - 1) {
-            let new_cost = Sequence::eval3(self.data, &self.params, &route.nodes[pos1 - 1].seq0_i, &mid_rev, &route.nodes[pos2 + 1].seqi_n);
+            let new_cost = Sequence::eval3(
+                self.data,
+                &self.params,
+                &route.nodes[pos1 - 1].seq0_i,
+                &mid_rev,
+                &route.nodes[pos2 + 1].seqi_n,
+            );
             if new_cost < best_cost {
                 best_cost = new_cost;
                 best_pos = Some(pos2);
             }
-            if pos2 + 1 < len - 1 { mid_rev = Sequence::join2(self.data, &route.nodes[pos2 + 1].seq1, &mid_rev); }
+            if pos2 + 1 < len - 1 {
+                mid_rev = Sequence::join2(self.data, &route.nodes[pos2 + 1].seq1, &mid_rev);
+            }
         }
 
         if let Some(mypos) = best_pos {
@@ -373,7 +437,9 @@ impl<'a> LocalSearch<'a> {
             self.update_route(r1);
             self.cost += self.routes[r1].cost - old_cost;
             true
-        } else { false }
+        } else {
+            false
+        }
     }
 
     pub fn run_inter_route(&mut self, r1: usize, pos1: usize, r2: usize, pos2: usize) -> bool {
@@ -385,8 +451,11 @@ impl<'a> LocalSearch<'a> {
         let u_pred = &ru.nodes[pos1 - 1]; // could be a depot
         let v_pred = &rv.nodes[pos2 - 1]; // could be a depot
         let x = &ru.nodes[pos1 + 1]; // could be a depot
-        debug_assert!(u.id != 0,"Should always apply inter-route with a client as first node");
-        debug_assert!(r1 != r2,"Should not test inter-route move on same route");
+        debug_assert!(
+            u.id != 0,
+            "Should always apply inter-route with a client as first node"
+        );
+        debug_assert!(r1 != r2, "Should not test inter-route move on same route");
 
         // result table (i: what r1 sends, j: what r2 sends)
         // 0 -> send nothing
@@ -411,13 +480,19 @@ impl<'a> LocalSearch<'a> {
         // Send {U}, receive {}
         let result10 = Sequence::eval2(data, &self.params, &u_pred.seq0_i, &x.seqi_n)
             + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq1, &v.seqi_n);
-        update_best(1,0,result10);
+        update_best(1, 0, result10);
 
         // Send {U}, receive {V}
         if v.id != 0 {
             let result11 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq1, &x.seqi_n)
-                + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq1, &rv.nodes[pos2 + 1].seqi_n);
-            update_best(1,1,result11);
+                + Sequence::eval3(
+                    data,
+                    &self.params,
+                    &v_pred.seq0_i,
+                    &u.seq1,
+                    &rv.nodes[pos2 + 1].seqi_n,
+                );
+            update_best(1, 1, result11);
         }
 
         if x.id != 0 {
@@ -427,35 +502,64 @@ impl<'a> LocalSearch<'a> {
             let mut result30 = result20;
             result20 += Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq12, &v.seqi_n);
             result30 += Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq21, &v.seqi_n);
-            update_best(2,0,result20);
-            update_best(3,0,result30);
+            update_best(2, 0, result20);
+            update_best(3, 0, result30);
 
             if v.id != 0 {
                 // Send {U,X} or {X,U}, receive {V}
                 let y = &rv.nodes[pos2 + 1];
-                let mut result21 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq1, &x_next.seqi_n);
+                let mut result21 =
+                    Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq1, &x_next.seqi_n);
                 let mut result31 = result21;
-                result21 += Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq12, &y.seqi_n);
-                result31 += Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq21, &y.seqi_n);
-                update_best(2,1,result21);
-                update_best(3,1,result31);
+                result21 +=
+                    Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq12, &y.seqi_n);
+                result31 +=
+                    Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq21, &y.seqi_n);
+                update_best(2, 1, result21);
+                update_best(3, 1, result31);
 
                 if y.id != 0 {
                     // Send {U,X} or {X,U}, receive {V,Y} or {Y,V}
-                    let mut result22 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq12, &x_next.seqi_n);
-                    let mut result23 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq21, &x_next.seqi_n);
+                    let mut result22 = Sequence::eval3(
+                        data,
+                        &self.params,
+                        &u_pred.seq0_i,
+                        &v.seq12,
+                        &x_next.seqi_n,
+                    );
+                    let mut result23 = Sequence::eval3(
+                        data,
+                        &self.params,
+                        &u_pred.seq0_i,
+                        &v.seq21,
+                        &x_next.seqi_n,
+                    );
                     let mut result32 = result22;
                     let mut result33 = result23;
 
                     let y_next = &rv.nodes[pos2 + 2];
-                    let tmp  = Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq12, &y_next.seqi_n);
-                    let tmp2 = Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq21, &y_next.seqi_n);
-                    result22 += tmp;  result23 += tmp;
-                    result32 += tmp2; result33 += tmp2;
-                    update_best(2,2,result22);
-                    update_best(3,2,result32);
-                    update_best(2,3,result23);
-                    update_best(3,3,result33);
+                    let tmp = Sequence::eval3(
+                        data,
+                        &self.params,
+                        &v_pred.seq0_i,
+                        &u.seq12,
+                        &y_next.seqi_n,
+                    );
+                    let tmp2 = Sequence::eval3(
+                        data,
+                        &self.params,
+                        &v_pred.seq0_i,
+                        &u.seq21,
+                        &y_next.seqi_n,
+                    );
+                    result22 += tmp;
+                    result23 += tmp;
+                    result32 += tmp2;
+                    result33 += tmp2;
+                    update_best(2, 2, result22);
+                    update_best(3, 2, result32);
+                    update_best(2, 3, result23);
+                    update_best(3, 3, result33);
                 }
             }
 
@@ -464,35 +568,81 @@ impl<'a> LocalSearch<'a> {
                 let x2_next = &ru.nodes[pos1 + 3];
                 let result40 = Sequence::eval2(data, &self.params, &u_pred.seq0_i, &x2_next.seqi_n)
                     + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &v.seqi_n);
-                update_best(4,0,result40);
+                update_best(4, 0, result40);
 
                 if v.id != 0 {
                     let y = &rv.nodes[pos2 + 1];
-                    let result41 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq1, &x2_next.seqi_n)
-                        + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &y.seqi_n);
-                    update_best(4,1,result41);
+                    let result41 = Sequence::eval3(
+                        data,
+                        &self.params,
+                        &u_pred.seq0_i,
+                        &v.seq1,
+                        &x2_next.seqi_n,
+                    ) + Sequence::eval3(
+                        data,
+                        &self.params,
+                        &v_pred.seq0_i,
+                        &u.seq123,
+                        &y.seqi_n,
+                    );
+                    update_best(4, 1, result41);
 
                     if y.id != 0 {
                         let y_next = &rv.nodes[pos2 + 2];
-                        let result42 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq12, &x2_next.seqi_n)
-                            + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &y_next.seqi_n);
-                        let result43 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq21, &x2_next.seqi_n)
-                            + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &y_next.seqi_n);
-                        update_best(4,2,result42);
-                        update_best(4,3,result43);
+                        let result42 = Sequence::eval3(
+                            data,
+                            &self.params,
+                            &u_pred.seq0_i,
+                            &v.seq12,
+                            &x2_next.seqi_n,
+                        ) + Sequence::eval3(
+                            data,
+                            &self.params,
+                            &v_pred.seq0_i,
+                            &u.seq123,
+                            &y_next.seqi_n,
+                        );
+                        let result43 = Sequence::eval3(
+                            data,
+                            &self.params,
+                            &u_pred.seq0_i,
+                            &v.seq21,
+                            &x2_next.seqi_n,
+                        ) + Sequence::eval3(
+                            data,
+                            &self.params,
+                            &v_pred.seq0_i,
+                            &u.seq123,
+                            &y_next.seqi_n,
+                        );
+                        update_best(4, 2, result42);
+                        update_best(4, 3, result43);
 
                         if y_next.id != 0 {
                             let y2_next = &rv.nodes[pos2 + 3];
-                            let result44 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq123, &x2_next.seqi_n)
-                                + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &y2_next.seqi_n);
-                            update_best(4,4,result44);
+                            let result44 = Sequence::eval3(
+                                data,
+                                &self.params,
+                                &u_pred.seq0_i,
+                                &v.seq123,
+                                &x2_next.seqi_n,
+                            ) + Sequence::eval3(
+                                data,
+                                &self.params,
+                                &v_pred.seq0_i,
+                                &u.seq123,
+                                &y2_next.seqi_n,
+                            );
+                            update_best(4, 4, result44);
                         }
                     }
                 }
             }
         }
 
-        if best_i == 0 && best_j == 0 { return false; }     // no improvement
+        if best_i == 0 && best_j == 0 {
+            return false;
+        } // no improvement
 
         // ---------------- apply move ----------------
         // Remove helper — returns Nodes in the order they must be inserted in the target
@@ -500,9 +650,20 @@ impl<'a> LocalSearch<'a> {
             let nodes = &mut self.routes[route_idx].nodes;
             match kind {
                 0 => vec![],
-                1 => { let n1 = nodes.remove(pos); vec![n1] }
-                2 => { let n1 = nodes.remove(pos); let n2 = nodes.remove(pos); vec![n1, n2] }
-                3 => { let n1 = nodes.remove(pos); let n2 = nodes.remove(pos); vec![n2, n1] }
+                1 => {
+                    let n1 = nodes.remove(pos);
+                    vec![n1]
+                }
+                2 => {
+                    let n1 = nodes.remove(pos);
+                    let n2 = nodes.remove(pos);
+                    vec![n1, n2]
+                }
+                3 => {
+                    let n1 = nodes.remove(pos);
+                    let n2 = nodes.remove(pos);
+                    vec![n2, n1]
+                }
                 4 => {
                     let n1 = nodes.remove(pos);
                     let n2 = nodes.remove(pos);
@@ -517,9 +678,13 @@ impl<'a> LocalSearch<'a> {
         let blk_from_r2 = take_block(r2, pos2, best_j);
 
         let nodes1 = &mut self.routes[r1].nodes;
-        for (k, node) in blk_from_r2.into_iter().enumerate() { nodes1.insert(pos1 + k, node); }
+        for (k, node) in blk_from_r2.into_iter().enumerate() {
+            nodes1.insert(pos1 + k, node);
+        }
         let nodes2 = &mut self.routes[r2].nodes;
-        for (k, node) in blk_from_r1.into_iter().enumerate() { nodes2.insert(pos2 + k, node); }
+        for (k, node) in blk_from_r1.into_iter().enumerate() {
+            nodes2.insert(pos2 + k, node);
+        }
 
         self.nb_moves += 1;
         self.update_route(r1);
@@ -527,7 +692,10 @@ impl<'a> LocalSearch<'a> {
 
         let new_total = self.routes[r1].cost + self.routes[r2].cost;
         self.cost += new_total - old_total;
-        debug_assert!(new_total - old_total < 0, "Applied non-improving move unexpectedly!");
+        debug_assert!(
+            new_total - old_total < 0,
+            "Applied non-improving move unexpectedly!"
+        );
         true
     }
 
@@ -540,22 +708,32 @@ impl<'a> LocalSearch<'a> {
         let route2_len = self.routes[r2].nodes.len();
         let u = self.routes[r1].nodes[pos1].id;
         let v = self.routes[r2].nodes[pos2].id;
-        let (pu, nu) = (self.routes[r1].nodes[pos1 - 1].id, self.routes[r1].nodes[pos1 + 1].id);
-        let (pv, nv) = (self.routes[r2].nodes[pos2 - 1].id, self.routes[r2].nodes[pos2 + 1].id);
+        let (pu, nu) = (
+            self.routes[r1].nodes[pos1 - 1].id,
+            self.routes[r1].nodes[pos1 + 1].id,
+        );
+        let (pv, nv) = (
+            self.routes[r2].nodes[pos2 - 1].id,
+            self.routes[r2].nodes[pos2 + 1].id,
+        );
 
         // First filter on route costs
         let dr1 = self.data.dm(pu, nu) - self.data.dm(pu, u) - self.data.dm(u, nu);
         let dr2 = self.data.dm(pv, nv) - self.data.dm(pv, v) - self.data.dm(v, nv);
-        let delta_demand = self.data.demands[v] - self.data.demands[u] ;
+        let delta_demand = self.data.demands[v] - self.data.demands[u];
         let new_load1 = self.routes[r1].load + delta_demand;
         let new_load2 = self.routes[r2].load - delta_demand;
-        let new_pen1 = ((new_load1 - self.data.max_capacity).max(0) as i64) * self.params.penalty_capa as i64;
-        let new_pen2 = ((new_load2 - self.data.max_capacity).max(0) as i64) * self.params.penalty_capa as i64;
-        let cost_lb_r1_after_removal = (self.routes[r1].distance + dr1) as i64 + new_pen1 ;
-        let cost_lb_r2_after_removal = (self.routes[r2].distance + dr2) as i64 + new_pen2 ;
+        let new_pen1 =
+            ((new_load1 - self.data.max_capacity).max(0) as i64) * self.params.penalty_capa as i64;
+        let new_pen2 =
+            ((new_load2 - self.data.max_capacity).max(0) as i64) * self.params.penalty_capa as i64;
+        let cost_lb_r1_after_removal = (self.routes[r1].distance + dr1) as i64 + new_pen1;
+        let cost_lb_r2_after_removal = (self.routes[r2].distance + dr2) as i64 + new_pen2;
         let mut lb_new_total = cost_lb_r1_after_removal + cost_lb_r2_after_removal;
         let old_total = self.routes[r1].cost + self.routes[r2].cost;
-        if lb_new_total > old_total { return false; }
+        if lb_new_total > old_total {
+            return false;
+        }
 
         // best detour for inserting v into r1 \ {u}
         let hole_v = self.data.dm(pu, v) + self.data.dm(v, nu) - self.data.dm(pu, nu);
@@ -563,9 +741,13 @@ impl<'a> LocalSearch<'a> {
         for t in 1..route1_len {
             let a_id = self.routes[r1].nodes[t - 1].id;
             let b_id = self.routes[r1].nodes[t].id;
-            if a_id == u || b_id == u { continue; } // skip arcs broken by removing U
+            if a_id == u || b_id == u {
+                continue;
+            } // skip arcs broken by removing U
             let delta = self.data.dm(a_id, v) + self.data.dm(v, b_id) - self.data.dm(a_id, b_id);
-            if delta < best_ins_v { best_ins_v = delta; }
+            if delta < best_ins_v {
+                best_ins_v = delta;
+            }
         }
 
         // best detour for inserting u into r2 \ {v}
@@ -574,14 +756,20 @@ impl<'a> LocalSearch<'a> {
         for t in 1..route2_len {
             let a_id = self.routes[r2].nodes[t - 1].id;
             let b_id = self.routes[r2].nodes[t].id;
-            if a_id == v || b_id == v { continue; } // skip arcs broken by removing V
+            if a_id == v || b_id == v {
+                continue;
+            } // skip arcs broken by removing V
             let delta = self.data.dm(a_id, u) + self.data.dm(u, b_id) - self.data.dm(a_id, b_id);
-            if delta < best_ins_u { best_ins_u = delta; }
+            if delta < best_ins_u {
+                best_ins_u = delta;
+            }
         }
 
         // Second filter on route costs
         lb_new_total += (best_ins_v + best_ins_u) as i64;
-        if lb_new_total > old_total { return false; }
+        if lb_new_total > old_total {
+            return false;
+        }
 
         // Full evaluation considering time windows upon insertion
         let mut left_excl1: Vec<Sequence> = vec![Sequence::default(); route1_len];
@@ -591,12 +779,16 @@ impl<'a> LocalSearch<'a> {
             let mut acc_left = r.nodes[0].seq0_i;
             for p in 1..route1_len {
                 left_excl1[p] = acc_left;
-                if p != pos1 { acc_left = Sequence::join2(self.data, &acc_left, &r.nodes[p].seq1); }
+                if p != pos1 {
+                    acc_left = Sequence::join2(self.data, &acc_left, &r.nodes[p].seq1);
+                }
             }
             let mut acc_right = r.nodes[route1_len - 1].seq1;
             right_excl1[route1_len - 1] = acc_right;
             for p in (1..route1_len - 1).rev() {
-                if p != pos1 { acc_right = Sequence::join2(self.data, &r.nodes[p].seq1, &acc_right); }
+                if p != pos1 {
+                    acc_right = Sequence::join2(self.data, &r.nodes[p].seq1, &acc_right);
+                }
                 right_excl1[p] = acc_right;
             }
         }
@@ -609,12 +801,16 @@ impl<'a> LocalSearch<'a> {
             let mut acc_left = r.nodes[0].seq0_i;
             for p in 1..route2_len {
                 left_excl2[p] = acc_left;
-                if p != pos2 { acc_left = Sequence::join2(self.data, &acc_left, &r.nodes[p].seq1); }
+                if p != pos2 {
+                    acc_left = Sequence::join2(self.data, &acc_left, &r.nodes[p].seq1);
+                }
             }
             let mut acc_right = r.nodes[route2_len - 1].seq1;
             right_excl2[route2_len - 1] = acc_right;
             for p in (1..route2_len - 1).rev() {
-                if p != pos2 { acc_right = Sequence::join2(self.data, &r.nodes[p].seq1, &acc_right); }
+                if p != pos2 {
+                    acc_right = Sequence::join2(self.data, &r.nodes[p].seq1, &acc_right);
+                }
                 right_excl2[p] = acc_right;
             }
         }
@@ -624,8 +820,17 @@ impl<'a> LocalSearch<'a> {
         let mut best_cost1 = i64::MAX / 4;
         let mut best_t1: usize = 1;
         for t in 1..route1_len {
-            let cand = Sequence::eval3(self.data, &self.params, &left_excl1[t], &v_seq1, &right_excl1[t]);
-            if cand < best_cost1 { best_cost1 = cand; best_t1 = t; }
+            let cand = Sequence::eval3(
+                self.data,
+                &self.params,
+                &left_excl1[t],
+                &v_seq1,
+                &right_excl1[t],
+            );
+            if cand < best_cost1 {
+                best_cost1 = cand;
+                best_t1 = t;
+            }
         }
 
         // Reinsertion of U into r2 \ {V}
@@ -633,11 +838,22 @@ impl<'a> LocalSearch<'a> {
         let mut best_cost2 = i64::MAX / 4;
         let mut best_t2: usize = 1;
         for t in 1..route2_len {
-            let cand = Sequence::eval3(self.data, &self.params, &left_excl2[t], &u_seq1, &right_excl2[t]);
-            if cand < best_cost2 { best_cost2 = cand; best_t2 = t; }
+            let cand = Sequence::eval3(
+                self.data,
+                &self.params,
+                &left_excl2[t],
+                &u_seq1,
+                &right_excl2[t],
+            );
+            if cand < best_cost2 {
+                best_cost2 = cand;
+                best_t2 = t;
+            }
         }
 
-        if best_cost1 + best_cost2 >= old_total { return false; }
+        if best_cost1 + best_cost2 >= old_total {
+            return false;
+        }
 
         // Apply move
         let node_u = self.routes[r1].nodes[pos1].clone();
@@ -657,17 +873,27 @@ impl<'a> LocalSearch<'a> {
         self.update_route(r2);
         let new_total = self.routes[r1].cost + self.routes[r2].cost;
         self.cost += new_total - old_total;
-        debug_assert!(new_total - old_total < 0, "Applied non-improving SWAP* unexpectedly!");
+        debug_assert!(
+            new_total - old_total < 0,
+            "Applied non-improving SWAP* unexpectedly!"
+        );
         true
     }
 
-    pub fn runls(&mut self, routes: &mut Vec<Vec<usize>>, rng: &mut SmallRng, params: Params, is_repair: bool, factor: usize) {
+    pub fn runls(
+        &mut self,
+        routes: &mut Vec<Vec<usize>>,
+        rng: &mut SmallRng,
+        params: Params,
+        is_repair: bool,
+        factor: usize,
+    ) {
         self.params = params;
         if !is_repair {
             self.load_from_routes(routes);
-        }
-        else { // hot start for Repair phase
-            self.params.penalty_tw   = (factor * self.params.penalty_tw).min(10_000);
+        } else {
+            // hot start for Repair phase
+            self.params.penalty_tw = (factor * self.params.penalty_tw).min(10_000);
             self.params.penalty_capa = (factor * self.params.penalty_capa).min(10_000);
             self.nb_moves += 1;
             for rid in 0..self.routes.len() {
@@ -697,7 +923,9 @@ impl<'a> LocalSearch<'a> {
                     let c2 = self.neighbors_before[c1][(start + off) % neigh_len];
                     let r2 = self.node_route[c2];
                     let pos2 = self.node_pos[c2];
-                    if r1 == r2 { continue; }
+                    if r1 == r2 {
+                        continue;
+                    }
 
                     // Skip if both routes unchanged since last tests for this customer
                     if self.when_last_modified[r1].max(self.when_last_modified[r2]) <= last_tested {
@@ -706,7 +934,7 @@ impl<'a> LocalSearch<'a> {
 
                     // We use pos2 + 1 for the SWAP and RELOCATE moves since c2 is a good predecessor for c1
                     // Moves listed here create the edge c2 => c1, but never insert immediately after a depot
-                    if self.run_inter_route(r1, pos1, r2, pos2+1) {
+                    if self.run_inter_route(r1, pos1, r2, pos2 + 1) {
                         improved = true;
                         break;
                     }
@@ -717,7 +945,7 @@ impl<'a> LocalSearch<'a> {
                         break;
                     }
 
-                    if self.run_2optstar(r1, pos1, r2, pos2+1) {
+                    if self.run_2optstar(r1, pos1, r2, pos2 + 1) {
                         improved = true;
                         break;
                     }
@@ -731,11 +959,16 @@ impl<'a> LocalSearch<'a> {
                     for off in 0..swap_len {
                         let c2 = self.neighbors_capacity_swap[c1][(start_s + off) % swap_len];
                         let r2 = self.node_route[c2];
-                        if r1 == r2 { continue; }
+                        if r1 == r2 {
+                            continue;
+                        }
 
                         // Skip if both routes unchanged since last tests for this customer
                         // Also break symmetry by eliminating moves such that c1 < c2
-                        if c1 < c2 || self.when_last_modified[r1].max(self.when_last_modified[r2]) <= last_tested {
+                        if c1 < c2
+                            || self.when_last_modified[r1].max(self.when_last_modified[r2])
+                                <= last_tested
+                        {
                             continue;
                         }
 
@@ -772,8 +1005,10 @@ impl<'a> LocalSearch<'a> {
                 // Intra-route moves
                 let r1 = self.node_route[c1];
                 if self.when_last_modified[r1] > last_tested {
-                    improved |= self.run_intra_route_relocate(self.node_route[c1], self.node_pos[c1]);
-                    improved |= self.run_intra_route_swap_right(self.node_route[c1], self.node_pos[c1]);
+                    improved |=
+                        self.run_intra_route_relocate(self.node_route[c1], self.node_pos[c1]);
+                    improved |=
+                        self.run_intra_route_swap_right(self.node_route[c1], self.node_pos[c1]);
                     improved |= self.run_2opt(self.node_route[c1], self.node_pos[c1]);
                 }
             }

@@ -4,15 +4,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use tig_challenges::job_scheduling::*;
 
-use super::types::EffortConfig;
-use super::preprocess::build_pre;
-use super::infra::run_simple_greedy_baseline;
 use super::detect::{detect_track, DetectedTrack};
+use super::fjsp_high;
+use super::fjsp_medium;
 use super::flow_shop;
 use super::hybrid_flow_shop;
+use super::infra::run_simple_greedy_baseline;
 use super::job_shop;
-use super::fjsp_medium;
-use super::fjsp_high;
+use super::preprocess::build_pre;
+use super::types::EffortConfig;
 
 #[derive(Serialize, Deserialize)]
 pub struct Hyperparameters {
@@ -85,21 +85,46 @@ pub fn solve_challenge(
     let effort = parse_effort(hyperparameters);
 
     match track {
-        DetectedTrack::FlowShop => {
-            flow_shop::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
-        DetectedTrack::HybridFlowShop => {
-            hybrid_flow_shop::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
-        DetectedTrack::JobShop => {
-            job_shop::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
-        DetectedTrack::FjspMedium => {
-            fjsp_medium::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
-        DetectedTrack::FjspHigh => {
-            fjsp_high::solve(challenge, save_solution, &pre, greedy_sol, greedy_mk, &effort)
-        }
+        DetectedTrack::FlowShop => flow_shop::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
+        DetectedTrack::HybridFlowShop => hybrid_flow_shop::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
+        DetectedTrack::JobShop => job_shop::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
+        DetectedTrack::FjspMedium => fjsp_medium::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
+        DetectedTrack::FjspHigh => fjsp_high::solve(
+            challenge,
+            save_solution,
+            &pre,
+            greedy_sol,
+            greedy_mk,
+            &effort,
+        ),
     }
 }
 

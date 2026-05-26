@@ -1,10 +1,10 @@
+use super::types::*;
 use anyhow::{anyhow, Result};
 use rand::{rngs::SmallRng, seq::SliceRandom, Rng, SeedableRng};
 use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use tig_challenges::job_scheduling::*;
-use super::types::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Rule {
@@ -179,10 +179,7 @@ fn score_candidate(
         }
         Rule::ShortestProc => {
             let next_term = next_w_base * 0.20 * next_term_raw;
-            (-1.00 * proc_n)
-                + (0.25 * rem_min_n)
-                + (0.12 * scarcity_urg)
-                + next_term
+            (-1.00 * proc_n) + (0.25 * rem_min_n) + (0.12 * scarcity_urg) + next_term
                 - (0.20 * end_n)
                 - pop_pen
                 + (0.25 * job_bias)
@@ -192,10 +189,7 @@ fn score_candidate(
         }
         Rule::LeastFlex => {
             let next_term = next_w_base * 0.20 * next_term_raw;
-            (1.00 * flex_inv)
-                + (0.28 * rem_min_n)
-                + (0.22 * scarcity_urg)
-                + next_term
+            (1.00 * flex_inv) + (0.28 * rem_min_n) + (0.22 * scarcity_urg) + next_term
                 - (0.55 * end_n)
                 - pop_pen
                 + (0.35 * job_bias)
@@ -205,10 +199,7 @@ fn score_candidate(
         }
         Rule::CriticalPath => {
             let next_term = next_w_base * 0.30 * next_term_raw;
-            (1.03 * rem_min_n)
-                + (0.10 * ops_n)
-                + (0.24 * scarcity_urg)
-                + next_term
+            (1.03 * rem_min_n) + (0.10 * ops_n) + (0.24 * scarcity_urg) + next_term
                 - (0.70 * end_n)
                 - pop_pen
                 + (0.45 * job_bias)
@@ -218,10 +209,7 @@ fn score_candidate(
         }
         Rule::Regret => {
             let next_term = next_w_base * 0.25 * next_term_raw;
-            (1.05 * reg_n)
-                + (0.55 * rem_min_n)
-                + (0.22 * scarcity_urg)
-                + next_term
+            (1.05 * reg_n) + (0.55 * rem_min_n) + (0.22 * scarcity_urg) + next_term
                 - (0.68 * end_n)
                 - pop_pen
                 + (0.35 * job_bias)
@@ -232,10 +220,7 @@ fn score_candidate(
         Rule::EarliestStart => {
             let start_n = (time as f64) / pre.time_scale.max(1.0);
             let next_term = next_w_base * 0.20 * next_term_raw;
-            -(1.20 * start_n)
-                + (0.40 * rem_min_n)
-                + (0.15 * scarcity_urg)
-                + next_term
+            -(1.20 * start_n) + (0.40 * rem_min_n) + (0.15 * scarcity_urg) + next_term
                 - (0.30 * proc_n)
                 - pop_pen
                 + (0.30 * job_bias)
@@ -246,10 +231,7 @@ fn score_candidate(
         Rule::MachineBalance => {
             let load_n = dynamic_load / pre.avg_machine_load.max(1e-9);
             let next_term = next_w_base * 0.20 * next_term_raw;
-            -(0.80 * load_n)
-                + (0.50 * rem_min_n)
-                + (0.25 * scarcity_urg)
-                + next_term
+            -(0.80 * load_n) + (0.50 * rem_min_n) + (0.25 * scarcity_urg) + next_term
                 - (0.45 * end_n)
                 - pop_pen
                 + (0.35 * job_bias)
@@ -261,10 +243,7 @@ fn score_candidate(
             let time_to_horizon = (pre.horizon - time as f64).max(1.0);
             let cr = (rem_min / time_to_horizon).clamp(0.0, 4.0);
             let next_term = next_w_base * 0.25 * next_term_raw;
-            (1.10 * cr)
-                + (0.35 * rem_min_n)
-                + (0.20 * scarcity_urg)
-                + next_term
+            (1.10 * cr) + (0.35 * rem_min_n) + (0.20 * scarcity_urg) + next_term
                 - (0.55 * end_n)
                 - pop_pen
                 + (0.40 * job_bias)
@@ -277,10 +256,7 @@ fn score_candidate(
             let density =
                 ((rem_min / (ops_rem as f64).max(1.0)) / pre.avg_op_min.max(1.0)).clamp(0.0, 4.0);
             let next_term = next_w_base * 0.30 * next_term_raw;
-            (1.15 * bn_suf)
-                + (0.45 * density)
-                + (0.20 * scarcity_urg)
-                + next_term
+            (1.15 * bn_suf) + (0.45 * density) + (0.20 * scarcity_urg) + next_term
                 - (0.60 * end_n)
                 - pop_pen
                 + (0.40 * job_bias)
@@ -296,10 +272,7 @@ fn score_candidate(
                 work_n
             };
             let next_term = next_w_base * 0.20 * next_term_raw;
-            (1.20 * wspt)
-                + (0.30 * rem_min_n)
-                + (0.15 * scarcity_urg)
-                + next_term
+            (1.20 * wspt) + (0.30 * rem_min_n) + (0.15 * scarcity_urg) + next_term
                 - (0.40 * end_n)
                 - pop_pen
                 + (0.35 * job_bias)
@@ -421,7 +394,14 @@ fn construct_solution_conflict(
                     );
                     push_top_k_raw(
                         &mut raw_by_machine[m],
-                        RawCand { job, machine: m, pt, base_score: base, rigidity, reg_n: regn },
+                        RawCand {
+                            job,
+                            machine: m,
+                            pt,
+                            base_score: base,
+                            rigidity,
+                            reg_n: regn,
+                        },
                         cap_per_machine,
                     );
                 }
@@ -431,14 +411,16 @@ fn construct_solution_conflict(
             let conflict_w = (0.09
                 + 0.26 * pre.jobshopness
                 + 0.11 * pre.high_flex
-                + 0.16
-                    * (1.0
-                        - (1.0 - (remaining_ops as f64) / (pre.total_ops as f64).max(1.0))))
+                + 0.16 * (1.0 - (1.0 - (remaining_ops as f64) / (pre.total_ops as f64).max(1.0))))
             .clamp(0.05, 0.45);
             let conflict_scale = (0.90 + 0.40 * pre.flex_factor).clamp(0.85, 1.75);
 
             let mut best: Option<Cand> = None;
-            let mut top: Vec<Cand> = if k > 0 { Vec::with_capacity(k) } else { Vec::new() };
+            let mut top: Vec<Cand> = if k > 0 {
+                Vec::with_capacity(k)
+            } else {
+                Vec::new()
+            };
 
             for &m in &idle_machines {
                 let dem = demand[m] as f64;
@@ -450,7 +432,12 @@ fn construct_solution_conflict(
                     let rig = rc.rigidity.clamp(0.0, 2.5);
                     let regc = rc.reg_n.clamp(0.0, 4.5);
                     let boost = conflict_w * conflict_scale * dem_n * (1.15 * rig + 0.85 * regc);
-                    let c = Cand { job: rc.job, machine: rc.machine, pt: rc.pt, score: rc.base_score + boost };
+                    let c = Cand {
+                        job: rc.job,
+                        machine: rc.machine,
+                        pt: rc.pt,
+                        score: rc.base_score + boost,
+                    };
                     if k == 0 {
                         if best.map_or(true, |bb| c.score > bb.score) {
                             best = Some(c);
@@ -526,7 +513,11 @@ fn construct_solution_conflict(
 }
 
 #[inline]
-fn best_second_and_counts(time: u32, machine_avail: &[u32], op: &OpInfo) -> (u32, u32, usize, usize) {
+fn best_second_and_counts(
+    time: u32,
+    machine_avail: &[u32],
+    op: &OpInfo,
+) -> (u32, u32, usize, usize) {
     let mut best = INF;
     let mut second = INF;
     let mut cnt_best = 0usize;
@@ -590,7 +581,7 @@ fn push_top_k_raw(top: &mut Vec<RawCand>, c: RawCand, k: usize) {
 }
 
 #[inline]
-fn choose_from_top_weighted(rng: &mut SmallRng, top: &[Cand]) -> Cand {    
+fn choose_from_top_weighted(rng: &mut SmallRng, top: &[Cand]) -> Cand {
     let n = top.len();
     if n <= 1 {
         return top[0];
@@ -616,7 +607,7 @@ fn choose_from_top_weighted(rng: &mut SmallRng, top: &[Cand]) -> Cand {
 }
 
 #[inline]
-fn push_top_solutions(top: &mut Vec<(Solution, u32)>, sol: &Solution, mk: u32, cap: usize) {    
+fn push_top_solutions(top: &mut Vec<(Solution, u32)>, sol: &Solution, mk: u32, cap: usize) {
     if cap == 0 {
         return;
     }
@@ -627,10 +618,7 @@ fn push_top_solutions(top: &mut Vec<(Solution, u32)>, sol: &Solution, mk: u32, c
     let signature = |s: &Solution| -> Vec<usize> {
         let mut best: Vec<(u32, usize)> = Vec::with_capacity(ksig);
         for j in 0..s.job_schedule.len() {
-            let t = s.job_schedule[j]
-                .first()
-                .map(|x| x.1)
-                .unwrap_or(u32::MAX);
+            let t = s.job_schedule[j].first().map(|x| x.1).unwrap_or(u32::MAX);
 
             let mut pos = best.len();
             while pos > 0 {
@@ -761,7 +749,11 @@ fn reentrant_makespan(seq: &[usize], route: &[usize], pt: &[Vec<u32>], mready: &
     mk
 }
 
-fn build_disj_from_solution(pre: &Pre, challenge: &Challenge, sol: &Solution) -> Result<DisjSchedule> {
+fn build_disj_from_solution(
+    pre: &Pre,
+    challenge: &Challenge,
+    sol: &Solution,
+) -> Result<DisjSchedule> {
     let num_jobs = challenge.num_jobs;
     let num_machines = challenge.num_machines;
     let mut job_offsets = vec![0usize; num_jobs + 1];
@@ -926,8 +918,18 @@ fn critical_block_move_local_search_ex(
         None => return Ok(None),
     };
     let initial_mk = cur_eval.0;
-    descent_phase(&mut ds, &mut buf, &mut crit, pre, &mut cur_eval, max_iters, top_cands);
-    let Some((mk_after, _)) = eval_disj(&ds, &mut buf) else { return Ok(None) };
+    descent_phase(
+        &mut ds,
+        &mut buf,
+        &mut crit,
+        pre,
+        &mut cur_eval,
+        max_iters,
+        top_cands,
+    );
+    let Some((mk_after, _)) = eval_disj(&ds, &mut buf) else {
+        return Ok(None);
+    };
     let mut global_best_mk = mk_after;
     let mut global_best_ds = ds.clone();
     let mut pseed: u64 = (challenge.seed[0] as u64).wrapping_mul(0x9E3779B97F4A7C15)
@@ -935,7 +937,9 @@ fn critical_block_move_local_search_ex(
         ^ (ds.n as u64);
     for _cycle in 0..perturb_cycles {
         ds = global_best_ds.clone();
-        let Some((_, mk_node)) = eval_disj(&ds, &mut buf) else { break };
+        let Some((_, mk_node)) = eval_disj(&ds, &mut buf) else {
+            break;
+        };
         crit.fill(false);
         let mut u = mk_node;
         while u != NONE_USIZE {
@@ -999,7 +1003,15 @@ fn critical_block_move_local_search_ex(
             Some(x) => cur_eval = x,
             None => continue,
         }
-        descent_phase(&mut ds, &mut buf, &mut crit, pre, &mut cur_eval, max_iters, top_cands);
+        descent_phase(
+            &mut ds,
+            &mut buf,
+            &mut crit,
+            pre,
+            &mut cur_eval,
+            max_iters,
+            top_cands,
+        );
         if let Some((mk_now, _)) = eval_disj(&ds, &mut buf) {
             if mk_now < global_best_mk {
                 global_best_mk = mk_now;
@@ -1011,7 +1023,9 @@ fn critical_block_move_local_search_ex(
         return Ok(None);
     }
     ds = global_best_ds;
-    let Some((mk_final, _)) = eval_disj(&ds, &mut buf) else { return Ok(None) };
+    let Some((mk_final, _)) = eval_disj(&ds, &mut buf) else {
+        return Ok(None);
+    };
     let sol = disj_to_solution(pre, &ds, &buf.start)?;
     Ok(Some((sol, mk_final)))
 }
@@ -1047,8 +1061,16 @@ fn descent_phase(
             let js = ds.job_succ[u];
             let ms = buf.machine_succ[u];
 
-            let js_st = if js != NONE_USIZE { buf.start[js] } else { end_u };
-            let ms_st = if ms != NONE_USIZE { buf.start[ms] } else { end_u };
+            let js_st = if js != NONE_USIZE {
+                buf.start[js]
+            } else {
+                end_u
+            };
+            let ms_st = if ms != NONE_USIZE {
+                buf.start[ms]
+            } else {
+                end_u
+            };
 
             let gap_job = js_st.saturating_sub(end_u);
             let gap_mach = ms_st.saturating_sub(end_u);
@@ -1423,8 +1445,10 @@ fn run_greedy_rule_fs(
     let mut job_next_op = vec![0usize; num_jobs];
     let mut job_ready = vec![0u32; num_jobs];
     let mut machine_avail = vec![0u32; num_machines];
-    let mut job_schedule: Vec<Vec<(usize, u32)>> =
-        job_ops_len.iter().map(|&len| Vec::with_capacity(len)).collect();
+    let mut job_schedule: Vec<Vec<(usize, u32)>> = job_ops_len
+        .iter()
+        .map(|&len| Vec::with_capacity(len))
+        .collect();
     let mut job_work_left = job_total_work.to_vec();
     let mut remaining = job_ops_len.iter().sum::<usize>();
     let mut time = 0u32;
@@ -1693,7 +1717,12 @@ fn taillard_best_insert_pos(
     (best_pos, best_mk)
 }
 
-fn improve_perm_seq_taillard(seq: &mut Vec<usize>, pt: &[Vec<u32>], rounds: usize, buf: &mut TaillardInsBuf) {
+fn improve_perm_seq_taillard(
+    seq: &mut Vec<usize>,
+    pt: &[Vec<u32>],
+    rounds: usize,
+    buf: &mut TaillardInsBuf,
+) {
     let m = pt.first().map(|r| r.len()).unwrap_or(0);
     if seq.len() <= 2 || m == 0 {
         return;
@@ -1717,7 +1746,12 @@ fn improve_perm_seq_taillard(seq: &mut Vec<usize>, pt: &[Vec<u32>], rounds: usiz
     }
 }
 
-fn neh_build_seq(order: &[usize], route: &[usize], pt: &[Vec<u32>], num_machines: usize) -> Vec<usize> {
+fn neh_build_seq(
+    order: &[usize],
+    route: &[usize],
+    pt: &[Vec<u32>],
+    num_machines: usize,
+) -> Vec<usize> {
     let unique = route_is_unique(route, num_machines);
     if unique {
         let m = route.len();
@@ -1764,7 +1798,12 @@ fn neh_build_seq(order: &[usize], route: &[usize], pt: &[Vec<u32>], num_machines
     seq
 }
 
-fn fs_improve_reentrant_seq(seq: &mut Vec<usize>, route: &[usize], pt: &[Vec<u32>], num_machines: usize) {
+fn fs_improve_reentrant_seq(
+    seq: &mut Vec<usize>,
+    route: &[usize],
+    pt: &[Vec<u32>],
+    num_machines: usize,
+) {
     if seq.len() <= 2 || route.is_empty() {
         return;
     }
@@ -1865,8 +1904,14 @@ fn order_from_solution_first_op_start(sol: &Solution, num_jobs: usize) -> Vec<us
 }
 
 fn neh_best_sequence(pre: &Pre, num_jobs: usize, num_machines: usize) -> Result<Vec<usize>> {
-    let route = pre.flow_route.as_ref().ok_or_else(|| anyhow!("No flow route"))?;
-    let pt = pre.flow_pt_by_job.as_ref().ok_or_else(|| anyhow!("No flow pt"))?;
+    let route = pre
+        .flow_route
+        .as_ref()
+        .ok_or_else(|| anyhow!("No flow route"))?;
+    let pt = pre
+        .flow_pt_by_job
+        .as_ref()
+        .ok_or_else(|| anyhow!("No flow pt"))?;
     let ops = route.len();
     if ops == 0 || pt.len() != num_jobs {
         return Err(anyhow!("Invalid flow data"));
@@ -1926,7 +1971,13 @@ fn neh_best_sequence(pre: &Pre, num_jobs: usize, num_machines: usize) -> Result<
     Ok(best_seq)
 }
 
-fn iterated_greedy_search(init: &[usize], pt: &[Vec<u32>], iters: usize, d: usize, rng: &mut SmallRng) -> Vec<usize> {
+fn iterated_greedy_search(
+    init: &[usize],
+    pt: &[Vec<u32>],
+    iters: usize,
+    d: usize,
+    rng: &mut SmallRng,
+) -> Vec<usize> {
     let n = init.len();
     if n <= 2 {
         return init.to_vec();
@@ -2001,7 +2052,10 @@ fn iterated_greedy_search(init: &[usize], pt: &[Vec<u32>], iters: usize, d: usiz
 }
 
 fn strict_makespan(challenge: &Challenge, pre: &Pre, rank: &[usize]) -> Result<u32> {
-    let route = pre.flow_route.as_ref().ok_or_else(|| anyhow!("flow_route missing"))?;
+    let route = pre
+        .flow_route
+        .as_ref()
+        .ok_or_else(|| anyhow!("flow_route missing"))?;
     let num_jobs = challenge.num_jobs;
     let num_machines = challenge.num_machines;
     let mut job_next_op = vec![0usize; num_jobs];
@@ -2022,9 +2076,9 @@ fn strict_makespan(challenge: &Challenge, pre: &Pre, rank: &[usize]) -> Result<u
     let mut next_time: Vec<Option<u32>> = vec![None; num_machines];
     let mut machine_events: BinaryHeap<Reverse<(u32, usize)>> = BinaryHeap::new();
     let compute_next_time = |m: usize,
-                            machine_avail: &Vec<u32>,
-                            future: &Vec<BinaryHeap<Reverse<(u32, usize, usize)>>>,
-                            avail: &Vec<BinaryHeap<Reverse<(usize, usize)>>>|
+                             machine_avail: &Vec<u32>,
+                             future: &Vec<BinaryHeap<Reverse<(u32, usize, usize)>>>,
+                             avail: &Vec<BinaryHeap<Reverse<(usize, usize)>>>|
      -> Option<u32> {
         if !avail[m].is_empty() {
             return Some(machine_avail[m]);
@@ -2109,7 +2163,10 @@ fn strict_makespan(challenge: &Challenge, pre: &Pre, rank: &[usize]) -> Result<u
 }
 
 fn strict_simulate(challenge: &Challenge, pre: &Pre, rank: &[usize]) -> Result<(Solution, u32)> {
-    let route = pre.flow_route.as_ref().ok_or_else(|| anyhow!("flow_route missing"))?;
+    let route = pre
+        .flow_route
+        .as_ref()
+        .ok_or_else(|| anyhow!("flow_route missing"))?;
     let num_jobs = challenge.num_jobs;
     let num_machines = challenge.num_machines;
     let mut job_next_op = vec![0usize; num_jobs];
@@ -2135,9 +2192,9 @@ fn strict_simulate(challenge: &Challenge, pre: &Pre, rank: &[usize]) -> Result<(
     let mut next_time: Vec<Option<u32>> = vec![None; num_machines];
     let mut machine_events: BinaryHeap<Reverse<(u32, usize)>> = BinaryHeap::new();
     let compute_next_time = |m: usize,
-                            machine_avail: &Vec<u32>,
-                            future: &Vec<BinaryHeap<Reverse<(u32, usize, usize)>>>,
-                            avail: &Vec<BinaryHeap<Reverse<(usize, usize)>>>|
+                             machine_avail: &Vec<u32>,
+                             future: &Vec<BinaryHeap<Reverse<(u32, usize, usize)>>>,
+                             avail: &Vec<BinaryHeap<Reverse<(usize, usize)>>>|
      -> Option<u32> {
         if !avail[m].is_empty() {
             return Some(machine_avail[m]);
@@ -2222,7 +2279,11 @@ fn strict_simulate(challenge: &Challenge, pre: &Pre, rank: &[usize]) -> Result<(
     Ok((Solution { job_schedule }, makespan))
 }
 
-fn strict_best_by_order_search(challenge: &Challenge, pre: &Pre, passes: usize) -> Result<(Solution, u32)> {
+fn strict_best_by_order_search(
+    challenge: &Challenge,
+    pre: &Pre,
+    passes: usize,
+) -> Result<(Solution, u32)> {
     if pre.flow_route.is_none() || pre.flex_avg > 1.25 {
         return Err(anyhow!("not strict-like"));
     }
@@ -2406,7 +2467,9 @@ fn strict_best_by_order_search(challenge: &Challenge, pre: &Pre, passes: usize) 
             }
         }
 
-        let Some((seg_len, start, ins)) = best_move else { break };
+        let Some((seg_len, start, ins)) = best_move else {
+            break;
+        };
 
         let rem_len = n - seg_len;
         let mut out = 0usize;
@@ -2572,7 +2635,10 @@ pub fn solve(
                 if let Some((s, _mk)) = &strict_sol {
                     starts.push(order_from_solution_first_op_start(s, challenge.num_jobs));
                 }
-                starts.push(order_from_solution_first_op_start(&best_sol, challenge.num_jobs));
+                starts.push(order_from_solution_first_op_start(
+                    &best_sol,
+                    challenge.num_jobs,
+                ));
                 let mut uniq: Vec<Vec<usize>> = Vec::new();
                 for ord in starts {
                     if ord.len() != challenge.num_jobs {
@@ -2636,7 +2702,13 @@ pub fn solve(
             let pt = pt;
             let seq = neh_best_sequence(pre, challenge.num_jobs, challenge.num_machines);
             seq.map(|s| {
-                build_perm_solution_from_seq(&s, route, pt, challenge.num_jobs, challenge.num_machines)
+                build_perm_solution_from_seq(
+                    &s,
+                    route,
+                    pt,
+                    challenge.num_jobs,
+                    challenge.num_machines,
+                )
             })
         } {
             if let Ok(mk) = challenge.evaluate_makespan(&sol) {
@@ -2651,7 +2723,10 @@ pub fn solve(
     }
 
     let flow_is_reentrant = pre.flow_route.is_some()
-        && !route_is_unique(pre.flow_route.as_deref().unwrap_or(&[]), challenge.num_machines)
+        && !route_is_unique(
+            pre.flow_route.as_deref().unwrap_or(&[]),
+            challenge.num_machines,
+        )
         && pre.flex_avg <= 1.25;
 
     if flow_is_reentrant {
@@ -2793,10 +2868,7 @@ pub fn solve(
                     let signature = |s: &Solution| -> Vec<usize> {
                         let mut best: Vec<(u32, usize)> = Vec::with_capacity(ksig);
                         for j in 0..s.job_schedule.len() {
-                            let t = s.job_schedule[j]
-                                .first()
-                                .map(|x| x.1)
-                                .unwrap_or(u32::MAX);
+                            let t = s.job_schedule[j].first().map(|x| x.1).unwrap_or(u32::MAX);
 
                             let mut pos = best.len();
                             while pos > 0 {
@@ -2860,7 +2932,8 @@ pub fn solve(
                                 }
                             }
                             let mk_i = top_solutions[i].1;
-                            if max_sim < best_max_sim || (max_sim == best_max_sim && mk_i < best_mk) {
+                            if max_sim < best_max_sim || (max_sim == best_max_sim && mk_i < best_mk)
+                            {
                                 best_max_sim = max_sim;
                                 best_mk = mk_i;
                                 best_i = i;
@@ -2874,8 +2947,10 @@ pub fn solve(
                     }
 
                     for &i in &picked {
-                        let start_ord =
-                            order_from_solution_first_op_start(&top_solutions[i].0, challenge.num_jobs);
+                        let start_ord = order_from_solution_first_op_start(
+                            &top_solutions[i].0,
+                            challenge.num_jobs,
+                        );
                         if start_ord.len() != challenge.num_jobs {
                             continue;
                         }

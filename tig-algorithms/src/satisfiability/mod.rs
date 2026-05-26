@@ -203,11 +203,14 @@ pub use sat_vanguard as c001_a082;
 
 // c001_a091
 
-// c001_a092
+pub mod near_sat_v1;
+pub use near_sat_v1 as c001_a092;
 
-// c001_a093
+pub mod near_sat_v2;
+pub use near_sat_v2 as c001_a093;
 
-// c001_a094
+pub mod near_sat_v3;
+pub use near_sat_v3 as c001_a094;
 
 // c001_a095
 
@@ -419,9 +422,13 @@ pub use sat_vanguard as c001_a082;
 
 // c001_a199
 
-// c001_a200
+pub mod near_sat_cdcl;
+pub use near_sat_cdcl as c001_a200;
 
-// c001_a201
+// near_sat_v5 — sat_vanguard_v4 fork with per-track fuel bumps (2.5-3.3x) to
+// exploit the wasted 5T budget (v4 used only 125-190B = ~3%).
+pub mod near_sat_v5;
+pub use near_sat_v5 as c001_a201;
 
 // c001_a202
 

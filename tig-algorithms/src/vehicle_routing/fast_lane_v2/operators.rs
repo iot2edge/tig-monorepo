@@ -1,9 +1,9 @@
-use super::instance::Instance;
 use super::config::Config;
+use super::instance::Instance;
 use super::route_eval::RouteEval;
 use rand::rngs::SmallRng;
-use rand::Rng;
 use rand::seq::SliceRandom;
+use rand::Rng;
 use std::cmp::{max, min};
 
 #[derive(Clone, Default)]
@@ -20,7 +20,10 @@ pub struct Node {
 impl Node {
     #[inline]
     fn new(id: usize) -> Self {
-        Self { id, ..Default::default() }
+        Self {
+            id,
+            ..Default::default()
+        }
     }
 }
 
@@ -194,13 +197,23 @@ impl<'a> LocalOps<'a> {
             r.nodes[pos].seq1 = RouteEval::singleton(data, id);
             if pos + 1 < len {
                 let id_next = r.nodes[pos + 1].id;
-                r.nodes[pos].seq12 =
-                    RouteEval::join2(data, &RouteEval::singleton(data, id), &RouteEval::singleton(data, id_next));
-                r.nodes[pos].seq21 =
-                    RouteEval::join2(data, &RouteEval::singleton(data, id_next), &RouteEval::singleton(data, id));
+                r.nodes[pos].seq12 = RouteEval::join2(
+                    data,
+                    &RouteEval::singleton(data, id),
+                    &RouteEval::singleton(data, id_next),
+                );
+                r.nodes[pos].seq21 = RouteEval::join2(
+                    data,
+                    &RouteEval::singleton(data, id_next),
+                    &RouteEval::singleton(data, id),
+                );
                 if pos + 2 < len {
                     let id_next2 = r.nodes[pos + 2].id;
-                    r.nodes[pos].seq123 = RouteEval::join2(data, &r.nodes[pos].seq12, &RouteEval::singleton(data, id_next2));
+                    r.nodes[pos].seq123 = RouteEval::join2(
+                        data,
+                        &r.nodes[pos].seq12,
+                        &RouteEval::singleton(data, id_next2),
+                    );
                 }
             }
         }
@@ -262,7 +275,13 @@ impl<'a> LocalOps<'a> {
             if t == pos1 || t == pos1 + 1 {
                 continue;
             }
-            let new_cost = RouteEval::eval3(self.data, &self.params, &left_excl[t], &route.nodes[pos1].seq1, &right_excl[t]);
+            let new_cost = RouteEval::eval3(
+                self.data,
+                &self.params,
+                &left_excl[t],
+                &route.nodes[pos1].seq1,
+                &right_excl[t],
+            );
             if new_cost < best_cost {
                 best_cost = new_cost;
                 best_pos = Some(t);
@@ -328,8 +347,18 @@ impl<'a> LocalOps<'a> {
         let route1 = &self.routes[r1];
         let route2 = &self.routes[r2];
 
-        let new1 = RouteEval::eval2(self.data, &self.params, &route1.nodes[pos1 - 1].seq0_i, &route2.nodes[pos2].seqi_n);
-        let new2 = RouteEval::eval2(self.data, &self.params, &route2.nodes[pos2 - 1].seq0_i, &route1.nodes[pos1].seqi_n);
+        let new1 = RouteEval::eval2(
+            self.data,
+            &self.params,
+            &route1.nodes[pos1 - 1].seq0_i,
+            &route2.nodes[pos2].seqi_n,
+        );
+        let new2 = RouteEval::eval2(
+            self.data,
+            &self.params,
+            &route2.nodes[pos2 - 1].seq0_i,
+            &route1.nodes[pos1].seqi_n,
+        );
 
         let old_cost = route1.cost + route2.cost;
         let new_cost = new1 + new2;
@@ -394,7 +423,7 @@ impl<'a> LocalOps<'a> {
             return false;
         }
         let old_cost = self.routes[r1].cost;
-       
+
         let applied = {
             let route = &self.routes[r1];
             let len = route.nodes.len();
@@ -408,7 +437,11 @@ impl<'a> LocalOps<'a> {
                 return false;
             }
 
-            let block_seq = if l == 2 { route.nodes[pos1].seq12 } else { route.nodes[pos1].seq123 };
+            let block_seq = if l == 2 {
+                route.nodes[pos1].seq12
+            } else {
+                route.nodes[pos1].seq123
+            };
 
             let mut best_cost = old_cost;
             let mut best_dir = 0i32;
@@ -421,7 +454,11 @@ impl<'a> LocalOps<'a> {
                 let mut mid_seq = route.nodes[pos1 - 1].seq1;
                 for t in (1..pos1).rev() {
                     let prefix_seq = route.nodes[t - 1].seq0_i;
-                    let cand = RouteEval::eval_n(self.data, &self.params, &[prefix_seq, block_seq, mid_seq, suffix_fixed]);
+                    let cand = RouteEval::eval_n(
+                        self.data,
+                        &self.params,
+                        &[prefix_seq, block_seq, mid_seq, suffix_fixed],
+                    );
                     if cand < best_cost {
                         best_cost = cand;
                         best_dir = -1;
@@ -438,7 +475,11 @@ impl<'a> LocalOps<'a> {
                 let mut mid_seq = route.nodes[pos1 + l].seq1;
                 for t in (pos1 + l + 1)..len {
                     let suffix_seq = route.nodes[t].seqi_n;
-                    let cand = RouteEval::eval_n(self.data, &self.params, &[prefix_seq, mid_seq, block_seq, suffix_seq]);
+                    let cand = RouteEval::eval_n(
+                        self.data,
+                        &self.params,
+                        &[prefix_seq, mid_seq, block_seq, suffix_seq],
+                    );
                     if cand < best_cost {
                         best_cost = cand;
                         best_dir = 1;
@@ -505,7 +546,13 @@ impl<'a> LocalOps<'a> {
 
         if v.id != 0 {
             let result11 = RouteEval::eval3(data, &self.params, &u_pred.seq0_i, &v.seq1, &x.seqi_n)
-                + RouteEval::eval3(data, &self.params, &v_pred.seq0_i, &u.seq1, &rv.nodes[pos2 + 1].seqi_n);
+                + RouteEval::eval3(
+                    data,
+                    &self.params,
+                    &v_pred.seq0_i,
+                    &u.seq1,
+                    &rv.nodes[pos2 + 1].seqi_n,
+                );
             update_best(1, 1, result11);
         }
 
@@ -520,22 +567,49 @@ impl<'a> LocalOps<'a> {
 
             if v.id != 0 {
                 let y = &rv.nodes[pos2 + 1];
-                let mut result21 = RouteEval::eval3(data, &self.params, &u_pred.seq0_i, &v.seq1, &x_next.seqi_n);
+                let mut result21 =
+                    RouteEval::eval3(data, &self.params, &u_pred.seq0_i, &v.seq1, &x_next.seqi_n);
                 let mut result31 = result21;
-                result21 += RouteEval::eval3(data, &self.params, &v_pred.seq0_i, &u.seq12, &y.seqi_n);
-                result31 += RouteEval::eval3(data, &self.params, &v_pred.seq0_i, &u.seq21, &y.seqi_n);
+                result21 +=
+                    RouteEval::eval3(data, &self.params, &v_pred.seq0_i, &u.seq12, &y.seqi_n);
+                result31 +=
+                    RouteEval::eval3(data, &self.params, &v_pred.seq0_i, &u.seq21, &y.seqi_n);
                 update_best(2, 1, result21);
                 update_best(3, 1, result31);
 
                 if y.id != 0 {
-                    let mut result22 = RouteEval::eval3(data, &self.params, &u_pred.seq0_i, &v.seq12, &x_next.seqi_n);
-                    let mut result23 = RouteEval::eval3(data, &self.params, &u_pred.seq0_i, &v.seq21, &x_next.seqi_n);
+                    let mut result22 = RouteEval::eval3(
+                        data,
+                        &self.params,
+                        &u_pred.seq0_i,
+                        &v.seq12,
+                        &x_next.seqi_n,
+                    );
+                    let mut result23 = RouteEval::eval3(
+                        data,
+                        &self.params,
+                        &u_pred.seq0_i,
+                        &v.seq21,
+                        &x_next.seqi_n,
+                    );
                     let mut result32 = result22;
                     let mut result33 = result23;
 
                     let y_next = &rv.nodes[pos2 + 2];
-                    let tmp = RouteEval::eval3(data, &self.params, &v_pred.seq0_i, &u.seq12, &y_next.seqi_n);
-                    let tmp2 = RouteEval::eval3(data, &self.params, &v_pred.seq0_i, &u.seq21, &y_next.seqi_n);
+                    let tmp = RouteEval::eval3(
+                        data,
+                        &self.params,
+                        &v_pred.seq0_i,
+                        &u.seq12,
+                        &y_next.seqi_n,
+                    );
+                    let tmp2 = RouteEval::eval3(
+                        data,
+                        &self.params,
+                        &v_pred.seq0_i,
+                        &u.seq21,
+                        &y_next.seqi_n,
+                    );
                     result22 += tmp;
                     result23 += tmp;
                     result32 += tmp2;
@@ -549,29 +623,80 @@ impl<'a> LocalOps<'a> {
 
             if x_next.id != 0 && self.params.allow_swap3 {
                 let x2_next = &ru.nodes[pos1 + 3];
-                let result40 = RouteEval::eval2(data, &self.params, &u_pred.seq0_i, &x2_next.seqi_n)
-                    + RouteEval::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &v.seqi_n);
+                let result40 =
+                    RouteEval::eval2(data, &self.params, &u_pred.seq0_i, &x2_next.seqi_n)
+                        + RouteEval::eval3(
+                            data,
+                            &self.params,
+                            &v_pred.seq0_i,
+                            &u.seq123,
+                            &v.seqi_n,
+                        );
                 update_best(4, 0, result40);
 
                 if v.id != 0 {
                     let y = &rv.nodes[pos2 + 1];
-                    let result41 = RouteEval::eval3(data, &self.params, &u_pred.seq0_i, &v.seq1, &x2_next.seqi_n)
-                        + RouteEval::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &y.seqi_n);
+                    let result41 = RouteEval::eval3(
+                        data,
+                        &self.params,
+                        &u_pred.seq0_i,
+                        &v.seq1,
+                        &x2_next.seqi_n,
+                    ) + RouteEval::eval3(
+                        data,
+                        &self.params,
+                        &v_pred.seq0_i,
+                        &u.seq123,
+                        &y.seqi_n,
+                    );
                     update_best(4, 1, result41);
 
                     if y.id != 0 {
                         let y_next = &rv.nodes[pos2 + 2];
-                        let result42 = RouteEval::eval3(data, &self.params, &u_pred.seq0_i, &v.seq12, &x2_next.seqi_n)
-                            + RouteEval::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &y_next.seqi_n);
-                        let result43 = RouteEval::eval3(data, &self.params, &u_pred.seq0_i, &v.seq21, &x2_next.seqi_n)
-                            + RouteEval::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &y_next.seqi_n);
+                        let result42 = RouteEval::eval3(
+                            data,
+                            &self.params,
+                            &u_pred.seq0_i,
+                            &v.seq12,
+                            &x2_next.seqi_n,
+                        ) + RouteEval::eval3(
+                            data,
+                            &self.params,
+                            &v_pred.seq0_i,
+                            &u.seq123,
+                            &y_next.seqi_n,
+                        );
+                        let result43 = RouteEval::eval3(
+                            data,
+                            &self.params,
+                            &u_pred.seq0_i,
+                            &v.seq21,
+                            &x2_next.seqi_n,
+                        ) + RouteEval::eval3(
+                            data,
+                            &self.params,
+                            &v_pred.seq0_i,
+                            &u.seq123,
+                            &y_next.seqi_n,
+                        );
                         update_best(4, 2, result42);
                         update_best(4, 3, result43);
 
                         if y_next.id != 0 {
                             let y2_next = &rv.nodes[pos2 + 3];
-                            let result44 = RouteEval::eval3(data, &self.params, &u_pred.seq0_i, &v.seq123, &x2_next.seqi_n)
-                                + RouteEval::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &y2_next.seqi_n);
+                            let result44 = RouteEval::eval3(
+                                data,
+                                &self.params,
+                                &u_pred.seq0_i,
+                                &v.seq123,
+                                &x2_next.seqi_n,
+                            ) + RouteEval::eval3(
+                                data,
+                                &self.params,
+                                &v_pred.seq0_i,
+                                &u.seq123,
+                                &y2_next.seqi_n,
+                            );
                             update_best(4, 4, result44);
                         }
                     }
@@ -637,16 +762,24 @@ impl<'a> LocalOps<'a> {
         let route2_len = self.routes[r2].nodes.len();
         let u = self.routes[r1].nodes[pos1].id;
         let v = self.routes[r2].nodes[pos2].id;
-        let (pu, nu) = (self.routes[r1].nodes[pos1 - 1].id, self.routes[r1].nodes[pos1 + 1].id);
-        let (pv, nv) = (self.routes[r2].nodes[pos2 - 1].id, self.routes[r2].nodes[pos2 + 1].id);
+        let (pu, nu) = (
+            self.routes[r1].nodes[pos1 - 1].id,
+            self.routes[r1].nodes[pos1 + 1].id,
+        );
+        let (pv, nv) = (
+            self.routes[r2].nodes[pos2 - 1].id,
+            self.routes[r2].nodes[pos2 + 1].id,
+        );
 
         let dr1 = self.data.dm(pu, nu) - self.data.dm(pu, u) - self.data.dm(u, nu);
         let dr2 = self.data.dm(pv, nv) - self.data.dm(pv, v) - self.data.dm(v, nv);
         let delta_demand = self.data.demands[v] - self.data.demands[u];
         let new_load1 = self.routes[r1].load + delta_demand;
         let new_load2 = self.routes[r2].load - delta_demand;
-        let new_pen1 = ((new_load1 - self.data.max_capacity).max(0) as i64) * self.params.penalty_capa as i64;
-        let new_pen2 = ((new_load2 - self.data.max_capacity).max(0) as i64) * self.params.penalty_capa as i64;
+        let new_pen1 =
+            ((new_load1 - self.data.max_capacity).max(0) as i64) * self.params.penalty_capa as i64;
+        let new_pen2 =
+            ((new_load2 - self.data.max_capacity).max(0) as i64) * self.params.penalty_capa as i64;
         let cost_lb_r1_after_removal = (self.routes[r1].distance + dr1) as i64 + new_pen1;
         let cost_lb_r2_after_removal = (self.routes[r2].distance + dr2) as i64 + new_pen2;
         let mut lb_new_total = cost_lb_r1_after_removal + cost_lb_r2_after_removal;
@@ -734,7 +867,13 @@ impl<'a> LocalOps<'a> {
         let mut best_cost1 = i64::MAX / 4;
         let mut best_t1: usize = 1;
         for t in 1..route1_len {
-            let cand = RouteEval::eval3(self.data, &self.params, &left_excl1[t], &v_seq1, &right_excl1[t]);
+            let cand = RouteEval::eval3(
+                self.data,
+                &self.params,
+                &left_excl1[t],
+                &v_seq1,
+                &right_excl1[t],
+            );
             if cand < best_cost1 {
                 best_cost1 = cand;
                 best_t1 = t;
@@ -745,7 +884,13 @@ impl<'a> LocalOps<'a> {
         let mut best_cost2 = i64::MAX / 4;
         let mut best_t2: usize = 1;
         for t in 1..route2_len {
-            let cand = RouteEval::eval3(self.data, &self.params, &left_excl2[t], &u_seq1, &right_excl2[t]);
+            let cand = RouteEval::eval3(
+                self.data,
+                &self.params,
+                &left_excl2[t],
+                &u_seq1,
+                &right_excl2[t],
+            );
             if cand < best_cost2 {
                 best_cost2 = cand;
                 best_t2 = t;
@@ -775,7 +920,7 @@ impl<'a> LocalOps<'a> {
         self.cost += new_total - old_total;
         true
     }
-    
+
     pub fn runls(
         &mut self,
         routes: &mut Vec<Vec<usize>>,
@@ -855,7 +1000,10 @@ impl<'a> LocalOps<'a> {
                             continue;
                         }
 
-                        if c1 < c2 || self.when_last_modified[r1].max(self.when_last_modified[r2]) <= last_tested {
+                        if c1 < c2
+                            || self.when_last_modified[r1].max(self.when_last_modified[r2])
+                                <= last_tested
+                        {
                             continue;
                         }
 
@@ -887,12 +1035,16 @@ impl<'a> LocalOps<'a> {
 
                 let r1 = self.node_route[c1];
                 if self.when_last_modified[r1] > last_tested {
-                    improved |= self.run_intra_route_relocate(self.node_route[c1], self.node_pos[c1]);
-                    improved |= self.run_intra_route_swap_right(self.node_route[c1], self.node_pos[c1]);
+                    improved |=
+                        self.run_intra_route_relocate(self.node_route[c1], self.node_pos[c1]);
+                    improved |=
+                        self.run_intra_route_swap_right(self.node_route[c1], self.node_pos[c1]);
                     improved |= self.run_2opt(self.node_route[c1], self.node_pos[c1]);
-                    improved |= self.run_intra_route_oropt(self.node_route[c1], self.node_pos[c1], 2);
+                    improved |=
+                        self.run_intra_route_oropt(self.node_route[c1], self.node_pos[c1], 2);
                     if self.params.allow_swap3 {
-                        improved |= self.run_intra_route_oropt(self.node_route[c1], self.node_pos[c1], 3);
+                        improved |=
+                            self.run_intra_route_oropt(self.node_route[c1], self.node_pos[c1], 3);
                     }
                 }
             }

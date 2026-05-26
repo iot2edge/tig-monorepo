@@ -3,16 +3,16 @@ use cudarc::{
     driver::{CudaModule, CudaStream},
     runtime::sys::cudaDeviceProp,
 };
+use serde_json::{Map, Value};
 use std::sync::Arc;
 use tig_challenges::neuralnet_optimizer::*;
-use serde_json::{Map, Value};
 
 mod helpers;
-mod track_4;
-mod track_7;
 mod track_10;
 mod track_14;
 mod track_18;
+mod track_4;
+mod track_7;
 
 pub fn solve_challenge(
     challenge: &Challenge,
@@ -23,12 +23,50 @@ pub fn solve_challenge(
     prop: &cudaDeviceProp,
 ) -> Result<()> {
     match challenge.num_hidden_layers {
-        4 => track_4::solve(challenge, save_solution, hyperparameters, module, stream, prop),
-        7 => track_7::solve(challenge, save_solution, hyperparameters, module, stream, prop),
-        10 => track_10::solve(challenge, save_solution, hyperparameters, module, stream, prop),
-        14 => track_14::solve(challenge, save_solution, hyperparameters, module, stream, prop),
-        18 => track_18::solve(challenge, save_solution, hyperparameters, module, stream, prop),
-        n => Err(anyhow!("Unsupported num_hidden_layers: {}. Valid values are 4, 7, 10, 14, 18", n)),
+        4 => track_4::solve(
+            challenge,
+            save_solution,
+            hyperparameters,
+            module,
+            stream,
+            prop,
+        ),
+        7 => track_7::solve(
+            challenge,
+            save_solution,
+            hyperparameters,
+            module,
+            stream,
+            prop,
+        ),
+        10 => track_10::solve(
+            challenge,
+            save_solution,
+            hyperparameters,
+            module,
+            stream,
+            prop,
+        ),
+        14 => track_14::solve(
+            challenge,
+            save_solution,
+            hyperparameters,
+            module,
+            stream,
+            prop,
+        ),
+        18 => track_18::solve(
+            challenge,
+            save_solution,
+            hyperparameters,
+            module,
+            stream,
+            prop,
+        ),
+        n => Err(anyhow!(
+            "Unsupported num_hidden_layers: {}. Valid values are 4, 7, 10, 14, 18",
+            n
+        )),
     }
 }
 

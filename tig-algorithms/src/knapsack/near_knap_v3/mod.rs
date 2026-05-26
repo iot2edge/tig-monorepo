@@ -55,5 +55,7 @@ pub fn help() {
     println!();
     println!("  extra_starts (default 0)     : additional construction starts on top of the auto-computed count");
     println!("  max_frontier_swaps_override  : overrides the per-iteration frontier swap limit (default: 0 for n>=2500, 1 for n>=1500, 2 otherwise)");
-    println!("  dp_passes_multiplier (def 1) : multiplies the number of DP refinement passes per call");
+    println!(
+        "  dp_passes_multiplier (def 1) : multiplies the number of DP refinement passes per call"
+    );
 }

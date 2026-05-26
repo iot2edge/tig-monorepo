@@ -30,9 +30,12 @@ impl Params {
         }
     }
 
-    fn from_hyperparameters(num_items: usize, hyperparameters: &Option<Map<String, Value>>) -> Self {
+    fn from_hyperparameters(
+        num_items: usize,
+        hyperparameters: &Option<Map<String, Value>>,
+    ) -> Self {
         let mut params = Self::for_problem_size(num_items);
-        
+
         if let Some(hp) = hyperparameters {
             if let Some(val) = hp.get("diff_lim").and_then(|v| v.as_u64()) {
                 params.diff_lim = val as usize;
@@ -50,7 +53,7 @@ impl Params {
                 params.polish_k = val as usize;
             }
         }
-        
+
         params
     }
 }
@@ -166,7 +169,7 @@ fn build_initial_solution(state: &mut State, order_scores: &[i32]) {
         .map(|i| (i, (order_scores[i] as f64) / (state.ch.weights[i] as f64)))
         .collect();
     items_with_ratios.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
-    
+
     for (i, _) in items_with_ratios {
         let w = state.ch.weights[i] as i64;
         if state.total_weight + w <= state.capacity() {
@@ -183,7 +186,7 @@ fn integer_core_target(ch: &Challenge, contrib: &[i32], core_half_dp: usize) -> 
         .collect();
     items_with_ratios.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
     let order: Vec<usize> = items_with_ratios.into_iter().map(|(i, _)| i).collect();
-    
+
     let mut pref_w: i64 = 0;
     let mut break_idx: usize = order.len().saturating_sub(1);
     for (pos, &i) in order.iter().enumerate() {
@@ -264,11 +267,11 @@ fn apply_dp_target_via_ops(state: &mut State, target_sel: &[usize]) {
 
 fn build_ls_windows(state: &State, core_half_ls: usize) -> (Vec<usize>, Vec<usize>) {
     let n = state.ch.num_items;
-    
+
     // Precompute ratios and separate into unused/used with partial sorting
     let mut unused_with_ratios: Vec<(usize, f64)> = Vec::new();
     let mut used_with_ratios: Vec<(usize, f64)> = Vec::new();
-    
+
     for i in 0..n {
         let ratio = (state.contrib[i] as f64) / (state.ch.weights[i] as f64);
         if state.selected_bit[i] {
@@ -277,29 +280,28 @@ fn build_ls_windows(state: &State, core_half_ls: usize) -> (Vec<usize>, Vec<usiz
             unused_with_ratios.push((i, ratio));
         }
     }
-    
+
     // Partial sort to get best unused (highest ratios)
     let k_unused = core_half_ls.min(unused_with_ratios.len());
     if k_unused > 0 && k_unused < unused_with_ratios.len() {
-        unused_with_ratios.select_nth_unstable_by(k_unused - 1, 
-            |a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
+        unused_with_ratios.select_nth_unstable_by(k_unused - 1, |a, b| {
+            b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal)
+        });
     }
     let best_unused: Vec<usize> = unused_with_ratios[..k_unused]
         .iter()
         .map(|(i, _)| *i)
         .collect();
-    
+
     // Partial sort to get worst used (lowest ratios)
     let k_used = core_half_ls.min(used_with_ratios.len());
     if k_used > 0 && k_used < used_with_ratios.len() {
-        used_with_ratios.select_nth_unstable_by(k_used - 1,
-            |a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
+        used_with_ratios.select_nth_unstable_by(k_used - 1, |a, b| {
+            a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal)
+        });
     }
-    let worst_used: Vec<usize> = used_with_ratios[..k_used]
-        .iter()
-        .map(|(i, _)| *i)
-        .collect();
-    
+    let worst_used: Vec<usize> = used_with_ratios[..k_used].iter().map(|(i, _)| *i).collect();
+
     (best_unused, worst_used)
 }
 
@@ -453,11 +455,11 @@ fn apply_best_swap_diff_increase_windowed(
 fn polish_once(state: &mut State, params: &Params) {
     let n = state.ch.num_items;
     let k = params.polish_k.min(n).max(16);
-    
+
     // Precompute ratios and separate into unused/used with partial sorting
     let mut unused_with_ratios: Vec<(usize, f64)> = Vec::new();
     let mut used_with_ratios: Vec<(usize, f64)> = Vec::new();
-    
+
     for i in 0..n {
         let ratio = (state.contrib[i] as f64) / (state.ch.weights[i] as f64);
         if state.selected_bit[i] {
@@ -466,28 +468,27 @@ fn polish_once(state: &mut State, params: &Params) {
             unused_with_ratios.push((i, ratio));
         }
     }
-    
+
     // Partial sort to get top unused (highest ratios)
     let k_unused = k.min(unused_with_ratios.len());
     if k_unused > 0 && k_unused < unused_with_ratios.len() {
-        unused_with_ratios.select_nth_unstable_by(k_unused - 1, 
-            |a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
+        unused_with_ratios.select_nth_unstable_by(k_unused - 1, |a, b| {
+            b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal)
+        });
     }
     let unused_top: Vec<usize> = unused_with_ratios[..k_unused]
         .iter()
         .map(|(i, _)| *i)
         .collect();
-    
+
     // Partial sort to get worst used (lowest ratios)
     let k_used = k.min(used_with_ratios.len());
     if k_used > 0 && k_used < used_with_ratios.len() {
-        used_with_ratios.select_nth_unstable_by(k_used - 1,
-            |a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
+        used_with_ratios.select_nth_unstable_by(k_used - 1, |a, b| {
+            a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal)
+        });
     }
-    let used_worst: Vec<usize> = used_with_ratios[..k_used]
-        .iter()
-        .map(|(i, _)| *i)
-        .collect();
+    let used_worst: Vec<usize> = used_with_ratios[..k_used].iter().map(|(i, _)| *i).collect();
 
     let mut best_add: Option<(usize, i64)> = None;
     let slack0 = state.slack();
@@ -592,11 +593,12 @@ fn strategic_perturb_and_rebuild(state: &mut State, params: &Params) {
         return;
     }
     // Precompute ratios to avoid redundant calculations during sorting
-    let mut items_with_ratios: Vec<(usize, f64)> = sel.iter()
+    let mut items_with_ratios: Vec<(usize, f64)> = sel
+        .iter()
         .map(|&i| (i, (state.contrib[i] as f64) / (state.ch.weights[i] as f64)))
         .collect();
     items_with_ratios.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
-    
+
     let mut rem = (m / 10).max(1);
     if rem > 10 {
         rem = 10;
@@ -619,13 +621,13 @@ fn strategic_perturb_and_rebuild(state: &mut State, params: &Params) {
 
 fn fill_remaining_capacity(state: &mut State) {
     let n = state.ch.num_items;
-    
+
     loop {
         let slack = state.slack();
         if slack <= 0 {
             break;
         }
-        
+
         // Precompute contributions for unused items that fit
         let mut unused_with_contrib: Vec<(usize, i64)> = Vec::new();
         for i in 0..n {
@@ -636,14 +638,14 @@ fn fill_remaining_capacity(state: &mut State) {
                 }
             }
         }
-        
+
         if unused_with_contrib.is_empty() {
             break;
         }
-        
+
         // Sort by contribution (descending)
         unused_with_contrib.sort_unstable_by(|a, b| b.1.cmp(&a.1));
-        
+
         let best_item = unused_with_contrib[0].0;
         if state.contrib[best_item] > 0 {
             state.add_item(best_item);
@@ -730,7 +732,9 @@ pub fn solve_challenge(
     let mut best_value = state.total_value;
     let mut items = state.selected_items();
     items.sort_unstable();
-    save_solution(&Solution { items: items.clone() })?;
+    save_solution(&Solution {
+        items: items.clone(),
+    })?;
 
     for _it in 0..params.n_maxils {
         let prev_sel = state.selected_items();

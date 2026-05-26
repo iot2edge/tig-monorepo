@@ -3,9 +3,9 @@ use cudarc::{
     driver::{CudaModule, CudaSlice, CudaStream, LaunchConfig, PushKernelArg},
     runtime::sys::cudaDeviceProp,
 };
+use serde_json::{Map, Value};
 use std::sync::Arc;
 use tig_challenges::neuralnet_optimizer::*;
-use serde_json::{Map, Value};
 
 thread_local! {
     static HYPERPARAMETERS: std::cell::RefCell<Map<String, Value>> = std::cell::RefCell::new(Map::new());
@@ -15,12 +15,12 @@ thread_local! {
 struct DualPhaseConsensusState {
     m: Vec<CudaSlice<f32>>,
     v: Vec<CudaSlice<f32>>,
-    prev_g: Vec<CudaSlice<f32>>,          
-    prev_u: Vec<CudaSlice<f32>>,          
-    slow_u: Vec<CudaSlice<f32>>,         
-    f: Vec<CudaSlice<f32>>,              
-    ef: Vec<CudaSlice<f32>>,             
-    upd: Vec<CudaSlice<f32>>,            
+    prev_g: Vec<CudaSlice<f32>>,
+    prev_u: Vec<CudaSlice<f32>>,
+    slow_u: Vec<CudaSlice<f32>>,
+    f: Vec<CudaSlice<f32>>,
+    ef: Vec<CudaSlice<f32>>,
+    upd: Vec<CudaSlice<f32>>,
     cfgs: Vec<LaunchConfig>,
     layer_lrs: Vec<f32>,
     spectral_boost: f32,
@@ -53,9 +53,15 @@ struct DualPhaseConsensusState {
 }
 
 impl OptimizerStateTrait for DualPhaseConsensusState {
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
-    fn box_clone(&self) -> Box<dyn OptimizerStateTrait> { Box::new(self.clone()) }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn box_clone(&self) -> Box<dyn OptimizerStateTrait> {
+        Box::new(self.clone())
+    }
 }
 
 pub fn solve_challenge(
@@ -84,7 +90,7 @@ pub fn solve_challenge(
         optimizer_query_at_params,
         optimizer_step,
     )?;
-    
+
     Ok(())
 }
 
@@ -95,59 +101,87 @@ fn optimizer_init_state(
     _module: Arc<CudaModule>,
     prop: &cudaDeviceProp,
 ) -> Result<Box<dyn OptimizerStateTrait>> {
-    let (threads_per_block, blocks_per_sm, total_steps, warmup_steps, noise_variance, spectral_boost, beta1, beta2, eps, weight_decay, bn_layer_boost, output_layer_damping) = 
-        HYPERPARAMETERS.with(|h| {
-            let hp = h.borrow();
-            let threads_per_block = hp.get("threads_per_block")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(128) as u32;
-            
-            let blocks_per_sm = hp.get("blocks_per_sm")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(4) as u32;
-            
-            let total_steps = hp.get("total_steps")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(450) as usize;
-            
-            let warmup_steps = hp.get("warmup_steps")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(40) as usize;
-            
-            let noise_variance = hp.get("noise_variance")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.040) as f32;
-            
-            let spectral_boost = hp.get("spectral_boost")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(1.1) as f32;
-            
-            let beta1 = hp.get("beta1")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.92) as f32;
-            
-            let beta2 = hp.get("beta2")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.997) as f32;
-            
-            let eps = hp.get("eps")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(1e-8) as f32;
-            
-            let weight_decay = hp.get("weight_decay")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0025) as f32;
-            
-            let bn_layer_boost = hp.get("bn_layer_boost")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(1.35) as f32;
-            
-            let output_layer_damping = hp.get("output_layer_damping")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.8) as f32;
-            
-            (threads_per_block, blocks_per_sm, total_steps, warmup_steps, noise_variance, spectral_boost, beta1, beta2, eps, weight_decay, bn_layer_boost, output_layer_damping)
-        });
+    let (
+        threads_per_block,
+        blocks_per_sm,
+        total_steps,
+        warmup_steps,
+        noise_variance,
+        spectral_boost,
+        beta1,
+        beta2,
+        eps,
+        weight_decay,
+        bn_layer_boost,
+        output_layer_damping,
+    ) = HYPERPARAMETERS.with(|h| {
+        let hp = h.borrow();
+        let threads_per_block = hp
+            .get("threads_per_block")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(128) as u32;
+
+        let blocks_per_sm = hp
+            .get("blocks_per_sm")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(4) as u32;
+
+        let total_steps = hp
+            .get("total_steps")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(450) as usize;
+
+        let warmup_steps = hp
+            .get("warmup_steps")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(40) as usize;
+
+        let noise_variance = hp
+            .get("noise_variance")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.040) as f32;
+
+        let spectral_boost = hp
+            .get("spectral_boost")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.1) as f32;
+
+        let beta1 = hp.get("beta1").and_then(|v| v.as_f64()).unwrap_or(0.92) as f32;
+
+        let beta2 = hp.get("beta2").and_then(|v| v.as_f64()).unwrap_or(0.997) as f32;
+
+        let eps = hp.get("eps").and_then(|v| v.as_f64()).unwrap_or(1e-8) as f32;
+
+        let weight_decay = hp
+            .get("weight_decay")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0025) as f32;
+
+        let bn_layer_boost = hp
+            .get("bn_layer_boost")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.35) as f32;
+
+        let output_layer_damping = hp
+            .get("output_layer_damping")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.8) as f32;
+
+        (
+            threads_per_block,
+            blocks_per_sm,
+            total_steps,
+            warmup_steps,
+            noise_variance,
+            spectral_boost,
+            beta1,
+            beta2,
+            eps,
+            weight_decay,
+            bn_layer_boost,
+            output_layer_damping,
+        )
+    });
 
     let mut m = Vec::new();
     let mut v = Vec::new();
@@ -162,7 +196,7 @@ fn optimizer_init_state(
         v.push(stream.alloc_zeros::<f32>(n)?);
         prev_g.push(stream.alloc_zeros::<f32>(n)?);
         prev_u.push(stream.alloc_zeros::<f32>(n)?);
-        slow_u.push(stream.alloc_zeros::<f32>(n)?);        
+        slow_u.push(stream.alloc_zeros::<f32>(n)?);
         let mut fisher_init = stream.alloc_zeros::<f32>(n)?;
         let init_fisher = vec![1e-4f32; n];
         stream.memcpy_htod(&init_fisher, &mut fisher_init)?;
@@ -170,8 +204,10 @@ fn optimizer_init_state(
         ef.push(stream.alloc_zeros::<f32>(n)?);
         upd.push(unsafe { stream.alloc::<f32>(n)? });
     }
-    
-    let sm_blocks = (prop.multiProcessorCount as u32).saturating_mul(blocks_per_sm).max(1);
+
+    let sm_blocks = (prop.multiProcessorCount as u32)
+        .saturating_mul(blocks_per_sm)
+        .max(1);
     let mut cfgs = Vec::with_capacity(param_sizes.len());
     for &n in param_sizes {
         let calc_blocks = (n as u32 + threads_per_block - 1) / threads_per_block;
@@ -186,10 +222,18 @@ fn optimizer_init_state(
     let mut layer_lrs = Vec::with_capacity(param_sizes.len());
     for (i, &param_size) in param_sizes.iter().enumerate() {
         let mut lr = 0.0012f32;
-        if i == 0 { lr = 0.0011; }
-        if param_size <= 512 { lr = 0.0018; }
-        if param_size > 50000 { lr = 0.0009; }
-        if i == param_sizes.len() - 1 { lr = 0.0007; }
+        if i == 0 {
+            lr = 0.0011;
+        }
+        if param_size <= 512 {
+            lr = 0.0018;
+        }
+        if param_size > 50000 {
+            lr = 0.0009;
+        }
+        if i == param_sizes.len() - 1 {
+            lr = 0.0007;
+        }
         layer_lrs.push(lr);
     }
 
@@ -263,18 +307,29 @@ fn spectral_phase_lr(s: &DualPhaseConsensusState, base_lr: f32) -> f32 {
 }
 
 #[inline]
-fn compute_blends(s: &DualPhaseConsensusState, val_loss: Option<f32>) -> (f32, f32, f32, f32, f32, f32, f32) {    
+fn compute_blends(
+    s: &DualPhaseConsensusState,
+    val_loss: Option<f32>,
+) -> (f32, f32, f32, f32, f32, f32, f32) {
     let t = s.step_count as f32;
     let warm = s.warmup_steps as f32;
     let total = s.total_steps as f32;
     let progress = (t / total.max(1.0)).min(1.0);
 
-    let (mut blend_adam, mut blend_norm, mut blend_sign, gamma, bb_blend, mut lookahead_alpha, mut lookahead_tau): (f32, f32, f32, f32, f32, f32, f32) = if t <= warm {
+    let (
+        mut blend_adam,
+        mut blend_norm,
+        mut blend_sign,
+        gamma,
+        bb_blend,
+        mut lookahead_alpha,
+        mut lookahead_tau,
+    ): (f32, f32, f32, f32, f32, f32, f32) = if t <= warm {
         (0.35, 0.65, 0.0, 0.22, 0.6, 0.0, 0.2)
     } else {
         let mut trend = 0.0f32;
         if let (Some(prev), Some(curr)) = (s.prev_val_loss, val_loss) {
-            trend = prev - curr; 
+            trend = prev - curr;
         }
 
         if trend > 1e-3 {
@@ -285,10 +340,10 @@ fn compute_blends(s: &DualPhaseConsensusState, val_loss: Option<f32>) -> (f32, f
             (0.50, 0.35, 0.15, 0.20, 0.50, 0.20, 0.20)
         }
     };
-    
+
     if t > warm {
         if let Some(curr) = val_loss {
-            if curr <= s.noise_variance * 5.0 {                
+            if curr <= s.noise_variance * 5.0 {
                 blend_sign = (blend_sign + 0.2).min(0.6);
                 lookahead_alpha = lookahead_alpha.max(0.45);
                 lookahead_tau = (lookahead_tau + 0.05).min(0.35);
@@ -303,7 +358,7 @@ fn compute_blends(s: &DualPhaseConsensusState, val_loss: Option<f32>) -> (f32, f
             }
         }
 
-        if progress > 0.8 {            
+        if progress > 0.8 {
             blend_norm = blend_norm.max(0.35);
             blend_sign *= 0.9;
             lookahead_alpha = lookahead_alpha.max(0.5);
@@ -334,7 +389,10 @@ fn optimizer_step(
     module: Arc<CudaModule>,
     _prop: &cudaDeviceProp,
 ) -> Result<Vec<CudaSlice<f32>>> {
-    let s = optimizer_state.as_any_mut().downcast_mut::<DualPhaseConsensusState>().unwrap();
+    let s = optimizer_state
+        .as_any_mut()
+        .downcast_mut::<DualPhaseConsensusState>()
+        .unwrap();
     s.step_count += 1;
     if s.step_count == 1 {
         s.last_epoch = epoch;
@@ -349,16 +407,20 @@ fn optimizer_step(
     s.steps_in_epoch = s.steps_in_epoch.saturating_add(1);
     let tempo = (1.0 + 0.30 * s.bpe_ema.ln()).clamp(1.0, 2.2);
     s.phase_tempo = tempo;
-    
+
     if let Some(loss) = val_loss {
         if s.step_count > s.warmup_steps {
             s.val_loss_history.push(loss);
             if s.val_loss_history.len() > 12 {
                 s.val_loss_history.remove(0);
             }
-            
+
             if s.val_loss_history.len() >= 6 {
-                let min_loss = s.val_loss_history.iter().copied().fold(f32::INFINITY, f32::min);
+                let min_loss = s
+                    .val_loss_history
+                    .iter()
+                    .copied()
+                    .fold(f32::INFINITY, f32::min);
                 let recent_avg = s.val_loss_history.iter().rev().take(10).sum::<f32>() / 10.0;
                 let target_nv = (min_loss / 5.0).min(recent_avg / 8.0);
                 s.noise_variance = 0.85 * s.noise_variance + 0.15 * target_nv;
@@ -366,12 +428,12 @@ fn optimizer_step(
             }
         }
     }
-    
+
     if let (Some(prev), Some(curr)) = (s.prev_val_loss, val_loss) {
         if s.step_count > s.warmup_steps && s.step_count > 20 {
             let improvement = prev - curr;
             let relative_improvement = improvement / prev.abs().max(1e-8);
-            
+
             if relative_improvement > 0.008 {
                 s.spectral_boost = (s.spectral_boost * 1.015).min(1.5);
             } else if relative_improvement < -0.003 {
@@ -379,37 +441,37 @@ fn optimizer_step(
             } else if relative_improvement.abs() < 0.0005 && s.plateau_count > 15 {
                 s.spectral_boost = (s.spectral_boost * 1.008).min(1.5);
             }
-            
+
             s.spectral_boost = s.spectral_boost.clamp(0.85, 1.5);
         }
-    }    
-    
+    }
+
     if s.step_count > s.warmup_steps && s.val_loss_history.len() >= 8 {
         let recent_avg = s.val_loss_history.iter().rev().take(5).sum::<f32>() / 5.0;
         let older_avg = s.val_loss_history.iter().rev().skip(5).take(5).sum::<f32>() / 5.0;
         let trend = older_avg - recent_avg;
-        
+
         let target_beta1 = if trend > 0.02 {
-            0.94  
+            0.94
         } else if trend < -0.02 {
-            0.88  
+            0.88
         } else {
-            0.91  
+            0.91
         };
-        
+
         s.beta1 = 0.85 * s.beta1 + 0.15 * target_beta1;
         s.beta1 = s.beta1.clamp(0.87, 0.94);
     }
-    
+
     let mut global_damp = 1.0f32;
 
     if let (Some(prev), Some(curr)) = (s.prev_val_loss, val_loss) {
         let improvement = prev - curr;
         s.slope_ema = 0.85 * s.slope_ema + 0.15 * improvement;
-        if s.step_count > s.warmup_steps {            
+        if s.step_count > s.warmup_steps {
             let is_stagnant = improvement <= 1.0e-4 && s.slope_ema < 2.0e-4;
             let is_declining = improvement < 0.0 && s.slope_ema < 0.0;
-            
+
             if is_stagnant || is_declining {
                 s.plateau_count += 1;
             } else if improvement > 5.0e-5 {
@@ -434,13 +496,13 @@ fn optimizer_step(
             } else if s.lr_boost > 1.0 {
                 let relative_improvement = improvement / curr.abs().max(1e-8);
                 let decay = if relative_improvement > 0.01 {
-                    0.75  
+                    0.75
                 } else if relative_improvement > 0.001 {
-                    0.85  
+                    0.85
                 } else if improvement > 0.0 {
-                    0.93  
+                    0.93
                 } else {
-                    0.97  
+                    0.97
                 };
                 s.lr_boost = 1.0 + (s.lr_boost - 1.0) * decay;
                 let decay = if improvement > 5.0e-5 { 0.82 } else { 0.92 };
@@ -448,13 +510,16 @@ fn optimizer_step(
                 if s.step_count.saturating_sub(s.last_pulse_step) > 80 {
                     s.lr_boost *= 0.96;
                 }
-                if s.lr_boost < 1.02 { s.lr_boost = 1.0; }
+                if s.lr_boost < 1.02 {
+                    s.lr_boost = 1.0;
+                }
             }
         }
     }
 
     if let Some(loss) = val_loss {
-        let dynamic_threshold = s.noise_variance * (1.1 + 0.1 * (s.step_count as f32 / s.total_steps as f32));
+        let dynamic_threshold =
+            s.noise_variance * (1.1 + 0.1 * (s.step_count as f32 / s.total_steps as f32));
         if loss <= dynamic_threshold && s.step_count > s.warmup_steps {
             let proximity = (loss / dynamic_threshold).clamp(0.4, 1.0);
             let plateau_factor: f32 = if s.plateau_count > 10 { 1.2 } else { 1.0 };
@@ -473,12 +538,26 @@ fn optimizer_step(
     let bias_correction1 = 1.0 - s.beta1.powi(t);
     let bias_correction2 = 1.0 - s.beta2.powi(t);
 
-    let (blend_adam, blend_norm, blend_sign, nesterov_gamma, bb_blend, lookahead_alpha, lookahead_tau) = compute_blends(s, val_loss);
+    let (
+        blend_adam,
+        blend_norm,
+        blend_sign,
+        nesterov_gamma,
+        bb_blend,
+        lookahead_alpha,
+        lookahead_tau,
+    ) = compute_blends(s, val_loss);
     let near_floor = val_loss.map_or(false, |loss| loss <= s.noise_variance * 3.0);
     let late_phase = s.step_count > s.total_steps * 3 / 4;
     let use_robust = s.step_count > s.warmup_steps && (near_floor || late_phase);
 
-    let (in_precision_zone, precision_gain, gate_lo, gate_hi, forward_gain): (bool, f32, f32, f32, f32) = if let Some(loss) = val_loss {
+    let (in_precision_zone, precision_gain, gate_lo, gate_hi, forward_gain): (
+        bool,
+        f32,
+        f32,
+        f32,
+        f32,
+    ) = if let Some(loss) = val_loss {
         if s.step_count > s.warmup_steps {
             let z_lo = s.noise_variance * 6.2;
             let z_hi = s.noise_variance * 8.6;
@@ -490,16 +569,36 @@ fn optimizer_step(
                 let forward_gain = if let Some(prev) = s.prev_val_loss {
                     let rel = ((prev - loss).max(0.0)) / (prev.abs() + 1e-6);
                     1.0 + (0.75 * rel).min(0.015)
-                } else { 1.0 };
+                } else {
+                    1.0
+                };
                 (true, pg, gate_lo, gate_hi, forward_gain)
-            } else { (false, 1.0, 0.66, 1.50, 1.0) }
-        } else { (false, 1.0, 0.66, 1.50, 1.0) }
-    } else { (false, 1.0, 0.66, 1.50, 1.0) };
+            } else {
+                (false, 1.0, 0.66, 1.50, 1.0)
+            }
+        } else {
+            (false, 1.0, 0.66, 1.50, 1.0)
+        }
+    } else {
+        (false, 1.0, 0.66, 1.50, 1.0)
+    };
 
-    let beta1_eff: f32 = if in_precision_zone { (s.beta1 + 0.02).min(0.995) } else { s.beta1 };
+    let beta1_eff: f32 = if in_precision_zone {
+        (s.beta1 + 0.02).min(0.995)
+    } else {
+        s.beta1
+    };
     let beta2_eff: f32 = s.beta2;
-    let eps_eff: f32 = if in_precision_zone { s.eps * 0.9 } else { s.eps };
-    let mut wd_eff: f32 = if in_precision_zone { s.weight_decay * 1.05 } else { s.weight_decay };
+    let eps_eff: f32 = if in_precision_zone {
+        s.eps * 0.9
+    } else {
+        s.eps
+    };
+    let mut wd_eff: f32 = if in_precision_zone {
+        s.weight_decay * 1.05
+    } else {
+        s.weight_decay
+    };
     if s.step_count > s.warmup_steps {
         if near_floor {
             wd_eff *= 1.10;
@@ -521,7 +620,7 @@ fn optimizer_step(
     };
 
     let k_fast = module.load_function("dual_consensus_fisher_kernel")?;
-    let k_robust = module.load_function("sign_ef_consensus_kernel")?;    
+    let k_robust = module.load_function("sign_ef_consensus_kernel")?;
 
     let mut updates = Vec::with_capacity(gradients.len());
 
@@ -614,13 +713,18 @@ fn optimizer_step(
 
     if let Some(curr) = val_loss {
         s.best_val_loss = Some(match s.best_val_loss {
-            Some(b) => if curr < b { curr } else { b },
+            Some(b) => {
+                if curr < b {
+                    curr
+                } else {
+                    b
+                }
+            }
             None => curr,
         });
-        
+
         if s.step_count > s.warmup_steps + 80 {
-            if curr <= s.noise_variance * 2.8 && s.plateau_count < 8 {
-            }
+            if curr <= s.noise_variance * 2.8 && s.plateau_count < 8 {}
         }
     }
     s.prev_val_loss = val_loss;

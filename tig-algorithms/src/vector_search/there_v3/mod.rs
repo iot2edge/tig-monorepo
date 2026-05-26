@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use cudarc::driver::{
     safe::{CudaModule, CudaStream, LaunchConfig},
@@ -75,7 +74,11 @@ pub fn solve_challenge(
             .launch(init_config)?;
     }
 
-    let batch_size = if vector_dims >= 512 { 80000u32 } else { 200000u32 };
+    let batch_size = if vector_dims >= 512 {
+        80000u32
+    } else {
+        200000u32
+    };
     let num_batches = (database_size + batch_size - 1) / batch_size;
 
     let smem_needed = 16usize * vector_dims as usize * 4usize;
@@ -142,7 +145,9 @@ pub fn help() {
     println!("Key optimizations:");
     println!("  - Half-warp per query (16 lanes), 2 queries per warp => higher query parallelism");
     println!("  - 256 threads per block for strong occupancy (16 queries per block)");
-    println!("  - Database pre-transform into blocked AoSoA layout for coalesced per-dimension loads");
+    println!(
+        "  - Database pre-transform into blocked AoSoA layout for coalesced per-dimension loads"
+    );
     println!("  - Adaptive batch sizing (80K for high-dim, 200K for low-dim)");
     println!();
     println!("Performance: Higher throughput via improved global memory transaction efficiency");

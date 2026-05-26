@@ -3,8 +3,8 @@ use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::collections::HashMap;
 use tig_challenges::job_scheduling::*;
 
-use super::types::*;
 use super::infra::*;
+use super::types::*;
 
 pub fn solve(
     challenge: &Challenge,
@@ -84,8 +84,11 @@ pub fn solve(
 
     let base = &ranked[0].2;
     let mut learned_jb = Some(job_bias_from_solution(pre, base)?);
-    let mut learned_mp =
-        Some(machine_penalty_from_solution(pre, base, challenge.num_machines)?);
+    let mut learned_mp = Some(machine_penalty_from_solution(
+        pre,
+        base,
+        challenge.num_machines,
+    )?);
     let mut learned_rp = if route_w_base > 0.0 {
         Some(route_pref_from_solution_lite(pre, base, challenge)?)
     } else {
@@ -162,8 +165,7 @@ pub fn solve(
         } else {
             (0.08 + 0.22 * pre.jobshopness + 0.18 * pre.high_flex).clamp(0.05, 0.42)
         };
-        let learn_boost =
-            (1.0 + 0.35 * ((stuck as f64) / 120.0).clamp(0.0, 1.0)).clamp(1.0, 1.35);
+        let learn_boost = (1.0 + 0.35 * ((stuck as f64) / 120.0).clamp(0.0, 1.0)).clamp(1.0, 1.35);
         let learn_p = (learn_base * learn_boost).clamp(0.0, 0.60);
 
         let use_learn = learned_jb.is_some()
@@ -215,8 +217,7 @@ pub fn solve(
                     challenge.num_machines,
                 )?);
                 if route_w_base > 0.0 {
-                    learned_rp =
-                        Some(route_pref_from_solution_lite(pre, &sol, challenge)?);
+                    learned_rp = Some(route_pref_from_solution_lite(pre, &sol, challenge)?);
                 }
                 learn_updates_left -= 1;
             }
@@ -317,7 +318,8 @@ pub fn solve(
 
     for i in 0..ts_starts {
         let base_sol = &top_solutions[i].0;
-        if let Some((sol2, mk2)) = tabu_search_phase(pre, challenge, base_sol, ts_iters, ts_tenure)? {
+        if let Some((sol2, mk2)) = tabu_search_phase(pre, challenge, base_sol, ts_iters, ts_tenure)?
+        {
             if mk2 < best_makespan {
                 best_makespan = mk2;
                 best_solution = Some(sol2.clone());
@@ -358,8 +360,7 @@ fn tabu_search_phase(
     let mut crit = vec![false; n];
     let mut no_improve = 0usize;
 
-    let mut pseed: u64 = (challenge.seed[0] as u64)
-        .wrapping_mul(0x9E3779B97F4A7C15)
+    let mut pseed: u64 = (challenge.seed[0] as u64).wrapping_mul(0x9E3779B97F4A7C15)
         ^ (initial_mk as u64).wrapping_shl(16)
         ^ (n as u64).wrapping_mul(0x517CC1B727220A95);
 
@@ -599,7 +600,11 @@ fn tabu_search_phase(
                 pseed ^= pseed.wrapping_shl(17);
                 let offset = (pseed % ((2 * tenure_delta + 1) as u64)) as usize;
                 let progress = (iter as f64) / (max_iterations as f64);
-                let late_bonus = if progress > 0.6 { ((progress - 0.6) * 10.0) as usize } else { 0 };
+                let late_bonus = if progress > 0.6 {
+                    ((progress - 0.6) * 10.0) as usize
+                } else {
+                    0
+                };
                 let this_tenure = (tenure + offset + late_bonus).saturating_sub(tenure_delta);
 
                 let key = (node_a.min(node_b), node_a.max(node_b));

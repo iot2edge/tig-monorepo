@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+"""
+Cross-algorithm comparator for TIG challenges.
+
+Runs each algorithm against each scenario at a given fuel budget, collects
+quality, fuel-used, wall-time, and validity counts, and prints a comparison
+table. Used to confirm a new submission is competitive AND valid before
+committing the submission fee.
+
+Usage:
+    CHALLENGE=job_scheduling ./scripts/compare_algorithms \
+        --algos near_jsp_v1,adaptive_js,adaptive_js_v2,adaptive_js_v3,adaptive_js_v4,job_two \
+        --tracks 'n=50,s=flow_shop|n=50,s=hybrid_flow_shop|n=50,s=job_shop|n=50,s=fjsp_medium|n=50,s=fjsp_high' \
+        --nonces 20 --fuel 100000000000 --workers 12
+
+Each cell of the output reports: avg_quality (k_valid / k_total), avg fuel
+consumed (B), avg wall-ms.
+"""
+
+import argparse
+import json
+import os
+import platform
+import subprocess
+import sys
+import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor
+
+CPU_ARCH = "amd64" if platform.machine().lower() in ("x86_64", "amd64") else "arm64"
+CHALLENGE = os.environ.get("CHALLENGE")
+if not CHALLENGE:
+    print("CHALLENGE env var must be set")
+    sys.exit(1)
+
+CHALLENGE_IDS = {
+    "satisfiability": "c001", "vehicle_routing": "c002", "knapsack": "c003",
+    "vector_search": "c004", "hypergraph": "c005", "neuralnet_optimizer": "c006",
+    "job_scheduling": "c007", "energy_arbitrage": "c008",
+}
+
+
+def run_one(runtime_path, verifier_path, settings, seed, nonce, so_path, fuel,
+            hyperparameters):
+    """Run one nonce: invoke runtime, then verifier. Return dict of metrics."""
+    with tempfile.TemporaryDirectory() as tmp:
+        cmd = [runtime_path, json.dumps(settings, separators=(',', ':')),
+               seed, str(nonce), so_path, "--fuel", str(fuel), "--output", tmp]
+        if hyperparameters:
+            cmd += ["--hyperparameters", hyperparameters]
+        t0 = time.time()
+        rt = subprocess.run(cmd, capture_output=True, text=True)
+        runtime_ms = int((time.time() - t0) * 1000)
+
+        out_file = f"{tmp}/{nonce}.json"
+        fuel_used = None
+        if os.path.exists(out_file):
+            try:
+                with open(out_file) as f:
+                    data = json.load(f)
+                fuel_used = data.get("fuel_consumed")
+            except Exception:
+                pass
+
+        if not os.path.exists(out_file):
+            return {"valid": False, "quality": None, "runtime_ms": runtime_ms,
+                    "fuel_used": fuel_used, "rt_exit": rt.returncode,
+                    "rt_stderr": rt.stderr[:300]}
+
+        vcmd = [verifier_path, json.dumps(settings, separators=(',', ':')),
+                seed, str(nonce), out_file, "--verbose"]
+        vr = subprocess.run(vcmd, capture_output=True, text=True)
+        valid = vr.returncode == 0
+        quality = None
+        if valid:
+            # Last line with "quality: NNN" wins.
+            for line in vr.stdout.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("quality:"):
+                    try:
+                        quality = int(stripped.split(":", 1)[1].strip())
+                    except (ValueError, IndexError):
+                        pass
+        return {"valid": valid, "quality": quality, "runtime_ms": runtime_ms,
+                "fuel_used": fuel_used, "rt_exit": rt.returncode,
+                "rt_stderr": rt.stderr[:300],
+                "v_exit": vr.returncode, "v_stderr": vr.stderr[:300]}
+
+
+def evaluate_algo(args, algo, track):
+    """Run one algorithm × one track over `args.nonces` nonces."""
+    so_path = f"{args.lib_dir}/{CHALLENGE}/{CPU_ARCH}/{algo}.so"
+    if not os.path.exists(so_path):
+        return None
+
+    settings = {"algorithm_id": "", "challenge_id": CHALLENGE_IDS[CHALLENGE],
+                "track_id": track, "block_id": "", "player_id": ""}
+
+    pool = ThreadPoolExecutor(max_workers=args.workers)
+    results = list(pool.map(
+        lambda n: run_one(args.runtime, args.verifier, settings,
+                          args.seed, n, so_path, args.fuel,
+                          args.hyperparameters),
+        range(args.start, args.start + args.nonces),
+    ))
+    pool.shutdown()
+    valid = [r for r in results if r["valid"] and r["quality"] is not None]
+    return {"valid": valid, "all": results}
+
+
+def fmt_cell(s, total):
+    if not s["all"]:
+        return "—"
+    valid = s["valid"]
+    if not valid:
+        return f"0 (0/{total})"
+    avg_q = sum(r["quality"] for r in valid) / len(valid)
+    avg_fuel_b = None
+    fuels = [r["fuel_used"] for r in valid if r["fuel_used"]]
+    if fuels:
+        avg_fuel_b = sum(fuels) / len(fuels) / 1e9
+    avg_ms = sum(r["runtime_ms"] for r in valid) / len(valid)
+    suffix = "" if len(valid) == total else f" ({len(valid)}/{total})"
+    fuel_str = f"{avg_fuel_b:.1f}B" if avg_fuel_b else "—"
+    return f"q={int(avg_q):,} f={fuel_str} t={int(avg_ms)}ms{suffix}"
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--algos", required=True, help="comma-separated algo names")
+    p.add_argument("--tracks", required=True, help="| separated track_ids")
+    p.add_argument("--nonces", type=int, default=20)
+    p.add_argument("--start", type=int, default=0)
+    p.add_argument("--seed", default="rand_hash")
+    p.add_argument("--fuel", type=int, default=int(100e9),
+                   help="Per-nonce fuel cap (default 100B)")
+    p.add_argument("--workers", type=int, default=8)
+    p.add_argument("--hyperparameters", default=None,
+                   help="JSON hyperparameters (default none)")
+    p.add_argument("--runtime", default="./target/release/tig-runtime")
+    p.add_argument("--verifier", default="./target/release/tig-verifier")
+    p.add_argument("--lib-dir", default="./tig-algorithms/lib")
+    args = p.parse_args()
+
+    algos = args.algos.split(",")
+    tracks = args.tracks.split("|")
+
+    print(f"=== Comparator: {CHALLENGE}, fuel={args.fuel/1e9:.0f}B, "
+          f"nonces={args.nonces} ===\n")
+    cells = {}
+    for algo in algos:
+        for track in tracks:
+            print(f"  running {algo} / {track}...", file=sys.stderr)
+            cells[(algo, track)] = evaluate_algo(args, algo, track)
+
+    # Print quality / fuel / time matrix.
+    headers = ["algo"] + [t.split(",")[-1].split("=")[-1] for t in tracks]
+    rows = [headers]
+    for algo in algos:
+        row = [algo]
+        for track in tracks:
+            cell = cells[(algo, track)]
+            if cell is None:
+                row.append("MISSING")
+            else:
+                row.append(fmt_cell(cell, args.nonces))
+        rows.append(row)
+
+    widths = [max(len(r[i]) for r in rows) for i in range(len(headers))]
+    for row in rows:
+        print("  ".join(c.ljust(widths[i]) for i, c in enumerate(row)))
+
+    # Print aggregate validity.
+    print("\n=== Validity summary ===")
+    for algo in algos:
+        valid = sum(len(cells[(algo, t)]["valid"]) for t in tracks
+                    if cells[(algo, t)] is not None)
+        total = sum(args.nonces for t in tracks
+                    if cells[(algo, t)] is not None)
+        print(f"  {algo}: {valid}/{total} valid")
+
+
+if __name__ == "__main__":
+    main()

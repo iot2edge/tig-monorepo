@@ -6,7 +6,8 @@ use super::local_search::local_search_vnd;
 use super::params::Params;
 use super::refinement::{dp_refinement_x, micro_qkp_refinement};
 use super::types::{
-    build_sparse_neighbors_and_totals, compute_total_interactions, rebuild_windows, Rng, State,
+    build_sparse_neighbors_and_totals, compute_total_interactions, rebuild_windows, NeighCSR, Rng,
+    State,
 };
 use tig_challenges::knapsack::*;
 
@@ -170,7 +171,7 @@ fn restart_from_mutated_best<'a>(
     challenge: &'a Challenge,
     total_pre: &'a [i64],
     hubs_static: &'a [usize],
-    neigh: Option<&'a Vec<Vec<(u16, i16)>>>,
+    neigh: Option<&'a NeighCSR>,
     best_sel: &[usize],
     rng: &mut Rng,
     strategy: usize,
@@ -198,7 +199,7 @@ fn restart_from_mutated_best<'a>(
 
             let mut neg_mass: i64 = 0;
             if let Some(ng) = neigh {
-                let row = unsafe { ng.get_unchecked(i) };
+                let row = ng.row(i);
                 for &(jj, vv) in row.iter() {
                     if vv < 0 {
                         let j = jj as usize;
@@ -289,8 +290,8 @@ fn one_one_swap_phase(state: &mut State) {
             let mut best_gain: i32 = i32::MIN;
             let mut best_w: u32 = 0;
 
-            if let Some(ref ng) = state.neigh {
-                let row = unsafe { ng.get_unchecked(r) };
+            if let Some(ng) = state.neigh {
+                let row = ng.row(r);
                 let pref = row.len().min(32);
                 for t in 0..pref {
                     let a = row[t].0 as usize;
@@ -373,8 +374,7 @@ fn one_one_swap_phase(state: &mut State) {
                             if c <= 0 {
                                 continue;
                             }
-                            if best_i.map_or(true, |_| c > best_c || (c == best_c && w < best_w2))
-                            {
+                            if best_i.map_or(true, |_| c > best_c || (c == best_c && w < best_w2)) {
                                 best_i = Some(i);
                                 best_c = c;
                                 best_w2 = w;
@@ -422,12 +422,12 @@ fn one_two_exchange_phase(state: &mut State) {
         seeds.dedup();
 
         let mut pairs: Vec<(usize, usize, i32, u32)> = Vec::new();
-        if let Some(ref ng) = state.neigh {
+        if let Some(ng) = state.neigh {
             for &a0 in &seeds {
                 if a0 >= n {
                     continue;
                 }
-                let row = unsafe { ng.get_unchecked(a0) };
+                let row = ng.row(a0);
                 let pref = row.len().min(64);
                 for t in 0..pref {
                     let b0 = row[t].0 as usize;
@@ -552,7 +552,7 @@ pub fn perturb_by_strategy(
 
     let mut target: Option<(usize, usize, u32)> = None;
     if stall_count > 0 && (strategy == 0 || strategy == 3 || strategy == 6) {
-        if let Some(ref ng) = state.neigh {
+        if let Some(ng) = state.neigh {
             let lim = state.hubs_static.len().min(96);
             let extra = 32usize;
             let mut best: Option<(i64, usize, usize, u32)> = None;
@@ -566,7 +566,7 @@ pub fn perturb_by_strategy(
                     continue;
                 }
 
-                let row = unsafe { ng.get_unchecked(a) };
+                let row = ng.row(a);
                 let pref = row.len().min(56);
                 for t in 0..pref {
                     let (bb, vv) = row[t];
@@ -610,7 +610,7 @@ pub fn perturb_by_strategy(
                     continue;
                 }
 
-                let row = unsafe { ng.get_unchecked(a) };
+                let row = ng.row(a);
                 let pref = row.len().min(48);
                 for t in 0..pref {
                     let (bb, vv) = row[t];
@@ -655,8 +655,7 @@ pub fn perturb_by_strategy(
     let strength_scaled = strength + (selected.len() / 40);
     let n_remove = (base_remove * adaptive_mult)
         .min(
-            ((selected.len() / if stall_count >= 4 { 12 } else { 16 }).max(1))
-                .max(strength_scaled),
+            ((selected.len() / if stall_count >= 4 { 12 } else { 16 }).max(1)).max(strength_scaled),
         )
         .min(selected.len() / 3);
 
@@ -700,8 +699,7 @@ pub fn perturb_by_strategy(
                         + (state.support[i] as i64) * 200
                 }
                 5 => {
-                    (state.support[i] as i64) * 500
-                        - (w as i64) * 220
+                    (state.support[i] as i64) * 500 - (w as i64) * 220
                         + (state.contrib[i] as i64) / 50
                 }
                 _ => (state.contrib[i] as i64) - (state.usage[i] as i64) * 50,
@@ -757,8 +755,8 @@ pub fn perturb_by_strategy(
         }
 
         if last_rm != usize::MAX && pool.len() < pool_lim {
-            if let Some(ref ng) = state.neigh {
-                let row = unsafe { ng.get_unchecked(last_rm) };
+            if let Some(ng) = state.neigh {
+                let row = ng.row(last_rm);
                 let pref = row.len().min(32);
                 for t in 0..pref {
                     let j = row[t].0 as usize;
@@ -807,8 +805,7 @@ pub fn perturb_by_strategy(
                         + (state.support[i] as i64) * 200
                 }
                 5 => {
-                    (state.support[i] as i64) * 500
-                        - (w as i64) * 220
+                    (state.support[i] as i64) * 500 - (w as i64) * 220
                         + (state.contrib[i] as i64) / 50
                 }
                 _ => (state.contrib[i] as i64) - (state.usage[i] as i64) * 50,
@@ -912,13 +909,13 @@ pub fn greedy_reconstruct(state: &mut State, rng: &mut Rng, strategy: usize) {
             let use_restricted = state.neigh.is_some();
             if use_restricted {
                 let frontier = frontier_clone();
-                if let Some(ref ng) = state.neigh {
+                if let Some(ng) = state.neigh {
                     let f_lim = frontier.len().min(32);
                     for &f in frontier.iter().take(f_lim) {
                         if f >= n {
                             continue;
                         }
-                        let row = unsafe { ng.get_unchecked(f) };
+                        let row = ng.row(f);
                         let pref = row.len().min(64);
                         for t in 0..pref {
                             restricted_candidates.push(row[t].0 as usize);
@@ -936,15 +933,15 @@ pub fn greedy_reconstruct(state: &mut State, rng: &mut Rng, strategy: usize) {
             let mut scanned_any = false;
 
             let scan_iter = |i: usize,
-                                 best_i: &mut Option<usize>,
-                                 best_w: &mut u32,
-                                 best_c: &mut i32,
-                                 best_supp: &mut i64,
-                                 best_ti: &mut i64,
-                                 best_adja: &mut i64,
-                                 best_score_i64: &mut i64,
-                                 best_score_i128: &mut i128,
-                                 scanned_any_ref: &mut bool| {
+                             best_i: &mut Option<usize>,
+                             best_w: &mut u32,
+                             best_c: &mut i32,
+                             best_supp: &mut i64,
+                             best_ti: &mut i64,
+                             best_adja: &mut i64,
+                             best_score_i64: &mut i64,
+                             best_score_i128: &mut i128,
+                             scanned_any_ref: &mut bool| {
                 if i >= n {
                     return;
                 }
@@ -1251,7 +1248,7 @@ pub fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
     let n = challenge.num_items;
     let mut rng = Rng::from_seed(&challenge.seed);
 
-    let (neigh_pre, total_pre): (Option<Vec<Vec<(u16, i16)>>>, Vec<i64>) = if n >= 900 {
+    let (neigh_pre, total_pre): (Option<NeighCSR>, Vec<i64>) = if n >= 900 {
         let (ng, tot) = build_sparse_neighbors_and_totals(challenge);
         (Some(ng), tot)
     } else {
@@ -1302,11 +1299,23 @@ pub fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
         .collect();
 
     let mut n_starts: usize = if n <= 600 {
-        if hard { 4 } else { 3 }
+        if hard {
+            4
+        } else {
+            3
+        }
     } else if n <= 1500 {
-        if hard { 3 } else { 2 }
+        if hard {
+            3
+        } else {
+            2
+        }
     } else if n >= 2500 {
-        if hard { 4 } else { 3 }
+        if hard {
+            4
+        } else {
+            3
+        }
     } else {
         2
     };
@@ -1314,6 +1323,9 @@ pub fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
     if n <= 1500 && team_est >= 200 {
         n_starts = (n_starts + 1).min(4);
     }
+
+    let effective_params = *params;
+    let params = &effective_params;
 
     n_starts += params.extra_starts;
 
@@ -1647,7 +1659,13 @@ pub fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
                             tenure_u32,
                             best_val as i64,
                         );
-                        perturb_by_strategy(&mut state_int, &mut rng, strength, stall_int, strategy);
+                        perturb_by_strategy(
+                            &mut state_int,
+                            &mut rng,
+                            strength,
+                            stall_int,
+                            strategy,
+                        );
                     }
 
                     for &i in &before {
@@ -1904,7 +1922,13 @@ pub fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
                             tenure_u32,
                             best_val as i64,
                         );
-                        perturb_by_strategy(&mut state_div, &mut rng, strength, stall_div, strategy);
+                        perturb_by_strategy(
+                            &mut state_div,
+                            &mut rng,
+                            strength,
+                            stall_div,
+                            strategy,
+                        );
                     }
 
                     for &i in &before {
@@ -1955,6 +1979,164 @@ pub fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
             seed_frontier_from_state(&state_int);
             dp_next_int = true;
         }
+    }
+
+    let polish_from = |seed_items: &[usize], cap: u32| -> State {
+        let mut polish = State::new_empty(challenge, &total_pre, &hubs_static, neigh_pre.as_ref());
+        for &i in seed_items {
+            if polish.total_weight + challenge.weights[i] <= cap {
+                polish.add_item(i);
+            }
+        }
+        rebuild_windows(&mut polish);
+        dp_refinement_x(&mut polish, params.dp_passes_multiplier);
+        rebuild_windows(&mut polish);
+        micro_qkp_refinement(&mut polish);
+        seed_frontier_from_state(&polish);
+        one_two_exchange_phase(&mut polish);
+        local_search_vnd(&mut polish, params);
+        polish
+    };
+
+    let cap = challenge.max_weight;
+
+    let mut adopt = |best_sel: &mut Vec<usize>, best_val: &mut i64, polish: &State| -> bool {
+        if polish.total_value > *best_val {
+            *best_val = polish.total_value;
+            best_sel.clear();
+            for i in 0..n {
+                if polish.selected_bit[i] {
+                    best_sel.push(i);
+                }
+            }
+            true
+        } else {
+            false
+        }
+    };
+
+    let int_items_orig: Vec<usize> = (0..n).filter(|&i| state_int.selected_bit[i]).collect();
+    let div_items_orig: Vec<usize> = (0..n).filter(|&i| state_div.selected_bit[i]).collect();
+
+    let mut both_int_div = vec![false; n];
+    let mut only_one = vec![false; n];
+    let mut inter_count = 0usize;
+    let mut union_count = 0usize;
+    for i in 0..n {
+        let a = state_int.selected_bit[i];
+        let b = state_div.selected_bit[i];
+        if a && b {
+            both_int_div[i] = true;
+            inter_count += 1;
+            union_count += 1;
+        } else if a || b {
+            only_one[i] = true;
+            union_count += 1;
+        }
+    }
+    let basins_distinct = union_count > 0 && inter_count * 100 < union_count * 90;
+    let intersection_items: Vec<usize> = if basins_distinct {
+        (0..n).filter(|&i| both_int_div[i]).collect()
+    } else {
+        Vec::new()
+    };
+
+    let union_items: Vec<usize> = if basins_distinct {
+        let mut union_state =
+            State::new_empty(challenge, &total_pre, &hubs_static, neigh_pre.as_ref());
+        for i in 0..n {
+            if both_int_div[i] || only_one[i] {
+                union_state.add_item(i);
+            }
+        }
+        if union_state.total_weight > cap {
+            let mut sel_scored: Vec<(i64, usize)> = Vec::with_capacity(n);
+            for i in 0..n {
+                if !union_state.selected_bit[i] {
+                    continue;
+                }
+                let c = union_state.contrib[i] as i64;
+                let w = challenge.weights[i] as i64;
+                let s = if w > 0 { (c * 1000) / w } else { c * 1000 };
+                sel_scored.push((s, i));
+            }
+            sel_scored.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+            for &(_, i) in &sel_scored {
+                if union_state.total_weight <= cap {
+                    break;
+                }
+                if union_state.selected_bit[i] {
+                    union_state.remove_item(i);
+                }
+            }
+        }
+        (0..n).filter(|&i| union_state.selected_bit[i]).collect()
+    } else {
+        Vec::new()
+    };
+
+    let basins_close =
+        state_int.total_value * 100 > best_val * 95 && state_div.total_value * 100 > best_val * 95;
+    let basins_close_relink =
+        state_int.total_value * 100 > best_val * 90 && state_div.total_value * 100 > best_val * 90;
+
+    for relink_pass in 0..3 {
+        let mut improved_this_pass = false;
+
+        let polish1 = polish_from(&best_sel, cap);
+        if adopt(&mut best_sel, &mut best_val, &polish1) {
+            improved_this_pass = true;
+        }
+
+        if relink_pass == 0 && basins_close && int_items_orig != best_sel {
+            let polish2 = polish_from(&int_items_orig, cap);
+            if adopt(&mut best_sel, &mut best_val, &polish2) {
+                improved_this_pass = true;
+            }
+        }
+        if relink_pass == 0 && basins_close && div_items_orig != best_sel {
+            let polish3 = polish_from(&div_items_orig, cap);
+            if adopt(&mut best_sel, &mut best_val, &polish3) {
+                improved_this_pass = true;
+            }
+        }
+
+        if relink_pass == 0 && basins_close_relink && basins_distinct {
+            let polish_int_div = polish_from(&intersection_items, cap);
+            if adopt(&mut best_sel, &mut best_val, &polish_int_div) {
+                improved_this_pass = true;
+            }
+            let polish_union = polish_from(&union_items, cap);
+            if adopt(&mut best_sel, &mut best_val, &polish_union) {
+                improved_this_pass = true;
+            }
+        }
+
+        if !improved_this_pass {
+            break;
+        }
+    }
+
+    let kick_sizes: &[usize] = if n >= 4000 {
+        &[5, 10, 18, 28, 40, 55, 75]
+    } else if n >= 2000 {
+        &[3, 6, 11, 18, 28, 40, 55]
+    } else {
+        &[2, 4, 7, 11, 16, 22, 30]
+    };
+    for &k_kick in kick_sizes {
+        if best_sel.len() <= k_kick + 1 {
+            continue;
+        }
+        let mut shuffled = best_sel.clone();
+        let len = shuffled.len();
+        for j in 0..k_kick {
+            let r = j + (rng.next_u32() as usize) % (len - j);
+            shuffled.swap(j, r);
+        }
+        let kept_items: Vec<usize> = shuffled[k_kick..].to_vec();
+        let kicked_polish = polish_from(&kept_items, cap);
+        adopt(&mut best_sel, &mut best_val, &kicked_polish);
     }
 
     Solution { items: best_sel }

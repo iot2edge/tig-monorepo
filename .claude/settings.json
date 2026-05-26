@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ldd /home/comet/Documents/tig-monorepo/tig-algorithms/lib/job_scheduling/amd64/adaptive_js_v4.so)",
+      "Bash(chmod +x /home/comet/Documents/tig-monorepo/scripts/sweep_job_scheduling.sh)",
+      "Bash(NONCES=4 WORKERS=4 /home/comet/Documents/tig-monorepo/scripts/sweep_job_scheduling.sh)",
+      "Bash(NONCES=50 WORKERS=12 /home/comet/Documents/tig-monorepo/scripts/sweep_job_scheduling.sh)",
+      "Bash(chmod +x /home/comet/Documents/tig-monorepo/scripts/test_v4_correct_hp.sh)",
+      "Bash(/home/comet/Documents/tig-monorepo/scripts/test_v4_correct_hp.sh)",
+      "Bash(cp -r adaptive_js near_jsp_v1/v1_engine)",
+      "Bash(cp -r adaptive_js_v4 near_jsp_v1/v4_engine)"
+    ]
+  }
+}

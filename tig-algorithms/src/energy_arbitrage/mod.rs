@@ -1,8 +1,19 @@
-// c008_a001
+// c008_a001 — titan (chain, active r118)
 
-// c008_a002
+// c008_a002 — energy_v1 (chain, active r118)
 
-// c008_a003
+// c008_a003 — mpc_v5 (chain, active r118)
+
+// c008_a004 — nodal_pair_arb (chain, pushed r117)
+
+// c008_a005 — closed_form_arb (chain, pushed r117)
+
+// c008_a006 — energy_v2 (chain, pushed r117)
+
+// c008_a007 — iycbtjt (chain, pushed r118)
+
+pub mod near_arb_v1;
+pub use near_arb_v1 as c008_a020;
 
 // c008_a004
 

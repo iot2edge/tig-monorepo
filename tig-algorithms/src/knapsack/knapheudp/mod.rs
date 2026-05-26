@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use serde_json::{Map, Value};
 use tig_challenges::knapsack::*;
 
-
 pub fn solve_challenge(
     challenge: &Challenge,
     save_solution: &dyn Fn(&Solution) -> Result<()>,
@@ -15,7 +14,6 @@ pub fn solve_challenge(
 #[cfg(none)]
 mod dead_code {
     use tig_challenges::knapsack::*;
-
 
     pub fn solve_challenge(challenge: &Challenge) -> anyhow::Result<Option<Solution>> {
         let mut solution = Solution {

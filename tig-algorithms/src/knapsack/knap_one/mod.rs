@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use serde_json::{Map, Value};
 use tig_challenges::knapsack::*;
 
-
 pub fn solve_challenge(
     challenge: &Challenge,
     save_solution: &dyn Fn(&Solution) -> Result<()>,
@@ -165,7 +164,9 @@ mod dead_code {
                 }
             }
 
-            if total_value >= challenge.baseline_value as i32 && total_weight <= challenge.max_weight {
+            if total_value >= challenge.baseline_value as i32
+                && total_weight <= challenge.max_weight
+            {
                 let result_items: Vec<usize> = selected_items
                     .iter()
                     .enumerate()

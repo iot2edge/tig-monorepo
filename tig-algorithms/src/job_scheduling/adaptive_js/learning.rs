@@ -1,7 +1,7 @@
+use super::helpers::pt_from_op;
+use super::types::*;
 use anyhow::{anyhow, Result};
 use tig_challenges::job_scheduling::*;
-use super::types::*;
-use super::helpers::pt_from_op;
 
 pub fn job_bias_from_solution(pre: &Pre, sol: &Solution) -> Result<Vec<f64>> {
     let num_jobs = pre.job_ops_len.len();
@@ -22,10 +22,17 @@ pub fn job_bias_from_solution(pre: &Pre, sol: &Solution) -> Result<Vec<f64>> {
 
     let denom = (makespan as f64).max(1.0);
     let exp = 3.0 + 1.2 * pre.high_flex + 0.6 * pre.jobshopness;
-    Ok(completion.into_iter().map(|c| ((c as f64) / denom).powf(exp).clamp(0.0, 1.0)).collect())
+    Ok(completion
+        .into_iter()
+        .map(|c| ((c as f64) / denom).powf(exp).clamp(0.0, 1.0))
+        .collect())
 }
 
-pub fn machine_penalty_from_solution(pre: &Pre, sol: &Solution, num_machines: usize) -> Result<Vec<f64>> {
+pub fn machine_penalty_from_solution(
+    pre: &Pre,
+    sol: &Solution,
+    num_machines: usize,
+) -> Result<Vec<f64>> {
     let num_jobs = pre.job_ops_len.len();
     let mut m_end = vec![0u32; num_machines];
     let mut m_sum = vec![0u64; num_machines];
@@ -70,7 +77,11 @@ pub fn machine_penalty_from_solution(pre: &Pre, sol: &Solution, num_machines: us
     Ok(mp)
 }
 
-pub fn route_pref_from_solution_lite(pre: &Pre, sol: &Solution, challenge: &Challenge) -> Result<RoutePrefLite> {
+pub fn route_pref_from_solution_lite(
+    pre: &Pre,
+    sol: &Solution,
+    challenge: &Challenge,
+) -> Result<RoutePrefLite> {
     let nm = challenge.num_machines;
     let np = challenge.product_processing_times.len();
 
@@ -120,8 +131,12 @@ pub fn route_pref_from_solution_lite(pre: &Pre, sol: &Solution, challenge: &Chal
                 }
             }
 
-            let best_w = (((best_c as u32).saturating_mul(255)).saturating_add(denom_u32 / 2) / denom_u32).min(255) as u8;
-            let second_w = (((second_c as u32).saturating_mul(255)).saturating_add(denom_u32 / 2) / denom_u32).min(255) as u8;
+            let best_w = (((best_c as u32).saturating_mul(255)).saturating_add(denom_u32 / 2)
+                / denom_u32)
+                .min(255) as u8;
+            let second_w = (((second_c as u32).saturating_mul(255)).saturating_add(denom_u32 / 2)
+                / denom_u32)
+                .min(255) as u8;
 
             v.push(OpRoute {
                 best_m: best_m.min(255) as u8,

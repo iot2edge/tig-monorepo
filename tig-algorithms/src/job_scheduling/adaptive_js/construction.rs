@@ -1,9 +1,9 @@
+use super::helpers::*;
+use super::scoring::*;
+use super::types::*;
 use anyhow::{anyhow, Result};
 use rand::{rngs::SmallRng, Rng};
 use tig_challenges::job_scheduling::*;
-use super::types::*;
-use super::helpers::*;
-use super::scoring::*;
 
 pub fn construct_solution_conflict(
     challenge: &Challenge,
@@ -25,17 +25,26 @@ pub fn construct_solution_conflict(
     let mut machine_avail = vec![0u32; num_machines];
     let mut machine_load = pre.machine_load0.clone();
 
-    let mut job_schedule: Vec<Vec<(usize, u32)>> = pre.job_ops_len.iter().map(|&len| Vec::with_capacity(len)).collect();
+    let mut job_schedule: Vec<Vec<(usize, u32)>> = pre
+        .job_ops_len
+        .iter()
+        .map(|&len| Vec::with_capacity(len))
+        .collect();
 
     let mut remaining_ops = pre.total_ops;
     let mut time = 0u32;
 
     let mut demand: Vec<u16> = vec![0u16; num_machines];
-    let mut raw_by_machine: Vec<Vec<RawCand>> = (0..num_machines).map(|_| Vec::with_capacity(12)).collect();
+    let mut raw_by_machine: Vec<Vec<RawCand>> =
+        (0..num_machines).map(|_| Vec::with_capacity(12)).collect();
     let mut idle_machines: Vec<usize> = Vec::with_capacity(num_machines);
 
     let chaotic_like = pre.chaotic_like;
-    let mut machine_work: Vec<u64> = if chaotic_like { vec![0u64; num_machines] } else { vec![] };
+    let mut machine_work: Vec<u64> = if chaotic_like {
+        vec![0u64; num_machines]
+    } else {
+        vec![]
+    };
     let mut sum_work: u64 = 0;
 
     while remaining_ops > 0 {
@@ -69,7 +78,8 @@ pub fn construct_solution_conflict(
                     continue;
                 }
 
-                let (best_end, second_end, best_cnt_total, best_cnt_idle) = best_second_and_counts(time, &machine_avail, op);
+                let (best_end, second_end, best_cnt_total, best_cnt_idle) =
+                    best_second_and_counts(time, &machine_avail, op);
                 if best_end >= INF || best_cnt_idle == 0 {
                     continue;
                 }
@@ -147,7 +157,11 @@ pub fn construct_solution_conflict(
                 let s = (0.95 + 0.20 * pre.flex_factor).clamp(0.90, 1.20);
                 (w, s)
             } else {
-                let w = (0.09 + 0.26 * pre.jobshopness + 0.11 * pre.high_flex + 0.16 * (1.0 - progress)).clamp(0.05, 0.45);
+                let w = (0.09
+                    + 0.26 * pre.jobshopness
+                    + 0.11 * pre.high_flex
+                    + 0.16 * (1.0 - progress))
+                    .clamp(0.05, 0.45);
                 let s = (0.90 + 0.40 * pre.flex_factor).clamp(0.85, 1.75);
                 (w, s)
             };
@@ -161,7 +175,11 @@ pub fn construct_solution_conflict(
             };
 
             let mut best: Option<Cand> = None;
-            let mut top: Vec<Cand> = if k > 0 { Vec::with_capacity(k) } else { Vec::new() };
+            let mut top: Vec<Cand> = if k > 0 {
+                Vec::with_capacity(k)
+            } else {
+                Vec::new()
+            };
 
             for &m in &idle_machines {
                 let dem = demand[m] as f64;
@@ -183,7 +201,8 @@ pub fn construct_solution_conflict(
                     let rig = rc.rigidity.clamp(0.0, 2.5);
                     let regc = rc.reg_n.clamp(0.0, 4.5);
 
-                    let mut boost = conflict_w * conflict_scale * dem_n * (1.15 * rig + 0.85 * regc);
+                    let mut boost =
+                        conflict_w * conflict_scale * dem_n * (1.15 * rig + 0.85 * regc);
                     if chaotic_like {
                         boost = boost.max(-0.26);
                     }
@@ -284,14 +303,23 @@ pub fn construct_solution_conflict(
     Ok((Solution { job_schedule }, mk))
 }
 
-pub fn improve_reentrant_seq(seq: &mut Vec<usize>, route: &[usize], pt: &[Vec<u32>], num_machines: usize) {
+pub fn improve_reentrant_seq(
+    seq: &mut Vec<usize>,
+    route: &[usize],
+    pt: &[Vec<u32>],
+    num_machines: usize,
+) {
     if seq.len() <= 2 || route.is_empty() {
         return;
     }
     let mut mready = vec![0u32; num_machines];
 
     for pass in 0..2usize {
-        let indices: Vec<usize> = if pass == 0 { (0..seq.len()).collect() } else { (0..seq.len()).rev().collect() };
+        let indices: Vec<usize> = if pass == 0 {
+            (0..seq.len()).collect()
+        } else {
+            (0..seq.len()).rev().collect()
+        };
         let mut improved_any = false;
 
         for &i0 in &indices {
@@ -326,9 +354,19 @@ pub fn improve_reentrant_seq(seq: &mut Vec<usize>, route: &[usize], pt: &[Vec<u3
     }
 }
 
-pub fn neh_reentrant_flow_solution(pre: &Pre, num_jobs: usize, num_machines: usize) -> Result<(Solution, u32)> {
-    let route = pre.flow_route.as_ref().ok_or_else(|| anyhow!("NEH requested but no flow route"))?;
-    let pt = pre.flow_pt_by_job.as_ref().ok_or_else(|| anyhow!("NEH requested but no flow pt"))?;
+pub fn neh_reentrant_flow_solution(
+    pre: &Pre,
+    num_jobs: usize,
+    num_machines: usize,
+) -> Result<(Solution, u32)> {
+    let route = pre
+        .flow_route
+        .as_ref()
+        .ok_or_else(|| anyhow!("NEH requested but no flow route"))?;
+    let pt = pre
+        .flow_pt_by_job
+        .as_ref()
+        .ok_or_else(|| anyhow!("NEH requested but no flow pt"))?;
     let ops = route.len();
     if ops == 0 || pt.len() != num_jobs {
         return Err(anyhow!("Invalid flow data"));

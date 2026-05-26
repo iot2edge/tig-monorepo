@@ -1,5 +1,5 @@
-use std::collections::BTreeSet;
 use serde_json::{Map, Value};
+use std::collections::BTreeSet;
 use tig_challenges::vehicle_routing::*;
 
 pub fn solve_challenge(
@@ -9,7 +9,6 @@ pub fn solve_challenge(
 ) -> anyhow::Result<()> {
     Err(anyhow::anyhow!("This algorithm is no longer compatible."))
 }
-
 
 // Old code that is no longer compatible
 #[cfg(none)]
@@ -95,14 +94,16 @@ mod dead_code {
             service_time,
             ready_times,
             due_times,
-        ).unwrap_or(i32::MAX);
+        )
+        .unwrap_or(i32::MAX);
         let mut improved = true;
 
         while improved {
             improved = false;
 
-            let route_demands: Vec<i32> = best_routes.iter()
-                .map(|route| route[1..route.len()-1].iter().map(|&n| demands[n]).sum())
+            let route_demands: Vec<i32> = best_routes
+                .iter()
+                .map(|route| route[1..route.len() - 1].iter().map(|&n| demands[n]).sum())
                 .collect();
 
             let mut node_positions = vec![(0, 0); num_nodes];
@@ -116,7 +117,19 @@ mod dead_code {
             for i in 1..num_nodes {
                 if let Some((best_j, min_prox)) = (1..num_nodes)
                     .filter(|&j| j != i)
-                    .map(|j| (j, compute_proximity(i, j, distance_matrix, ready_times, due_times, service_time)))
+                    .map(|j| {
+                        (
+                            j,
+                            compute_proximity(
+                                i,
+                                j,
+                                distance_matrix,
+                                ready_times,
+                                due_times,
+                                service_time,
+                            ),
+                        )
+                    })
                     .min_by(|(_, a_prox), (_, b_prox)| a_prox.partial_cmp(b_prox).unwrap())
                 {
                     proximity_pairs.push((min_prox, i, best_j));
@@ -209,7 +222,7 @@ mod dead_code {
         ready_times: &Vec<i32>,
         due_times: &Vec<i32>,
     ) -> Option<(usize, i32)> {
-        let current_demand: i32 = route[1..route.len()-1].iter().map(|&n| demands[n]).sum();
+        let current_demand: i32 = route[1..route.len() - 1].iter().map(|&n| demands[n]).sum();
         if current_demand + demands[node] > max_capacity {
             return None;
         }
@@ -218,11 +231,20 @@ mod dead_code {
         let mut best_delta = i32::MAX;
 
         for pos in 1..route.len() {
-            let prev_node = route[pos-1];
+            let prev_node = route[pos - 1];
             let next_node = route[pos];
-            let delta = distance_matrix[prev_node][node] + distance_matrix[node][next_node] - distance_matrix[prev_node][next_node];
+            let delta = distance_matrix[prev_node][node] + distance_matrix[node][next_node]
+                - distance_matrix[prev_node][next_node];
 
-            if check_feasible_insertion(route, node, pos, distance_matrix, service_time, ready_times, due_times) {
+            if check_feasible_insertion(
+                route,
+                node,
+                pos,
+                distance_matrix,
+                service_time,
+                ready_times,
+                due_times,
+            ) {
                 if delta < best_delta {
                     best_delta = delta;
                     best_pos = Some(pos);
@@ -245,7 +267,9 @@ mod dead_code {
         let mut curr_time = 0;
         let mut curr_node = 0;
         for &node in route[..insert_pos].iter() {
-            if node == 0 { continue; }
+            if node == 0 {
+                continue;
+            }
             curr_time += distance_matrix[curr_node][node];
             curr_time = curr_time.max(ready_times[node]);
             if curr_time > due_times[node] {
@@ -264,7 +288,9 @@ mod dead_code {
         curr_node = insert_node;
 
         for &node in route[insert_pos..].iter() {
-            if node == 0 { continue; }
+            if node == 0 {
+                continue;
+            }
             curr_time += distance_matrix[curr_node][node];
             curr_time = curr_time.max(ready_times[node]);
             if curr_time > due_times[node] {
@@ -298,8 +324,8 @@ mod dead_code {
             let mut curr_node = 0;
             for pos in 1..route.len() {
                 let next_node = route[pos];
-                let new_arrival_time =
-                    ready_times[insert_node].max(curr_time + distance_matrix[curr_node][insert_node]);
+                let new_arrival_time = ready_times[insert_node]
+                    .max(curr_time + distance_matrix[curr_node][insert_node]);
                 if new_arrival_time > due_times[insert_node] {
                     continue;
                 }

@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Result};
-use rand::{rngs::SmallRng, Rng, SeedableRng, seq::SliceRandom};
-use tig_challenges::job_scheduling::*;
 use super::types::*;
+use anyhow::{anyhow, Result};
+use rand::{rngs::SmallRng, seq::SliceRandom, Rng, SeedableRng};
+use tig_challenges::job_scheduling::*;
 
 #[inline]
 pub fn pt_from_op(op: &OpInfo, machine: usize) -> Option<u32> {
@@ -50,7 +50,11 @@ pub fn push_top_k_raw(top: &mut Vec<RawCand>, c: RawCand, k: usize) {
 }
 
 #[inline]
-pub fn best_second_and_counts(time: u32, machine_avail: &[u32], op: &OpInfo) -> (u32, u32, usize, usize) {
+pub fn best_second_and_counts(
+    time: u32,
+    machine_avail: &[u32],
+    op: &OpInfo,
+) -> (u32, u32, usize, usize) {
     let mut best = INF;
     let mut second = INF;
     let mut cnt_best = 0usize;
@@ -148,7 +152,9 @@ pub fn best_two_by_pt(op: &OpInfo) -> [(usize, u32); 2] {
 
 #[inline]
 pub fn push_top_solutions(top: &mut Vec<(Solution, u32)>, sol: &Solution, mk: u32, cap: usize) {
-    let pos = top.binary_search_by_key(&mk, |(_, m)| *m).unwrap_or_else(|e| e);
+    let pos = top
+        .binary_search_by_key(&mk, |(_, m)| *m)
+        .unwrap_or_else(|e| e);
     top.insert(pos, (sol.clone(), mk));
     if top.len() > cap {
         top.truncate(cap);
@@ -173,7 +179,12 @@ pub fn flow_makespan(seq: &[usize], pt: &[Vec<u32>], comp: &mut [u32]) -> u32 {
 }
 
 #[inline]
-pub fn reentrant_makespan(seq: &[usize], route: &[usize], pt: &[Vec<u32>], mready: &mut [u32]) -> u32 {
+pub fn reentrant_makespan(
+    seq: &[usize],
+    route: &[usize],
+    pt: &[Vec<u32>],
+    mready: &mut [u32],
+) -> u32 {
     mready.fill(0);
     let mut mk = 0u32;
     for &j in seq {
@@ -194,7 +205,13 @@ pub fn reentrant_makespan(seq: &[usize], route: &[usize], pt: &[Vec<u32>], mread
 }
 
 #[inline]
-pub fn slack_urgency(pre: &Pre, target_mk: Option<u32>, time: u32, product: usize, op_idx: usize) -> f64 {
+pub fn slack_urgency(
+    pre: &Pre,
+    target_mk: Option<u32>,
+    time: u32,
+    product: usize,
+    op_idx: usize,
+) -> f64 {
     let Some(tgt) = target_mk else { return 0.0 };
     let lb = (time as u64).saturating_add(pre.product_suf_min[product][op_idx] as u64);
     let slack = (tgt as i64) - (lb as i64);
@@ -207,7 +224,12 @@ pub fn slack_urgency(pre: &Pre, target_mk: Option<u32>, time: u32, product: usiz
 }
 
 #[inline]
-pub fn route_pref_bonus_lite(rp: Option<&RoutePrefLite>, product: usize, op_idx: usize, machine: usize) -> f64 {
+pub fn route_pref_bonus_lite(
+    rp: Option<&RoutePrefLite>,
+    product: usize,
+    op_idx: usize,
+    machine: usize,
+) -> f64 {
     let Some(rp) = rp else { return 0.0 };
     if product >= rp.len() || op_idx >= rp[product].len() {
         return 0.0;
@@ -273,7 +295,8 @@ pub fn score_candidate(
     let reg_n = (regret / pre.avg_op_min.max(1.0)).clamp(0.0, 6.0);
 
     let scarcity_urg = 1.0 / (best_cnt_total as f64).max(1.0);
-    let density_n = ((rem_min / (ops_rem as f64).max(1.0)) / pre.avg_op_min.max(1.0)).clamp(0.0, 4.0);
+    let density_n =
+        ((rem_min / (ops_rem as f64).max(1.0)) / pre.avg_op_min.max(1.0)).clamp(0.0, 4.0);
 
     let next_min = pre.product_next_min[product][op_idx] as f64;
     let next_min_n = next_min / pre.horizon.max(1.0);
@@ -334,9 +357,7 @@ pub fn score_candidate(
                 + jitter
         }
         Rule::LeastFlex => {
-            (1.00 * flex_inv)
-                + (0.28 * rem_min_n)
-                + (0.22 * scarcity_urg)
+            (1.00 * flex_inv) + (0.28 * rem_min_n) + (0.22 * scarcity_urg)
                 - (0.55 * end_n)
                 - pop_pen
                 + (0.35 * job_bias)
@@ -345,22 +366,14 @@ pub fn score_candidate(
                 + jitter
         }
         Rule::ShortestProc => {
-            (-1.00 * proc_n)
-                + (0.25 * rem_min_n)
-                + (0.12 * scarcity_urg)
-                - (0.20 * end_n)
-                - pop_pen
+            (-1.00 * proc_n) + (0.25 * rem_min_n) + (0.12 * scarcity_urg) - (0.20 * end_n) - pop_pen
                 + (0.25 * job_bias)
                 + flow_term
                 + route_term
                 + jitter
         }
         Rule::Regret => {
-            (1.05 * reg_n)
-                + (0.55 * rem_min_n)
-                + (0.22 * scarcity_urg)
-                - (0.68 * end_n)
-                - pop_pen
+            (1.05 * reg_n) + (0.55 * rem_min_n) + (0.22 * scarcity_urg) - (0.68 * end_n) - pop_pen
                 + (0.35 * job_bias)
                 + flow_term
                 + route_term
@@ -419,7 +432,8 @@ pub fn score_candidate(
                 + jitter
         }
         Rule::Adaptive => {
-            let end_w = (0.90 * fl + 0.72 * js) + (0.62 + 0.12 * fl) * progress + 0.18 * pre.high_flex;
+            let end_w =
+                (0.90 * fl + 0.72 * js) + (0.62 + 0.12 * fl) * progress + 0.18 * pre.high_flex;
             let reg_w = (0.50 * fl + 0.78 * js) + 0.18 * (1.0 - progress);
             let bn_w = ((0.45 + 0.40 * js) + 0.25 * (1.0 - progress)) * pre.bn_focus;
 
@@ -500,17 +514,26 @@ pub fn construct_solution_conflict(
     let mut machine_avail = vec![0u32; num_machines];
     let mut machine_load = pre.machine_load0.clone();
 
-    let mut job_schedule: Vec<Vec<(usize, u32)>> = pre.job_ops_len.iter().map(|&len| Vec::with_capacity(len)).collect();
+    let mut job_schedule: Vec<Vec<(usize, u32)>> = pre
+        .job_ops_len
+        .iter()
+        .map(|&len| Vec::with_capacity(len))
+        .collect();
 
     let mut remaining_ops = pre.total_ops;
     let mut time = 0u32;
 
     let mut demand: Vec<u16> = vec![0u16; num_machines];
-    let mut raw_by_machine: Vec<Vec<RawCand>> = (0..num_machines).map(|_| Vec::with_capacity(12)).collect();
+    let mut raw_by_machine: Vec<Vec<RawCand>> =
+        (0..num_machines).map(|_| Vec::with_capacity(12)).collect();
     let mut idle_machines: Vec<usize> = Vec::with_capacity(num_machines);
 
     let chaotic_like = pre.chaotic_like;
-    let mut machine_work: Vec<u64> = if chaotic_like { vec![0u64; num_machines] } else { vec![] };
+    let mut machine_work: Vec<u64> = if chaotic_like {
+        vec![0u64; num_machines]
+    } else {
+        vec![]
+    };
     let mut sum_work: u64 = 0;
 
     while remaining_ops > 0 {
@@ -544,7 +567,8 @@ pub fn construct_solution_conflict(
                     continue;
                 }
 
-                let (best_end, second_end, best_cnt_total, best_cnt_idle) = best_second_and_counts(time, &machine_avail, op);
+                let (best_end, second_end, best_cnt_total, best_cnt_idle) =
+                    best_second_and_counts(time, &machine_avail, op);
                 if best_end >= INF || best_cnt_idle == 0 {
                     continue;
                 }
@@ -622,7 +646,11 @@ pub fn construct_solution_conflict(
                 let s = (0.95 + 0.20 * pre.flex_factor).clamp(0.90, 1.20);
                 (w, s)
             } else {
-                let w = (0.09 + 0.26 * pre.jobshopness + 0.11 * pre.high_flex + 0.16 * (1.0 - progress)).clamp(0.05, 0.45);
+                let w = (0.09
+                    + 0.26 * pre.jobshopness
+                    + 0.11 * pre.high_flex
+                    + 0.16 * (1.0 - progress))
+                    .clamp(0.05, 0.45);
                 let s = (0.90 + 0.40 * pre.flex_factor).clamp(0.85, 1.75);
                 (w, s)
             };
@@ -636,7 +664,11 @@ pub fn construct_solution_conflict(
             };
 
             let mut best: Option<Cand> = None;
-            let mut top: Vec<Cand> = if k > 0 { Vec::with_capacity(k) } else { Vec::new() };
+            let mut top: Vec<Cand> = if k > 0 {
+                Vec::with_capacity(k)
+            } else {
+                Vec::new()
+            };
 
             for &m in &idle_machines {
                 let dem = demand[m] as f64;
@@ -658,7 +690,8 @@ pub fn construct_solution_conflict(
                     let rig = rc.rigidity.clamp(0.0, 2.5);
                     let regc = rc.reg_n.clamp(0.0, 4.5);
 
-                    let mut boost = conflict_w * conflict_scale * dem_n * (1.15 * rig + 0.85 * regc);
+                    let mut boost =
+                        conflict_w * conflict_scale * dem_n * (1.15 * rig + 0.85 * regc);
                     if chaotic_like {
                         boost = boost.max(-0.26);
                     }
@@ -759,14 +792,23 @@ pub fn construct_solution_conflict(
     Ok((Solution { job_schedule }, mk))
 }
 
-pub fn improve_reentrant_seq(seq: &mut Vec<usize>, route: &[usize], pt: &[Vec<u32>], num_machines: usize) {
+pub fn improve_reentrant_seq(
+    seq: &mut Vec<usize>,
+    route: &[usize],
+    pt: &[Vec<u32>],
+    num_machines: usize,
+) {
     if seq.len() <= 2 || route.is_empty() {
         return;
     }
     let mut mready = vec![0u32; num_machines];
 
     for pass in 0..2usize {
-        let indices: Vec<usize> = if pass == 0 { (0..seq.len()).collect() } else { (0..seq.len()).rev().collect() };
+        let indices: Vec<usize> = if pass == 0 {
+            (0..seq.len()).collect()
+        } else {
+            (0..seq.len()).rev().collect()
+        };
         let mut improved_any = false;
 
         for &i0 in &indices {
@@ -801,9 +843,19 @@ pub fn improve_reentrant_seq(seq: &mut Vec<usize>, route: &[usize], pt: &[Vec<u3
     }
 }
 
-pub fn neh_reentrant_flow_solution(pre: &Pre, num_jobs: usize, num_machines: usize) -> Result<(Solution, u32)> {
-    let route = pre.flow_route.as_ref().ok_or_else(|| anyhow!("NEH requested but no flow route"))?;
-    let pt = pre.flow_pt_by_job.as_ref().ok_or_else(|| anyhow!("NEH requested but no flow pt"))?;
+pub fn neh_reentrant_flow_solution(
+    pre: &Pre,
+    num_jobs: usize,
+    num_machines: usize,
+) -> Result<(Solution, u32)> {
+    let route = pre
+        .flow_route
+        .as_ref()
+        .ok_or_else(|| anyhow!("NEH requested but no flow route"))?;
+    let pt = pre
+        .flow_pt_by_job
+        .as_ref()
+        .ok_or_else(|| anyhow!("NEH requested but no flow pt"))?;
     let ops = route.len();
     if ops == 0 || pt.len() != num_jobs {
         return Err(anyhow!("Invalid flow data"));
@@ -884,10 +936,17 @@ pub fn job_bias_from_solution(pre: &Pre, sol: &Solution) -> Result<Vec<f64>> {
 
     let denom = (makespan as f64).max(1.0);
     let exp = 3.0 + 1.2 * pre.high_flex + 0.6 * pre.jobshopness;
-    Ok(completion.into_iter().map(|c| ((c as f64) / denom).powf(exp).clamp(0.0, 1.0)).collect())
+    Ok(completion
+        .into_iter()
+        .map(|c| ((c as f64) / denom).powf(exp).clamp(0.0, 1.0))
+        .collect())
 }
 
-pub fn machine_penalty_from_solution(pre: &Pre, sol: &Solution, num_machines: usize) -> Result<Vec<f64>> {
+pub fn machine_penalty_from_solution(
+    pre: &Pre,
+    sol: &Solution,
+    num_machines: usize,
+) -> Result<Vec<f64>> {
     let num_jobs = pre.job_ops_len.len();
     let mut m_end = vec![0u32; num_machines];
     let mut m_sum = vec![0u64; num_machines];
@@ -932,7 +991,11 @@ pub fn machine_penalty_from_solution(pre: &Pre, sol: &Solution, num_machines: us
     Ok(mp)
 }
 
-pub fn route_pref_from_solution_lite(pre: &Pre, sol: &Solution, challenge: &Challenge) -> Result<RoutePrefLite> {
+pub fn route_pref_from_solution_lite(
+    pre: &Pre,
+    sol: &Solution,
+    challenge: &Challenge,
+) -> Result<RoutePrefLite> {
     let nm = challenge.num_machines;
     let np = challenge.product_processing_times.len();
 
@@ -982,8 +1045,12 @@ pub fn route_pref_from_solution_lite(pre: &Pre, sol: &Solution, challenge: &Chal
                 }
             }
 
-            let best_w = (((best_c as u32).saturating_mul(255)).saturating_add(denom_u32 / 2) / denom_u32).min(255) as u8;
-            let second_w = (((second_c as u32).saturating_mul(255)).saturating_add(denom_u32 / 2) / denom_u32).min(255) as u8;
+            let best_w = (((best_c as u32).saturating_mul(255)).saturating_add(denom_u32 / 2)
+                / denom_u32)
+                .min(255) as u8;
+            let second_w = (((second_c as u32).saturating_mul(255)).saturating_add(denom_u32 / 2)
+                / denom_u32)
+                .min(255) as u8;
 
             v.push(OpRoute {
                 best_m: best_m.min(255) as u8,
@@ -1094,25 +1161,43 @@ pub fn run_simple_greedy_baseline(challenge: &Challenge) -> Result<(Solution, u3
         }
     }
 
-    let job_ops_len: Vec<usize> = job_products.iter()
+    let job_ops_len: Vec<usize> = job_products
+        .iter()
         .map(|&p| challenge.product_processing_times[p].len())
         .collect();
 
-    let job_total_work: Vec<f64> = job_products.iter().map(|&p| {
-        challenge.product_processing_times[p].iter()
-            .map(|op| {
-                let avg: f64 = op.values().sum::<u32>() as f64 / op.len().max(1) as f64;
-                avg
-            })
-            .sum()
-    }).collect();
+    let job_total_work: Vec<f64> = job_products
+        .iter()
+        .map(|&p| {
+            challenge.product_processing_times[p]
+                .iter()
+                .map(|op| {
+                    let avg: f64 = op.values().sum::<u32>() as f64 / op.len().max(1) as f64;
+                    avg
+                })
+                .sum()
+        })
+        .collect();
 
-    let rules = [GreedyRule::MostWork, GreedyRule::MostOps, GreedyRule::LeastFlex, GreedyRule::ShortestProc, GreedyRule::LongestProc];
+    let rules = [
+        GreedyRule::MostWork,
+        GreedyRule::MostOps,
+        GreedyRule::LeastFlex,
+        GreedyRule::ShortestProc,
+        GreedyRule::LongestProc,
+    ];
     let mut best_mk = u32::MAX;
     let mut best_sol: Option<Solution> = None;
 
     for rule in rules {
-        let (sol, mk) = run_greedy_rule(challenge, &job_products, &job_ops_len, &job_total_work, rule, None)?;
+        let (sol, mk) = run_greedy_rule(
+            challenge,
+            &job_products,
+            &job_ops_len,
+            &job_total_work,
+            rule,
+            None,
+        )?;
         if mk < best_mk {
             best_mk = mk;
             best_sol = Some(sol);
@@ -1126,14 +1211,24 @@ pub fn run_simple_greedy_baseline(challenge: &Challenge) -> Result<(Solution, u3
         let random_top_k = rng.gen_range(2..=5);
         let mut local_rng = SmallRng::seed_from_u64(seed);
 
-        let (sol, mk) = run_greedy_rule(challenge, &job_products, &job_ops_len, &job_total_work, rule, Some((random_top_k, &mut local_rng)))?;
+        let (sol, mk) = run_greedy_rule(
+            challenge,
+            &job_products,
+            &job_ops_len,
+            &job_total_work,
+            rule,
+            Some((random_top_k, &mut local_rng)),
+        )?;
         if mk < best_mk {
             best_mk = mk;
             best_sol = Some(sol);
         }
     }
 
-    Ok((best_sol.ok_or_else(|| anyhow!("No greedy solution"))?, best_mk))
+    Ok((
+        best_sol.ok_or_else(|| anyhow!("No greedy solution"))?,
+        best_mk,
+    ))
 }
 
 pub fn run_greedy_rule(
@@ -1150,7 +1245,8 @@ pub fn run_greedy_rule(
     let mut job_next_op = vec![0usize; num_jobs];
     let mut job_ready = vec![0u32; num_jobs];
     let mut machine_avail = vec![0u32; num_machines];
-    let mut job_schedule: Vec<Vec<(usize, u32)>> = job_ops_len.iter()
+    let mut job_schedule: Vec<Vec<(usize, u32)>> = job_ops_len
+        .iter()
         .map(|&len| Vec::with_capacity(len))
         .collect();
     let mut job_work_left = job_total_work.to_vec();
@@ -1193,9 +1289,11 @@ pub fn run_greedy_rule(
                     None => continue,
                 };
 
-                let earliest = op_times.iter()
+                let earliest = op_times
+                    .iter()
                     .map(|(&mm, &ppt)| time.max(machine_avail[mm]) + ppt)
-                    .min().unwrap_or(u32::MAX);
+                    .min()
+                    .unwrap_or(u32::MAX);
                 let this_end = time.max(machine_avail[m]) + pt;
                 if this_end != earliest {
                     continue;
@@ -1211,7 +1309,13 @@ pub fn run_greedy_rule(
                     GreedyRule::LongestProc => pt as f64,
                 };
 
-                candidates.push(GCandidate { job: j, priority, end: this_end, pt, flex });
+                candidates.push(GCandidate {
+                    job: j,
+                    priority,
+                    end: this_end,
+                    pt,
+                    flex,
+                });
             }
 
             if candidates.is_empty() {
@@ -1305,7 +1409,11 @@ pub fn run_greedy_rule(
     Ok((Solution { job_schedule }, mk))
 }
 
-pub fn build_disj_from_solution(pre: &Pre, challenge: &Challenge, sol: &Solution) -> Result<DisjSchedule> {
+pub fn build_disj_from_solution(
+    pre: &Pre,
+    challenge: &Challenge,
+    sol: &Solution,
+) -> Result<DisjSchedule> {
     let num_jobs = challenge.num_jobs;
     let num_machines = challenge.num_machines;
 
@@ -1628,7 +1736,15 @@ pub fn descent_phase(
                                 let score = buf.start[seq[tgt_idx]];
                                 push_top_k_move(
                                     &mut cands,
-                                    MoveCand { kind: 0, m_from: m, from, m_to: m, to: to_after, new_pt: 0, score },
+                                    MoveCand {
+                                        kind: 0,
+                                        m_from: m,
+                                        from,
+                                        m_to: m,
+                                        to: to_after,
+                                        new_pt: 0,
+                                        score,
+                                    },
                                     top_cands,
                                 );
                             }
@@ -1639,7 +1755,15 @@ pub fn descent_phase(
                             let score = buf.start[seq[bend]];
                             push_top_k_move(
                                 &mut cands,
-                                MoveCand { kind: 0, m_from: m, from, m_to: m, to: to_after, new_pt: 0, score },
+                                MoveCand {
+                                    kind: 0,
+                                    m_from: m,
+                                    from,
+                                    m_to: m,
+                                    to: to_after,
+                                    new_pt: 0,
+                                    score,
+                                },
                                 top_cands,
                             );
                         }
@@ -1650,7 +1774,15 @@ pub fn descent_phase(
                             let score = buf.start[seq[bstart]];
                             push_top_k_move(
                                 &mut cands,
-                                MoveCand { kind: 2, m_from: m, from: bstart - 1, m_to: m, to: 0, new_pt: 0, score },
+                                MoveCand {
+                                    kind: 2,
+                                    m_from: m,
+                                    from: bstart - 1,
+                                    m_to: m,
+                                    to: 0,
+                                    new_pt: 0,
+                                    score,
+                                },
                                 top_cands,
                             );
                         }
@@ -1658,7 +1790,15 @@ pub fn descent_phase(
                             let score = buf.start[seq[bend]];
                             push_top_k_move(
                                 &mut cands,
-                                MoveCand { kind: 2, m_from: m, from: bend, m_to: m, to: 0, new_pt: 0, score },
+                                MoveCand {
+                                    kind: 2,
+                                    m_from: m,
+                                    from: bend,
+                                    m_to: m,
+                                    to: 0,
+                                    new_pt: 0,
+                                    score,
+                                },
                                 top_cands,
                             );
                         }
@@ -1666,14 +1806,30 @@ pub fn descent_phase(
                             let score = buf.start[seq[bstart + 1]];
                             push_top_k_move(
                                 &mut cands,
-                                MoveCand { kind: 2, m_from: m, from: bstart, m_to: m, to: 0, new_pt: 0, score },
+                                MoveCand {
+                                    kind: 2,
+                                    m_from: m,
+                                    from: bstart,
+                                    m_to: m,
+                                    to: 0,
+                                    new_pt: 0,
+                                    score,
+                                },
                                 top_cands,
                             );
                             if bend >= 1 && bend - 1 >= bstart {
                                 let score2 = buf.start[seq[bend]];
                                 push_top_k_move(
                                     &mut cands,
-                                    MoveCand { kind: 2, m_from: m, from: bend - 1, m_to: m, to: 0, new_pt: 0, score: score2 },
+                                    MoveCand {
+                                        kind: 2,
+                                        m_from: m,
+                                        from: bend - 1,
+                                        m_to: m,
+                                        to: 0,
+                                        new_pt: 0,
+                                        score: score2,
+                                    },
                                     top_cands,
                                 );
                             }
@@ -1704,7 +1860,11 @@ pub fn descent_phase(
 
                         let best2 = best_two_by_pt(op);
                         for &(m_to, new_pt) in &best2 {
-                            if m_to == NONE_USIZE || m_to >= ds.num_machines || m_to == old_m || new_pt >= INF {
+                            if m_to == NONE_USIZE
+                                || m_to >= ds.num_machines
+                                || m_to == old_m
+                                || new_pt >= INF
+                            {
                                 continue;
                             }
                             let w_to = pre.machine_weight[m_to].max(1e-9);
@@ -1714,13 +1874,18 @@ pub fn descent_phase(
                             }
 
                             let desired = buf.start[node];
-                            let pos0 = find_insert_pos_by_start(&ds.machine_seq[m_to], &buf.start, desired);
+                            let pos0 = find_insert_pos_by_start(
+                                &ds.machine_seq[m_to],
+                                &buf.start,
+                                desired,
+                            );
                             for pos in [pos0, pos0.saturating_add(1)] {
                                 if pos > ds.machine_seq[m_to].len() {
                                     continue;
                                 }
 
-                                let diffw = ((w_from - w_to).max(0.0) * pre.avg_op_min).max(0.0) as u32;
+                                let diffw =
+                                    ((w_from - w_to).max(0.0) * pre.avg_op_min).max(0.0) as u32;
                                 let difpt = old_pt.saturating_sub(new_pt);
                                 let score = desired
                                     .saturating_add(old_pt)
@@ -1729,7 +1894,15 @@ pub fn descent_phase(
 
                                 push_top_k_move(
                                     &mut cands,
-                                    MoveCand { kind: 1, m_from: old_m, from: idx, m_to, to: pos, new_pt, score },
+                                    MoveCand {
+                                        kind: 1,
+                                        m_from: old_m,
+                                        from: idx,
+                                        m_to,
+                                        to: pos,
+                                        new_pt,
+                                        score,
+                                    },
                                     top_cands,
                                 );
                             }
@@ -1851,7 +2024,8 @@ pub fn descent_phase(
                         improved = true;
                         accepted = true;
                     } else {
-                        let _ = undo_reroute(ds, bc.m_from, bc.from, bc.m_to, ins_idx, node2, old_pt);
+                        let _ =
+                            undo_reroute(ds, bc.m_from, bc.from, bc.m_to, ins_idx, node2, old_pt);
                     }
                 } else {
                     let _ = undo_reroute(ds, bc.m_from, bc.from, bc.m_to, ins_idx, node2, old_pt);
@@ -1895,9 +2069,19 @@ pub fn critical_block_move_local_search_ex(
     };
     let initial_mk = cur_eval.0;
 
-    descent_phase(&mut ds, &mut buf, &mut crit, pre, &mut cur_eval, max_iters, top_cands);
+    descent_phase(
+        &mut ds,
+        &mut buf,
+        &mut crit,
+        pre,
+        &mut cur_eval,
+        max_iters,
+        top_cands,
+    );
 
-    let Some((mk_after, _)) = eval_disj(&ds, &mut buf) else { return Ok(None) };
+    let Some((mk_after, _)) = eval_disj(&ds, &mut buf) else {
+        return Ok(None);
+    };
 
     let mut global_best_mk = mk_after;
     let mut global_best_ds = ds.clone();
@@ -1911,15 +2095,16 @@ pub fn critical_block_move_local_search_ex(
         }
     }
 
-    let mut pseed: u64 = (challenge.seed[0] as u64)
-        .wrapping_mul(0x9E3779B97F4A7C15)
+    let mut pseed: u64 = (challenge.seed[0] as u64).wrapping_mul(0x9E3779B97F4A7C15)
         ^ (initial_mk as u64).wrapping_shl(16)
         ^ (ds.n as u64)
         ^ sol_hash;
 
     for _cycle in 0..perturb_cycles {
         ds = global_best_ds.clone();
-        let Some((_, mk_node)) = eval_disj(&ds, &mut buf) else { break };
+        let Some((_, mk_node)) = eval_disj(&ds, &mut buf) else {
+            break;
+        };
 
         crit.fill(false);
         let mut u = mk_node;
@@ -1990,7 +2175,15 @@ pub fn critical_block_move_local_search_ex(
             None => continue,
         }
 
-        descent_phase(&mut ds, &mut buf, &mut crit, pre, &mut cur_eval, max_iters, top_cands);
+        descent_phase(
+            &mut ds,
+            &mut buf,
+            &mut crit,
+            pre,
+            &mut cur_eval,
+            max_iters,
+            top_cands,
+        );
 
         if let Some((mk_now, _)) = eval_disj(&ds, &mut buf) {
             if mk_now < global_best_mk {
@@ -2005,7 +2198,9 @@ pub fn critical_block_move_local_search_ex(
     }
 
     ds = global_best_ds;
-    let Some((mk_final, _)) = eval_disj(&ds, &mut buf) else { return Ok(None) };
+    let Some((mk_final, _)) = eval_disj(&ds, &mut buf) else {
+        return Ok(None);
+    };
     let sol = disj_to_solution(pre, &ds, &buf.start)?;
     Ok(Some((sol, mk_final)))
 }
@@ -2036,8 +2231,7 @@ pub fn machine_reassign_local_search(
         }
     }
 
-    let mut pseed: u64 = (challenge.seed[0] as u64)
-        .wrapping_mul(0x9E3779B97F4A7C15)
+    let mut pseed: u64 = (challenge.seed[0] as u64).wrapping_mul(0x9E3779B97F4A7C15)
         ^ (initial_mk as u64).wrapping_shl(16)
         ^ (num_jobs as u64).wrapping_mul(0x517CC1B727220A95);
 
@@ -2132,11 +2326,7 @@ pub fn machine_reassign_local_search(
     Ok(Some((best_sol, best_mk)))
 }
 
-fn reschedule_solution(
-    challenge: &Challenge,
-    pre: &Pre,
-    sol: &Solution,
-) -> Result<Solution> {
+fn reschedule_solution(challenge: &Challenge, pre: &Pre, sol: &Solution) -> Result<Solution> {
     let num_machines = challenge.num_machines;
     let mut machine_avail = vec![0u32; num_machines];
     let mut new_schedule: Vec<Vec<(usize, u32)>> = Vec::with_capacity(sol.job_schedule.len());
@@ -2160,7 +2350,9 @@ fn reschedule_solution(
         new_schedule.push(new_job_sched);
     }
 
-    Ok(Solution { job_schedule: new_schedule })
+    Ok(Solution {
+        job_schedule: new_schedule,
+    })
 }
 
 fn evaluate_solution_makespan(challenge: &Challenge, sol: &Solution) -> Result<u32> {

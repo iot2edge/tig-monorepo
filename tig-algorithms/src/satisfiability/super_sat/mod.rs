@@ -1,18 +1,19 @@
-use rand::{rngs::SmallRng, Rng, SeedableRng};
-use std::convert::TryInto;
-use serde_json::{Map, Value};
-use tig_challenges::satisfiability::*;
 use crate::{seeded_hasher, HashSet};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
+use serde_json::{Map, Value};
+use std::convert::TryInto;
+use tig_challenges::satisfiability::*;
 
 pub fn solve_challenge(
     challenge: &Challenge,
     save_solution: &dyn Fn(&Solution) -> anyhow::Result<()>,
     hyperparameters: &Option<Map<String, Value>>,
 ) -> anyhow::Result<()> {
-    let _ = save_solution(&Solution { variables: vec![false; challenge.num_variables] });
-    let mut rng = SmallRng::seed_from_u64(u64::from_le_bytes(
-        challenge.seed[..8].try_into().unwrap(),
-    ));
+    let _ = save_solution(&Solution {
+        variables: vec![false; challenge.num_variables],
+    });
+    let mut rng =
+        SmallRng::seed_from_u64(u64::from_le_bytes(challenge.seed[..8].try_into().unwrap()));
     let hasher = seeded_hasher(&challenge.seed);
 
     let mut clauses = challenge.clauses.clone();
@@ -173,14 +174,16 @@ pub fn solve_challenge(
         } else {
             nad + 1.0
         };
-        let bias_prob = (num_p as f64 + 0.25) / ((num_p + num_n) as f64 + 1.2);        
+        let bias_prob = (num_p as f64 + 0.25) / ((num_p + num_n) as f64 + 1.2);
         let steep = if density >= 4.19 && density <= 4.21 {
-            0.27  
+            0.27
         } else {
             0.35 / (1.0 + (density - 4.18).max(0.0) * 12.0)
         };
         let s = 1.0 / (1.0 + (-(vad - nad) / steep).exp());
-        let prob = (random_threshold * (1.0 - s) + bias_prob * s).max(0.0).min(1.0);
+        let prob = (random_threshold * (1.0 - s) + bias_prob * s)
+            .max(0.0)
+            .min(1.0);
         variables[v] = rng.gen_bool(prob);
     }
 
@@ -219,18 +222,18 @@ pub fn solve_challenge(
     let base_prob = 0.45 + 0.1 * (density / 5.0).min(1.0);
     let mut current_prob = base_prob;
 
-    let large_problem_scale =
-        ((num_variables as f64 - 25000.0) / 35000.0).max(0.0).min(1.0);
+    let large_problem_scale = ((num_variables as f64 - 25000.0) / 35000.0)
+        .max(0.0)
+        .min(1.0);
     let base_interval = 60.0 - 30.0 * large_problem_scale;
     let min_interval = 25.0 - 10.0 * large_problem_scale;
     let density_s = 1.0 / (1.0 + (-(density - 4.0) / 0.5).exp());
     let density_factor = 1.0 + 0.2 * density_s;
-    let check_interval =
-        (base_interval * density_factor * (1.0 + (density / 3.0).ln().max(0.0))).max(min_interval)
-            as usize;
+    let check_interval = (base_interval * density_factor * (1.0 + (density / 3.0).ln().max(0.0)))
+        .max(min_interval) as usize;
     let max_random_prob = 0.9;
     let prob_adjustment_factor = if density >= 4.18 && density <= 4.22 {
-        0.04  
+        0.04
     } else {
         0.03
     };
@@ -243,13 +246,13 @@ pub fn solve_challenge(
     let mut last_check_residual = residual_.len();
     let size_scale = 1.0 / (1.0 + (-(nv - 30000.0) / 7000.0).exp());
     let perturbation_flips = if density >= 4.195 {
-        4  
+        4
     } else {
         1 + (2.0 * size_scale) as usize
     };
-    
+
     let stagnation_limit = if density >= 4.19 && density <= 4.21 {
-        2  
+        2
     } else {
         2 + (2.0 * (1.0 - (density / 5.0).min(1.0))) as usize
     };
@@ -257,8 +260,7 @@ pub fn solve_challenge(
 
     let max_fuel = 10_000_000_000.0;
     let difficulty_factor = density * avg_clause_size.sqrt();
-    let scale_factor =
-        1.0 + 0.5 * (1.0 / (1.0 + (-(nv - 25000.0) / 8000.0).exp()));
+    let scale_factor = 1.0 + 0.5 * (1.0 / (1.0 + (-(nv - 25000.0) / 8000.0).exp()));
     let base_fuel =
         (2000.0 + 100.0 * difficulty_factor) * (num_variables as f64).sqrt() * scale_factor;
     let flip_fuel = (200.0 + difficulty_factor) / scale_factor;
@@ -277,12 +279,9 @@ pub fn solve_challenge(
             }
 
             if rounds % check_interval == 0 && rounds > 0 {
-                let progress =
-                    last_check_residual as i64 - residual_.len() as i64;
-                let progress_ratio =
-                    progress as f64 / last_check_residual.max(1) as f64;
+                let progress = last_check_residual as i64 - residual_.len() as i64;
+                let progress_ratio = progress as f64 / last_check_residual.max(1) as f64;
 
-                
                 let progress_threshold = if density >= 4.19 && density <= 4.21 {
                     0.16 + 0.06 * (density / 3.0).min(1.0)
                 } else {
@@ -291,15 +290,11 @@ pub fn solve_challenge(
 
                 if progress <= 0 {
                     stagnation = stagnation.saturating_add(1);
-                    let density_adj =
-                        1.0 + (density - 4.18).max(0.0) * 10.0;
+                    let density_adj = 1.0 + (density - 4.18).max(0.0) * 10.0;
                     let prob_adjustment = prob_adjustment_factor
                         * density_adj
-                        * (-progress as f64
-                            / last_check_residual.max(1) as f64)
-                            .min(1.0);
-                    current_prob =
-                        (current_prob + prob_adjustment).min(max_random_prob);
+                        * (-progress as f64 / last_check_residual.max(1) as f64).min(1.0);
+                    current_prob = (current_prob + prob_adjustment).min(max_random_prob);
 
                     if stagnation >= stagnation_limit {
                         let extra = (stagnation > 2) as usize + (stagnation / 4);
@@ -330,18 +325,14 @@ pub fn solve_challenge(
                             };
 
                             for &cid2 in inc {
-                                let num_good =
-                                    num_good_so_far.get_unchecked_mut(cid2);
+                                let num_good = num_good_so_far.get_unchecked_mut(cid2);
                                 *num_good = num_good.saturating_add(1);
                             }
                             for &cid2 in dec {
-                                let num_good =
-                                    num_good_so_far.get_unchecked_mut(cid2);
+                                let num_good = num_good_so_far.get_unchecked_mut(cid2);
                                 let new_val = num_good.saturating_sub(1);
                                 *num_good = new_val;
-                                if new_val == 0
-                                    && !*in_queue.get_unchecked(cid2)
-                                {
+                                if new_val == 0 && !*in_queue.get_unchecked(cid2) {
                                     *in_queue.get_unchecked_mut(cid2) = true;
                                     residual_.push(cid2);
                                 }
@@ -355,8 +346,8 @@ pub fn solve_challenge(
                     current_prob = base_prob;
                 } else {
                     stagnation = 0;
-                    current_prob = current_prob * smoothing_factor
-                        + base_prob * (1.0 - smoothing_factor);
+                    current_prob =
+                        current_prob * smoothing_factor + base_prob * (1.0 - smoothing_factor);
                 }
 
                 last_check_residual = residual_.len();
@@ -371,26 +362,24 @@ pub fn solve_challenge(
                     let id2 = rng.gen::<usize>() % residual_.len();
                     let cid1 = residual_[id1];
                     let cid2 = residual_[id2];
-                    let mut best_id = if clauses.get_unchecked(cid2).len()
-                        < clauses.get_unchecked(cid1).len()
-                    {
-                        id2
-                    } else {
-                        id1
-                    };
+                    let mut best_id =
+                        if clauses.get_unchecked(cid2).len() < clauses.get_unchecked(cid1).len() {
+                            id2
+                        } else {
+                            id1
+                        };
                     if density >= 4.195 {
                         let id3 = rng.gen::<usize>() % residual_.len();
                         let cid3 = residual_[id3];
                         let best_cid = residual_[best_id];
-                        if clauses.get_unchecked(cid3).len()
-                            < clauses.get_unchecked(best_cid).len()
+                        if clauses.get_unchecked(cid3).len() < clauses.get_unchecked(best_cid).len()
                         {
                             best_id = id3;
                         }
                     }
                     i = residual_[best_id];
                     if num_good_so_far[i] > 0 {
-                        in_queue[i] = false;                        
+                        in_queue[i] = false;
                         residual_.swap_remove(best_id);
                     } else {
                         break;
@@ -436,8 +425,7 @@ pub fn solve_challenge(
 
                     for &l in c.iter() {
                         let abs_l = l.abs() as usize - 1;
-                        let clauses_to_check = if *variables.get_unchecked(abs_l)
-                        {
+                        let clauses_to_check = if *variables.get_unchecked(abs_l) {
                             p_clauses.get_unchecked(abs_l)
                         } else {
                             n_clauses.get_unchecked(abs_l)
@@ -455,7 +443,6 @@ pub fn solve_challenge(
                         }
 
                         if sad == 0 {
-                            
                             let curr_appearances = p_clauses.get_unchecked(abs_l).len()
                                 + n_clauses.get_unchecked(abs_l).len();
                             if min_sad > 0 || curr_appearances < min_weight {
@@ -463,22 +450,19 @@ pub fn solve_challenge(
                                 min_weight = curr_appearances;
                                 v_min_sad = abs_l;
                             }
-                            
                         } else {
-                            
                             if min_sad > 0 {
                                 let appearances = p_clauses.get_unchecked(abs_l).len()
                                     + n_clauses.get_unchecked(abs_l).len();
 
                                 let sad_weight = if density >= 4.19 && density <= 4.21 {
-                                    1024  
+                                    1024
                                 } else if density >= 4.195 {
                                     512
                                 } else {
                                     256
                                 };
-                                let combined_weight =
-                                    sad * sad * sad_weight + appearances;
+                                let combined_weight = sad * sad * sad_weight + appearances;
 
                                 if combined_weight < min_weight {
                                     min_sad = sad;

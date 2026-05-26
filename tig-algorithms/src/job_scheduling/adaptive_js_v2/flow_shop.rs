@@ -5,11 +5,10 @@ use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use tig_challenges::job_scheduling::*;
 
-use super::types::*;
 use super::infra::{
-    flow_makespan, reentrant_makespan, push_top_solutions,
-    critical_block_move_local_search,
+    critical_block_move_local_search, flow_makespan, push_top_solutions, reentrant_makespan,
 };
+use super::types::*;
 
 fn johnson_order_from_ab(a: &[u32], b: &[u32]) -> Vec<usize> {
     let n = a.len().min(b.len());
@@ -262,8 +261,7 @@ fn taillard_best_insert_pos(
         }
         let last = e[m - 1];
         if mk < best_mk
-            || (mk == best_mk
-                && (last < best_last || (last == best_last && pos < best_pos)))
+            || (mk == best_mk && (last < best_last || (last == best_last && pos < best_pos)))
         {
             best_mk = mk;
             best_pos = pos;
@@ -339,7 +337,11 @@ fn taillard_topk_insert_positions(
         }
         cands.push((mk, e[m - 1], pos));
     }
-    cands.sort_unstable_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)).then_with(|| a.2.cmp(&b.2)));
+    cands.sort_unstable_by(|a, b| {
+        a.0.cmp(&b.0)
+            .then_with(|| a.1.cmp(&b.1))
+            .then_with(|| a.2.cmp(&b.2))
+    });
     cands.truncate(kk);
     cands.into_iter().map(|x| (x.2, x.0)).collect()
 }
@@ -460,7 +462,12 @@ fn steepest_relocate_once(
     None
 }
 
-fn perm_vnd_improve(seq: &mut Vec<usize>, pt: &[Vec<u32>], max_steps: usize, buf: &mut TailInsBuf) -> u32 {
+fn perm_vnd_improve(
+    seq: &mut Vec<usize>,
+    pt: &[Vec<u32>],
+    max_steps: usize,
+    buf: &mut TailInsBuf,
+) -> u32 {
     let m = pt.first().map(|r| r.len()).unwrap_or(0);
     if seq.len() <= 1 || m == 0 {
         return 0;
@@ -758,8 +765,14 @@ fn order_from_solution_first_op_start(sol: &Solution, num_jobs: usize) -> Vec<us
 }
 
 fn neh_best_sequence(pre: &Pre, num_jobs: usize, num_machines: usize) -> Result<Vec<usize>> {
-    let route = pre.flow_route.as_ref().ok_or_else(|| anyhow!("No flow route"))?;
-    let pt = pre.flow_pt_by_job.as_ref().ok_or_else(|| anyhow!("No flow pt"))?;
+    let route = pre
+        .flow_route
+        .as_ref()
+        .ok_or_else(|| anyhow!("No flow route"))?;
+    let pt = pre
+        .flow_pt_by_job
+        .as_ref()
+        .ok_or_else(|| anyhow!("No flow pt"))?;
     let ops = route.len();
     if ops == 0 || pt.len() != num_jobs {
         return Err(anyhow!("Invalid flow data"));
@@ -864,8 +877,14 @@ fn neh_best_sequence(pre: &Pre, num_jobs: usize, num_machines: usize) -> Result<
 }
 
 fn neh_solution(pre: &Pre, num_jobs: usize, num_machines: usize) -> Result<Solution> {
-    let route = pre.flow_route.as_ref().ok_or_else(|| anyhow!("No flow route"))?;
-    let pt = pre.flow_pt_by_job.as_ref().ok_or_else(|| anyhow!("No flow pt"))?;
+    let route = pre
+        .flow_route
+        .as_ref()
+        .ok_or_else(|| anyhow!("No flow route"))?;
+    let pt = pre
+        .flow_pt_by_job
+        .as_ref()
+        .ok_or_else(|| anyhow!("No flow pt"))?;
     let best_seq = neh_best_sequence(pre, num_jobs, num_machines)?;
     Ok(build_perm_solution_from_seq(
         &best_seq,
@@ -1669,7 +1688,10 @@ pub fn solve(
                 if let Some((s, _)) = &strict_sol {
                     starts.push(order_from_solution_first_op_start(s, challenge.num_jobs));
                 }
-                starts.push(order_from_solution_first_op_start(&best_sol, challenge.num_jobs));
+                starts.push(order_from_solution_first_op_start(
+                    &best_sol,
+                    challenge.num_jobs,
+                ));
 
                 let mut uniq: Vec<Vec<usize>> = Vec::new();
                 for ord in starts {
@@ -1779,7 +1801,9 @@ pub fn solve(
         }
     }
 
-    let ls_runs = (effort.flow_shop_iters / 850).clamp(3, 8).min(top_solutions.len());
+    let ls_runs = (effort.flow_shop_iters / 850)
+        .clamp(3, 8)
+        .min(top_solutions.len());
     let ls_iters = (effort.flow_shop_iters / 160).max(16);
     let ls_cands = (effort.flow_shop_iters / 85).max(30);
     for i in 0..ls_runs {

@@ -1,6 +1,6 @@
+use super::types::Rule;
 use rand::rngs::SmallRng;
 use rand::Rng;
-use super::types::Rule;
 
 #[inline]
 pub fn rule_idx(r: Rule) -> usize {

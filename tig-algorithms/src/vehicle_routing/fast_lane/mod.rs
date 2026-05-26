@@ -1,12 +1,12 @@
 use anyhow::Result;
+use rand::seq::SliceRandom;
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use tig_challenges::vehicle_routing::*;
-use rand::{rngs::SmallRng, Rng, SeedableRng};
-use rand::seq::SliceRandom;
-use std::time::Instant;
 use std::cmp::{max, min};
 use std::collections::VecDeque;
+use std::time::Instant;
+use tig_challenges::vehicle_routing::*;
 pub struct Problem {
     pub seed: [u8; 32],
     pub nb_nodes: usize,
@@ -18,7 +18,7 @@ pub struct Problem {
     pub node_positions: Vec<(i32, i32)>,
     pub service_times: Vec<i32>,
     pub start_tw: Vec<i32>,
-    pub end_tw: Vec<i32>
+    pub end_tw: Vec<i32>,
 }
 
 impl Problem {
@@ -49,91 +49,175 @@ pub struct Params {
 }
 
 impl Params {
-
     fn preset(exploration_level: usize, nb_nodes: usize) -> Self {
-
-        let p = if nb_nodes <= 700 { 20 }
-        else if nb_nodes <= 1000 { 30 }
-        else if nb_nodes <= 1200 { 50 }
-        else if nb_nodes <= 1500 { 80 }
-        else if nb_nodes <= 2000 { 150 }
-        else if nb_nodes <= 3000 { 200 }
-        else { 500 };
+        let p = if nb_nodes <= 700 {
+            20
+        } else if nb_nodes <= 1000 {
+            30
+        } else if nb_nodes <= 1200 {
+            50
+        } else if nb_nodes <= 1500 {
+            80
+        } else if nb_nodes <= 2000 {
+            150
+        } else if nb_nodes <= 3000 {
+            200
+        } else {
+            500
+        };
 
         match exploration_level {
             0 => Self {
-                exploration_level: 0, allow_swap3: true,
-                granularity: 40, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 0, max_it_total: 0,
-                nb_it_adapt_penalties: 100, nb_it_traces: 100,
-                mu: 2, mu_start: 1, lambda: 1, nb_close: 1, nb_elite: 1
+                exploration_level: 0,
+                allow_swap3: true,
+                granularity: 40,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 0,
+                max_it_total: 0,
+                nb_it_adapt_penalties: 100,
+                nb_it_traces: 100,
+                mu: 2,
+                mu_start: 1,
+                lambda: 1,
+                nb_close: 1,
+                nb_elite: 1,
             },
             1 => Self {
-                exploration_level: 0, allow_swap3: true,
-                granularity: 40, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 0, max_it_total: 0,
-                nb_it_adapt_penalties: 100, nb_it_traces: 100,
-                mu: 2, mu_start: 5, lambda: 1, nb_close: 1, nb_elite: 1
+                exploration_level: 0,
+                allow_swap3: true,
+                granularity: 40,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 0,
+                max_it_total: 0,
+                nb_it_adapt_penalties: 100,
+                nb_it_traces: 100,
+                mu: 2,
+                mu_start: 5,
+                lambda: 1,
+                nb_close: 1,
+                nb_elite: 1,
             },
             2 => Self {
-                exploration_level: 1, allow_swap3: true,
-                granularity: 40, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 10, max_it_total: 50,
-                nb_it_adapt_penalties: 100, nb_it_traces: 100,
-                mu: 3, mu_start: 6, lambda: 3, nb_close: 1, nb_elite: 1
+                exploration_level: 1,
+                allow_swap3: true,
+                granularity: 40,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 10,
+                max_it_total: 50,
+                nb_it_adapt_penalties: 100,
+                nb_it_traces: 100,
+                mu: 3,
+                mu_start: 6,
+                lambda: 3,
+                nb_close: 1,
+                nb_elite: 1,
             },
             3 => Self {
-                exploration_level: 2, allow_swap3: true,
-                granularity: 40, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 100, max_it_total: 500,
-                nb_it_adapt_penalties: 20, nb_it_traces: 20,
-                mu: 5, mu_start: 10, lambda: 5, nb_close: 2, nb_elite: 2
+                exploration_level: 2,
+                allow_swap3: true,
+                granularity: 40,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 100,
+                max_it_total: 500,
+                nb_it_adapt_penalties: 20,
+                nb_it_traces: 20,
+                mu: 5,
+                mu_start: 10,
+                lambda: 5,
+                nb_close: 2,
+                nb_elite: 2,
             },
             4 => Self {
-                exploration_level: 3, allow_swap3: false,
-                granularity: 30, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 500, max_it_total: 5_000,
-                nb_it_adapt_penalties: 20, nb_it_traces: 100,
-                mu: 10, mu_start: 20, lambda: 10, nb_close: 2, nb_elite: 3
+                exploration_level: 3,
+                allow_swap3: false,
+                granularity: 30,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 500,
+                max_it_total: 5_000,
+                nb_it_adapt_penalties: 20,
+                nb_it_traces: 100,
+                mu: 10,
+                mu_start: 20,
+                lambda: 10,
+                nb_close: 2,
+                nb_elite: 3,
             },
             5 => Self {
-                exploration_level: 4, allow_swap3: false,
-                granularity: 30, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 5_000, max_it_total: 50_000,
-                nb_it_adapt_penalties: 50, nb_it_traces: 200,
-                mu: 12, mu_start: 24, lambda: 20, nb_close: 3, nb_elite: 4
+                exploration_level: 4,
+                allow_swap3: false,
+                granularity: 30,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 5_000,
+                max_it_total: 50_000,
+                nb_it_adapt_penalties: 50,
+                nb_it_traces: 200,
+                mu: 12,
+                mu_start: 24,
+                lambda: 20,
+                nb_close: 3,
+                nb_elite: 4,
             },
             6 => Self {
-                exploration_level: 5, allow_swap3: false,
-                granularity: 30, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 10_000, max_it_total: 200_000,
-                nb_it_adapt_penalties: 50, nb_it_traces: 500,
-                mu: 25, mu_start: 50, lambda: 40, nb_close: 3, nb_elite: 8
+                exploration_level: 5,
+                allow_swap3: false,
+                granularity: 30,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 10_000,
+                max_it_total: 200_000,
+                nb_it_adapt_penalties: 50,
+                nb_it_traces: 500,
+                mu: 25,
+                mu_start: 50,
+                lambda: 40,
+                nb_close: 3,
+                nb_elite: 8,
             },
             _ => Self::defaults(nb_nodes),
         }
     }
 
-    pub fn defaults(nb_nodes: usize) -> Self { Self::preset(0, nb_nodes) }
+    pub fn defaults(nb_nodes: usize) -> Self {
+        Self::preset(0, nb_nodes)
+    }
 
     pub fn initialize(hyperparameters: &Option<Map<String, Value>>, nb_nodes: usize) -> Self {
-
         let mut base_params = Self::defaults(nb_nodes);
 
-        if let Some(v) = hyperparameters.as_ref().and_then(|m| m.get("exploration_level")) {
+        if let Some(v) = hyperparameters
+            .as_ref()
+            .and_then(|m| m.get("exploration_level"))
+        {
             match v {
                 Value::Number(n) => {
-                    if let Some(u) = n.as_u64() { base_params = Self::preset(u as usize, nb_nodes); }
+                    if let Some(u) = n.as_u64() {
+                        base_params = Self::preset(u as usize, nb_nodes);
+                    }
                 }
                 Value::String(s) => {
-                    if let Ok(u) = s.parse::<usize>() { base_params = Self::preset(u, nb_nodes); }
+                    if let Ok(u) = s.parse::<usize>() {
+                        base_params = Self::preset(u, nb_nodes);
+                    }
                 }
                 _ => {}
             }
@@ -142,7 +226,9 @@ impl Params {
         let mut merged_params = serde_json::to_value(base_params).expect("Params serializable");
         if let (Value::Object(ref mut obj), Some(map)) = (&mut merged_params, hyperparameters) {
             for (k, v) in map {
-                if k == "exploration_level" { continue; }
+                if k == "exploration_level" {
+                    continue;
+                }
                 obj.insert(k.clone(), v.clone());
             }
         }
@@ -165,22 +251,21 @@ pub struct Sequence {
 }
 
 impl Sequence {
-
     #[inline(always)]
     pub fn initialize(&mut self, data: &Problem, node: usize) {
-        let st  = data.start_tw[node];
-        let et  = data.end_tw[node];
+        let st = data.start_tw[node];
+        let et = data.end_tw[node];
         let svc = data.service_times[node];
-        let ld  = data.demands[node];
+        let ld = data.demands[node];
         self.tau_minus = st;
-        self.tau_plus  = et;
-        self.tmin      = svc;
-        self.tw        = 0;
-        self.total_service_duration = svc ;
-        self.load      = ld;
-        self.distance  = 0;
+        self.tau_plus = et;
+        self.tmin = svc;
+        self.tw = 0;
+        self.total_service_duration = svc;
+        self.load = ld;
+        self.distance = 0;
         self.first_node = node;
-        self.last_node  = node;
+        self.last_node = node;
     }
 
     #[inline(always)]
@@ -189,20 +274,24 @@ impl Sequence {
         let distance = s1.distance + s2.distance + travel;
         let temp = travel + s1.tmin - s1.tw;
 
-        let wtij      = max(s2.tau_minus - temp - s1.tau_plus, 0);
-        let twij      = max(temp + s1.tau_minus - s2.tau_plus, 0);
-        let tw        = s1.tw + s2.tw + twij;
-        let tmin      = temp + s1.tw + s2.tmin + wtij;
+        let wtij = max(s2.tau_minus - temp - s1.tau_plus, 0);
+        let twij = max(temp + s1.tau_minus - s2.tau_plus, 0);
+        let tw = s1.tw + s2.tw + twij;
+        let tmin = temp + s1.tw + s2.tmin + wtij;
         let tau_minus = max(s2.tau_minus - temp - wtij, s1.tau_minus);
-        let tau_plus  = min(s2.tau_plus  - temp + twij, s1.tau_plus);
-        let load      = s1.load + s2.load;
+        let tau_plus = min(s2.tau_plus - temp + twij, s1.tau_plus);
+        let load = s1.load + s2.load;
 
         Sequence {
-            tau_minus, tau_plus, tmin, tw,
+            tau_minus,
+            tau_plus,
+            tmin,
+            tw,
             total_service_duration: s1.total_service_duration + s2.total_service_duration,
-            load, distance,
+            load,
+            distance,
             first_node: s1.first_node,
-            last_node:  s2.last_node,
+            last_node: s2.last_node,
         }
     }
 
@@ -215,7 +304,7 @@ impl Sequence {
 
     #[inline(always)]
     pub fn eval(&self, data: &Problem, params: &Params) -> i64 {
-        let ptw  = params.penalty_tw  as i64;
+        let ptw = params.penalty_tw as i64;
         let pcap = params.penalty_capa as i64;
         let load_excess = (self.load - data.max_capacity).max(0) as i64;
         (self.distance as i64) + load_excess * pcap + (self.tw as i64) * ptw
@@ -223,38 +312,44 @@ impl Sequence {
 
     #[inline(always)]
     pub fn eval2(data: &Problem, params: &Params, s1: &Sequence, s2: &Sequence) -> i64 {
-        let ptw  = params.penalty_tw  as i64;
+        let ptw = params.penalty_tw as i64;
         let pcap = params.penalty_capa as i64;
-        let travel   = data.dm(s1.last_node, s2.first_node);
+        let travel = data.dm(s1.last_node, s2.first_node);
         let distance = s1.distance + s2.distance + travel;
-        let temp     = s1.tmin - s1.tw + travel;
-        let tw_viol  = s1.tw + s2.tw + max(s1.tau_minus - s2.tau_plus + temp, 0);
-        let load     = s1.load + s2.load;
+        let temp = s1.tmin - s1.tw + travel;
+        let tw_viol = s1.tw + s2.tw + max(s1.tau_minus - s2.tau_plus + temp, 0);
+        let load = s1.load + s2.load;
         let load_excess = (load - data.max_capacity).max(0) as i64;
         (distance as i64) + load_excess * pcap + (tw_viol as i64) * ptw
     }
 
     #[inline(always)]
-    pub fn eval3(data: &Problem, params: &Params, s1: &Sequence, s2: &Sequence, s3: &Sequence) -> i64 {
-        let ptw  = params.penalty_tw  as i64;
+    pub fn eval3(
+        data: &Problem,
+        params: &Params,
+        s1: &Sequence,
+        s2: &Sequence,
+        s3: &Sequence,
+    ) -> i64 {
+        let ptw = params.penalty_tw as i64;
         let pcap = params.penalty_capa as i64;
 
-        let travel12   = data.dm(s1.last_node, s2.first_node);
+        let travel12 = data.dm(s1.last_node, s2.first_node);
         let distance12 = s1.distance + s2.distance + travel12;
-        let temp   = travel12 + s1.tmin - s1.tw;
+        let temp = travel12 + s1.tmin - s1.tw;
 
-        let wtij       = max(s2.tau_minus - temp - s1.tau_plus, 0);
-        let twij       = max(temp + s1.tau_minus - s2.tau_plus, 0);
-        let tw_viol12  = s1.tw + s2.tw + twij;
-        let tmin12     = temp + s1.tw + s2.tmin + wtij;
-        let tau_m12    = max(s2.tau_minus - temp - wtij, s1.tau_minus);
+        let wtij = max(s2.tau_minus - temp - s1.tau_plus, 0);
+        let twij = max(temp + s1.tau_minus - s2.tau_plus, 0);
+        let tw_viol12 = s1.tw + s2.tw + twij;
+        let tmin12 = temp + s1.tw + s2.tmin + wtij;
+        let tau_m12 = max(s2.tau_minus - temp - wtij, s1.tau_minus);
 
-        let travel23   = data.dm(s2.last_node, s3.first_node);
-        let distance   = distance12 + s3.distance + travel23;
-        let temp2      = travel23 + tmin12 - tw_viol12;
+        let travel23 = data.dm(s2.last_node, s3.first_node);
+        let distance = distance12 + s3.distance + travel23;
+        let temp2 = travel23 + tmin12 - tw_viol12;
 
-        let tw_viol    = tw_viol12 + s3.tw + max(tau_m12 - s3.tau_plus + temp2, 0);
-        let load       = s1.load + s2.load + s3.load;
+        let tw_viol = tw_viol12 + s3.tw + max(tau_m12 - s3.tau_plus + temp2, 0);
+        let load = s1.load + s2.load + s3.load;
 
         let load_excess = (load - data.max_capacity).max(0) as i64;
         (distance as i64) + load_excess * pcap + (tw_viol as i64) * ptw
@@ -263,8 +358,10 @@ impl Sequence {
     #[inline(always)]
     pub fn eval_n(data: &Problem, params: &Params, chain: &[Sequence]) -> i64 {
         let mut agg = chain[0];
-        for s in &chain[1..chain.len()-1] { agg = Sequence::join2(data, &agg, s); }
-        let last = &chain[chain.len()-1];
+        for s in &chain[1..chain.len() - 1] {
+            agg = Sequence::join2(data, &agg, s);
+        }
+        let last = &chain[chain.len() - 1];
         Sequence::eval2(data, params, &agg, last)
     }
 }
@@ -303,7 +400,9 @@ impl Individual {
         let mut tw: i32 = 0;
         let mut loadx: i32 = 0;
         for r in routes {
-            if r.is_empty() { continue; }
+            if r.is_empty() {
+                continue;
+            }
             let mut acc = Sequence::singleton(data, r[0]);
             for idx in 1..r.len() {
                 let next = Sequence::singleton(data, r[idx]);
@@ -318,7 +417,12 @@ impl Individual {
     }
 
     #[inline]
-    pub fn compute_penalized_cost(distance: i32, tw_violation: i32, load_excess: i32, params: &Params) -> i64 {
+    pub fn compute_penalized_cost(
+        distance: i32,
+        tw_violation: i32,
+        load_excess: i32,
+        params: &Params,
+    ) -> i64 {
         (distance as i64)
             + (params.penalty_tw as i64) * (tw_violation as i64)
             + (params.penalty_capa as i64) * (load_excess as i64)
@@ -326,18 +430,30 @@ impl Individual {
 
     #[inline]
     pub fn recompute_cost(&mut self, params: &Params) {
-        self.cost = Self::compute_penalized_cost(self.distance, self.tw_violation, self.load_excess, params);
+        self.cost = Self::compute_penalized_cost(
+            self.distance,
+            self.tw_violation,
+            self.load_excess,
+            params,
+        );
     }
 
-    fn build_pred_succ_and_count(data: &Problem, routes: &Vec<Vec<usize>>) -> (Vec<usize>, Vec<usize>, usize) {
+    fn build_pred_succ_and_count(
+        data: &Problem,
+        routes: &Vec<Vec<usize>>,
+    ) -> (Vec<usize>, Vec<usize>, usize) {
         let n_all = data.nb_nodes;
         let mut pred = vec![0usize; n_all];
         let mut succ = vec![0usize; n_all];
         let mut nb_routes: usize = 0;
 
         for r in routes {
-            if r.len() > 2 { nb_routes += 1; }
-            if r.len() < 2 { continue; } 
+            if r.len() > 2 {
+                nb_routes += 1;
+            }
+            if r.len() < 2 {
+                continue;
+            }
             for p in 1..r.len() - 1 {
                 let id = r[p];
                 pred[id] = r[p - 1];
@@ -355,26 +471,28 @@ impl Constructive {
         let mut routes = Vec::new();
         let mut nodes: Vec<usize> = (1..data.nb_nodes).collect();
         let n = nodes.len();
-        nodes.sort_by(|&a, &b| data.dm(0,a).cmp(&data.dm(0,b)));
+        nodes.sort_by(|&a, &b| data.dm(0, a).cmp(&data.dm(0, b)));
 
         if randomize {
             let window = if n < 1000 { 10 } else { 5 };
-            for i in 0..(n - 1) { 
-                nodes.swap(i, rng.gen_range(i + 1..=(i + window).min(n - 1))); 
+            for i in 0..(n - 1) {
+                nodes.swap(i, rng.gen_range(i + 1..=(i + window).min(n - 1)));
             }
         }
 
         let mut available = vec![true; data.nb_nodes];
-        available[0] = false; 
+        available[0] = false;
 
         while let Some(node) = nodes.pop() {
-            if !available[node] { continue; }
+            if !available[node] {
+                continue;
+            }
             available[node] = false;
             let mut route = vec![0, node, 0];
             let mut route_demand = data.demands[node];
 
             while let Some((best_node, best_pos)) =
-                Self::find_best_insertion(&route, &nodes, &available, route_demand,data)
+                Self::find_best_insertion(&route, &nodes, &available, route_demand, data)
             {
                 available[best_node] = false;
                 route_demand += data.demands[best_node];
@@ -397,8 +515,9 @@ impl Constructive {
         let mut best_c2 = None;
         let mut best = None;
         for &insert_node in nodes.iter() {
-
-            if !available[insert_node] || route_demand + data.demands[insert_node] > data.max_capacity {
+            if !available[insert_node]
+                || route_demand + data.demands[insert_node] > data.max_capacity
+            {
                 continue;
             }
 
@@ -407,17 +526,16 @@ impl Constructive {
 
             for pos in 1..route.len() {
                 let next_node = route[pos];
-                let new_arrival_time_insert_node = data.start_tw[insert_node]
-                    .max(curr_time + data.dm(curr_node,insert_node));
+                let new_arrival_time_insert_node =
+                    data.start_tw[insert_node].max(curr_time + data.dm(curr_node, insert_node));
                 if new_arrival_time_insert_node > data.end_tw[insert_node] {
                     break;
                 }
 
-                let c11 = data.dm(curr_node,insert_node)
-                    + data.dm(insert_node,next_node)
-                    - data.dm(curr_node,next_node);
+                let c11 = data.dm(curr_node, insert_node) + data.dm(insert_node, next_node)
+                    - data.dm(curr_node, next_node);
 
-                let c2 = data.dm(0,insert_node) - c11;
+                let c2 = data.dm(0, insert_node) - c11;
 
                 let c2_is_better = match best_c2 {
                     None => true,
@@ -437,8 +555,7 @@ impl Constructive {
                     best = Some((insert_node, pos));
                 }
 
-                curr_time = data.start_tw[next_node]
-                    .max(curr_time + data.dm(curr_node,next_node))
+                curr_time = data.start_tw[next_node].max(curr_time + data.dm(curr_node, next_node))
                     + data.service_times[next_node];
                 curr_node = next_node;
             }
@@ -455,7 +572,7 @@ impl Constructive {
     ) -> bool {
         for pos in start_pos..route.len() {
             let next_node = route[pos];
-            curr_time += data.dm(curr_node,next_node);
+            curr_time += data.dm(curr_node, next_node);
             if curr_time > data.end_tw[route[pos]] {
                 return false;
             }
@@ -480,7 +597,10 @@ pub struct Node {
 impl Node {
     #[inline]
     fn new(id: usize) -> Self {
-        Self { id, ..Default::default() }
+        Self {
+            id,
+            ..Default::default()
+        }
     }
 }
 
@@ -520,7 +640,6 @@ pub struct LocalSearch<'a> {
 
 impl<'a> LocalSearch<'a> {
     pub fn new(data: &'a Problem, params: Params) -> Self {
-
         let n = data.nb_nodes;
         let cap = n.saturating_sub(2);
         let keep = min(params.granularity as usize, cap);
@@ -529,8 +648,10 @@ impl<'a> LocalSearch<'a> {
         for i in 1..n {
             let mut prox: Vec<(i32, usize)> = Vec::with_capacity(cap);
             for j in 1..n {
-                if j == i { continue; }
-                let tji  = data.dm(j,i);
+                if j == i {
+                    continue;
+                }
+                let tji = data.dm(j, i);
                 let wait = (data.start_tw[i] - tji - data.service_times[j] - data.end_tw[j]).max(0);
                 let late = (data.start_tw[j] + data.service_times[j] + tji - data.end_tw[i]).max(0);
                 let proxy10 = 10 * tji + 2 * wait + 10 * late;
@@ -546,9 +667,11 @@ impl<'a> LocalSearch<'a> {
             let di = data.demands[i];
             let mut prox: Vec<(i32, usize)> = Vec::with_capacity(n.saturating_sub(1));
             for j in 1..n {
-                if j == i { continue; }
+                if j == i {
+                    continue;
+                }
                 if (data.demands[j] - di).abs() <= diff_limit {
-                    let dij = data.dm(i,j);
+                    let dij = data.dm(i, j);
                     prox.push((dij, j));
                 }
             }
@@ -587,7 +710,9 @@ impl<'a> LocalSearch<'a> {
             let mut merged = routes[keep].clone();
             merged.pop();
             for r in routes.iter().skip(fleet) {
-                if r.len() > 2 { merged.extend_from_slice(&r[1..r.len() - 1]); }
+                if r.len() > 2 {
+                    merged.extend_from_slice(&r[1..r.len() - 1]);
+                }
             }
             merged.push(0);
             src.push(merged);
@@ -607,7 +732,9 @@ impl<'a> LocalSearch<'a> {
         self.when_last_tested = vec![0; n];
         self.nb_moves = 1;
 
-        for rid in 0..self.routes.len() { self.update_route(rid); }
+        for rid in 0..self.routes.len() {
+            self.update_route(rid);
+        }
         self.cost = self.routes.iter().map(|r| r.cost).sum();
     }
 
@@ -617,7 +744,7 @@ impl<'a> LocalSearch<'a> {
             self.routes
                 .iter()
                 .filter(|r| r.nodes.len() > 2)
-                .map(|r| r.nodes.iter().map(|n| n.id).collect::<Vec<usize>>())
+                .map(|r| r.nodes.iter().map(|n| n.id).collect::<Vec<usize>>()),
         );
     }
 
@@ -647,24 +774,30 @@ impl<'a> LocalSearch<'a> {
             r.nodes[pos].seq1 = Sequence::singleton(data, id);
             if pos + 1 < len {
                 let id_next = r.nodes[pos + 1].id;
-                r.nodes[pos].seq12 = Sequence::join2(data,
-                                                     &Sequence::singleton(data, id),
-                                                     &Sequence::singleton(data, id_next));
-                r.nodes[pos].seq21 = Sequence::join2(data,
-                                                     &Sequence::singleton(data, id_next),
-                                                     &Sequence::singleton(data, id));
+                r.nodes[pos].seq12 = Sequence::join2(
+                    data,
+                    &Sequence::singleton(data, id),
+                    &Sequence::singleton(data, id_next),
+                );
+                r.nodes[pos].seq21 = Sequence::join2(
+                    data,
+                    &Sequence::singleton(data, id_next),
+                    &Sequence::singleton(data, id),
+                );
                 if pos + 2 < len {
                     let id_next2 = r.nodes[pos + 2].id;
-                    r.nodes[pos].seq123 = Sequence::join2(data,
-                                                          &r.nodes[pos].seq12,
-                                                          &Sequence::singleton(data, id_next2));
+                    r.nodes[pos].seq123 = Sequence::join2(
+                        data,
+                        &r.nodes[pos].seq12,
+                        &Sequence::singleton(data, id_next2),
+                    );
                 }
             }
         }
 
         let end = r.nodes[len - 1].seq0_i;
         r.load = end.load;
-        r.tw   = end.tw;
+        r.tw = end.tw;
         r.distance = end.distance;
         r.cost = end.eval(data, &self.params);
 
@@ -677,7 +810,9 @@ impl<'a> LocalSearch<'a> {
         let pos = self.empty_routes.iter().position(|&eid| eid == rid);
         match (is_empty, pos) {
             (true, None) => self.empty_routes.push(rid),
-            (false, Some(i)) => { self.empty_routes.swap_remove(i); }
+            (false, Some(i)) => {
+                self.empty_routes.swap_remove(i);
+            }
             _ => {}
         }
         self.when_last_modified[rid] = self.nb_moves;
@@ -686,20 +821,26 @@ impl<'a> LocalSearch<'a> {
     pub fn run_intra_route_relocate(&mut self, r1: usize, pos1: usize) -> bool {
         let route = &self.routes[r1];
         let len = route.nodes.len();
-        if len < pos1 + 4 { return false; }
+        if len < pos1 + 4 {
+            return false;
+        }
 
         let mut left_excl: Vec<Sequence> = vec![Sequence::default(); len];
         let mut acc_left = route.nodes[0].seq0_i;
         for p in 1..len {
             left_excl[p] = acc_left;
-            if p != pos1 { acc_left = Sequence::join2(self.data, &acc_left, &route.nodes[p].seq1); }
+            if p != pos1 {
+                acc_left = Sequence::join2(self.data, &acc_left, &route.nodes[p].seq1);
+            }
         }
 
         let mut right_excl: Vec<Sequence> = vec![Sequence::default(); len];
-        let mut acc_right = route.nodes[len-1].seq1;
-        right_excl[len-1] = acc_right;
+        let mut acc_right = route.nodes[len - 1].seq1;
+        right_excl[len - 1] = acc_right;
         for p in (1..len - 1).rev() {
-            if p != pos1 { acc_right = Sequence::join2(self.data, &route.nodes[p].seq1, &acc_right); }
+            if p != pos1 {
+                acc_right = Sequence::join2(self.data, &route.nodes[p].seq1, &acc_right);
+            }
             right_excl[p] = acc_right;
         }
 
@@ -708,8 +849,16 @@ impl<'a> LocalSearch<'a> {
         let mut best_pos: Option<usize> = None;
 
         for t in 1..len {
-            if t == pos1 || t == pos1 + 1 { continue; }
-            let new_cost = Sequence::eval3(self.data, &self.params, &left_excl[t], &route.nodes[pos1].seq1, &right_excl[t]);
+            if t == pos1 || t == pos1 + 1 {
+                continue;
+            }
+            let new_cost = Sequence::eval3(
+                self.data,
+                &self.params,
+                &left_excl[t],
+                &route.nodes[pos1].seq1,
+                &right_excl[t],
+            );
             if new_cost < best_cost {
                 best_cost = new_cost;
                 best_pos = Some(t);
@@ -724,13 +873,17 @@ impl<'a> LocalSearch<'a> {
             self.update_route(r1);
             self.cost += self.routes[r1].cost - old_cost;
             true
-        } else { false }
+        } else {
+            false
+        }
     }
 
     pub fn run_intra_route_swap_right(&mut self, r1: usize, pos1: usize) -> bool {
         let route = &self.routes[r1];
-        let len   = route.nodes.len();
-        if len < pos1 + 4 { return false; }
+        let len = route.nodes.len();
+        if len < pos1 + 4 {
+            return false;
+        }
 
         let old_cost = route.cost;
         let mut best_cost = old_cost;
@@ -738,12 +891,17 @@ impl<'a> LocalSearch<'a> {
 
         let mut acc_mid = route.nodes[pos1 + 1].seq1;
         for pos2 in (pos1 + 2)..(len - 1) {
-            let new_cost = Sequence::eval_n(self.data, &self.params,
-                                            &[route.nodes[pos1 - 1].seq0_i,
-                                                route.nodes[pos2].seq1,
-                                                acc_mid,
-                                                route.nodes[pos1].seq1,
-                                                route.nodes[pos2 + 1].seqi_n]);
+            let new_cost = Sequence::eval_n(
+                self.data,
+                &self.params,
+                &[
+                    route.nodes[pos1 - 1].seq0_i,
+                    route.nodes[pos2].seq1,
+                    acc_mid,
+                    route.nodes[pos1].seq1,
+                    route.nodes[pos2 + 1].seqi_n,
+                ],
+            );
             if new_cost < best_cost {
                 best_cost = new_cost;
                 best_pos = Some(pos2);
@@ -757,15 +915,27 @@ impl<'a> LocalSearch<'a> {
             self.update_route(r1);
             self.cost += self.routes[r1].cost - old_cost;
             true
-        } else { false }
+        } else {
+            false
+        }
     }
 
     pub fn run_2optstar(&mut self, r1: usize, pos1: usize, r2: usize, pos2: usize) -> bool {
         let route1 = &self.routes[r1];
         let route2 = &self.routes[r2];
 
-        let new1 = Sequence::eval2(self.data, &self.params, &route1.nodes[pos1 - 1].seq0_i, &route2.nodes[pos2].seqi_n);
-        let new2 = Sequence::eval2(self.data, &self.params, &route2.nodes[pos2 - 1].seq0_i, &route1.nodes[pos1].seqi_n);
+        let new1 = Sequence::eval2(
+            self.data,
+            &self.params,
+            &route1.nodes[pos1 - 1].seq0_i,
+            &route2.nodes[pos2].seqi_n,
+        );
+        let new2 = Sequence::eval2(
+            self.data,
+            &self.params,
+            &route2.nodes[pos2 - 1].seq0_i,
+            &route1.nodes[pos1].seqi_n,
+        );
 
         let old_cost = route1.cost + route2.cost;
         let new_cost = new1 + new2;
@@ -780,13 +950,17 @@ impl<'a> LocalSearch<'a> {
             self.update_route(r2);
             self.cost += new_cost - old_cost;
             true
-        } else { false }
+        } else {
+            false
+        }
     }
 
     pub fn run_2opt(&mut self, r1: usize, pos1: usize) -> bool {
         let route = &self.routes[r1];
         let len = route.nodes.len();
-        if len < pos1 + 3 { return false; }
+        if len < pos1 + 3 {
+            return false;
+        }
 
         let old_cost = route.cost;
         let mut best_cost = old_cost;
@@ -794,12 +968,20 @@ impl<'a> LocalSearch<'a> {
 
         let mut mid_rev = route.nodes[pos1].seq21;
         for pos2 in (pos1 + 1)..(len - 1) {
-            let new_cost = Sequence::eval3(self.data, &self.params, &route.nodes[pos1 - 1].seq0_i, &mid_rev, &route.nodes[pos2 + 1].seqi_n);
+            let new_cost = Sequence::eval3(
+                self.data,
+                &self.params,
+                &route.nodes[pos1 - 1].seq0_i,
+                &mid_rev,
+                &route.nodes[pos2 + 1].seqi_n,
+            );
             if new_cost < best_cost {
                 best_cost = new_cost;
                 best_pos = Some(pos2);
             }
-            if pos2 + 1 < len - 1 { mid_rev = Sequence::join2(self.data, &route.nodes[pos2 + 1].seq1, &mid_rev); }
+            if pos2 + 1 < len - 1 {
+                mid_rev = Sequence::join2(self.data, &route.nodes[pos2 + 1].seq1, &mid_rev);
+            }
         }
 
         if let Some(mypos) = best_pos {
@@ -808,7 +990,9 @@ impl<'a> LocalSearch<'a> {
             self.update_route(r1);
             self.cost += self.routes[r1].cost - old_cost;
             true
-        } else { false }
+        } else {
+            false
+        }
     }
 
     pub fn run_inter_route(&mut self, r1: usize, pos1: usize, r2: usize, pos2: usize) -> bool {
@@ -836,12 +1020,18 @@ impl<'a> LocalSearch<'a> {
 
         let result10 = Sequence::eval2(data, &self.params, &u_pred.seq0_i, &x.seqi_n)
             + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq1, &v.seqi_n);
-        update_best(1,0,result10);
+        update_best(1, 0, result10);
 
         if v.id != 0 {
             let result11 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq1, &x.seqi_n)
-                + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq1, &rv.nodes[pos2 + 1].seqi_n);
-            update_best(1,1,result11);
+                + Sequence::eval3(
+                    data,
+                    &self.params,
+                    &v_pred.seq0_i,
+                    &u.seq1,
+                    &rv.nodes[pos2 + 1].seqi_n,
+                );
+            update_best(1, 1, result11);
         }
 
         if x.id != 0 {
@@ -850,33 +1040,62 @@ impl<'a> LocalSearch<'a> {
             let mut result30 = result20;
             result20 += Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq12, &v.seqi_n);
             result30 += Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq21, &v.seqi_n);
-            update_best(2,0,result20);
-            update_best(3,0,result30);
+            update_best(2, 0, result20);
+            update_best(3, 0, result30);
 
             if v.id != 0 {
                 let y = &rv.nodes[pos2 + 1];
-                let mut result21 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq1, &x_next.seqi_n);
+                let mut result21 =
+                    Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq1, &x_next.seqi_n);
                 let mut result31 = result21;
-                result21 += Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq12, &y.seqi_n);
-                result31 += Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq21, &y.seqi_n);
-                update_best(2,1,result21);
-                update_best(3,1,result31);
+                result21 +=
+                    Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq12, &y.seqi_n);
+                result31 +=
+                    Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq21, &y.seqi_n);
+                update_best(2, 1, result21);
+                update_best(3, 1, result31);
 
                 if y.id != 0 {
-                    let mut result22 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq12, &x_next.seqi_n);
-                    let mut result23 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq21, &x_next.seqi_n);
+                    let mut result22 = Sequence::eval3(
+                        data,
+                        &self.params,
+                        &u_pred.seq0_i,
+                        &v.seq12,
+                        &x_next.seqi_n,
+                    );
+                    let mut result23 = Sequence::eval3(
+                        data,
+                        &self.params,
+                        &u_pred.seq0_i,
+                        &v.seq21,
+                        &x_next.seqi_n,
+                    );
                     let mut result32 = result22;
                     let mut result33 = result23;
 
                     let y_next = &rv.nodes[pos2 + 2];
-                    let tmp  = Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq12, &y_next.seqi_n);
-                    let tmp2 = Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq21, &y_next.seqi_n);
-                    result22 += tmp;  result23 += tmp;
-                    result32 += tmp2; result33 += tmp2;
-                    update_best(2,2,result22);
-                    update_best(3,2,result32);
-                    update_best(2,3,result23);
-                    update_best(3,3,result33);
+                    let tmp = Sequence::eval3(
+                        data,
+                        &self.params,
+                        &v_pred.seq0_i,
+                        &u.seq12,
+                        &y_next.seqi_n,
+                    );
+                    let tmp2 = Sequence::eval3(
+                        data,
+                        &self.params,
+                        &v_pred.seq0_i,
+                        &u.seq21,
+                        &y_next.seqi_n,
+                    );
+                    result22 += tmp;
+                    result23 += tmp;
+                    result32 += tmp2;
+                    result33 += tmp2;
+                    update_best(2, 2, result22);
+                    update_best(3, 2, result32);
+                    update_best(2, 3, result23);
+                    update_best(3, 3, result33);
                 }
             }
 
@@ -884,43 +1103,100 @@ impl<'a> LocalSearch<'a> {
                 let x2_next = &ru.nodes[pos1 + 3];
                 let result40 = Sequence::eval2(data, &self.params, &u_pred.seq0_i, &x2_next.seqi_n)
                     + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &v.seqi_n);
-                update_best(4,0,result40);
+                update_best(4, 0, result40);
 
                 if v.id != 0 {
                     let y = &rv.nodes[pos2 + 1];
-                    let result41 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq1, &x2_next.seqi_n)
-                        + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &y.seqi_n);
-                    update_best(4,1,result41);
+                    let result41 = Sequence::eval3(
+                        data,
+                        &self.params,
+                        &u_pred.seq0_i,
+                        &v.seq1,
+                        &x2_next.seqi_n,
+                    ) + Sequence::eval3(
+                        data,
+                        &self.params,
+                        &v_pred.seq0_i,
+                        &u.seq123,
+                        &y.seqi_n,
+                    );
+                    update_best(4, 1, result41);
 
                     if y.id != 0 {
                         let y_next = &rv.nodes[pos2 + 2];
-                        let result42 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq12, &x2_next.seqi_n)
-                            + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &y_next.seqi_n);
-                        let result43 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq21, &x2_next.seqi_n)
-                            + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &y_next.seqi_n);
-                        update_best(4,2,result42);
-                        update_best(4,3,result43);
+                        let result42 = Sequence::eval3(
+                            data,
+                            &self.params,
+                            &u_pred.seq0_i,
+                            &v.seq12,
+                            &x2_next.seqi_n,
+                        ) + Sequence::eval3(
+                            data,
+                            &self.params,
+                            &v_pred.seq0_i,
+                            &u.seq123,
+                            &y_next.seqi_n,
+                        );
+                        let result43 = Sequence::eval3(
+                            data,
+                            &self.params,
+                            &u_pred.seq0_i,
+                            &v.seq21,
+                            &x2_next.seqi_n,
+                        ) + Sequence::eval3(
+                            data,
+                            &self.params,
+                            &v_pred.seq0_i,
+                            &u.seq123,
+                            &y_next.seqi_n,
+                        );
+                        update_best(4, 2, result42);
+                        update_best(4, 3, result43);
 
                         if y_next.id != 0 {
                             let y2_next = &rv.nodes[pos2 + 3];
-                            let result44 = Sequence::eval3(data, &self.params, &u_pred.seq0_i, &v.seq123, &x2_next.seqi_n)
-                                + Sequence::eval3(data, &self.params, &v_pred.seq0_i, &u.seq123, &y2_next.seqi_n);
-                            update_best(4,4,result44);
+                            let result44 = Sequence::eval3(
+                                data,
+                                &self.params,
+                                &u_pred.seq0_i,
+                                &v.seq123,
+                                &x2_next.seqi_n,
+                            ) + Sequence::eval3(
+                                data,
+                                &self.params,
+                                &v_pred.seq0_i,
+                                &u.seq123,
+                                &y2_next.seqi_n,
+                            );
+                            update_best(4, 4, result44);
                         }
                     }
                 }
             }
         }
 
-        if best_i == 0 && best_j == 0 { return false; }
+        if best_i == 0 && best_j == 0 {
+            return false;
+        }
 
         let mut take_block = |route_idx: usize, pos: usize, kind: usize| -> Vec<Node> {
             let nodes = &mut self.routes[route_idx].nodes;
             match kind {
                 0 => vec![],
-                1 => { let n1 = nodes.remove(pos); vec![n1] }
-                2 => { let n1 = nodes.remove(pos); let n2 = nodes.remove(pos); vec![n1, n2] }
-                3 => { let n1 = nodes.remove(pos); let n2 = nodes.remove(pos); vec![n2, n1] }
+                1 => {
+                    let n1 = nodes.remove(pos);
+                    vec![n1]
+                }
+                2 => {
+                    let n1 = nodes.remove(pos);
+                    let n2 = nodes.remove(pos);
+                    vec![n1, n2]
+                }
+                3 => {
+                    let n1 = nodes.remove(pos);
+                    let n2 = nodes.remove(pos);
+                    vec![n2, n1]
+                }
                 4 => {
                     let n1 = nodes.remove(pos);
                     let n2 = nodes.remove(pos);
@@ -935,9 +1211,13 @@ impl<'a> LocalSearch<'a> {
         let blk_from_r2 = take_block(r2, pos2, best_j);
 
         let nodes1 = &mut self.routes[r1].nodes;
-        for (k, node) in blk_from_r2.into_iter().enumerate() { nodes1.insert(pos1 + k, node); }
+        for (k, node) in blk_from_r2.into_iter().enumerate() {
+            nodes1.insert(pos1 + k, node);
+        }
         let nodes2 = &mut self.routes[r2].nodes;
-        for (k, node) in blk_from_r1.into_iter().enumerate() { nodes2.insert(pos2 + k, node); }
+        for (k, node) in blk_from_r1.into_iter().enumerate() {
+            nodes2.insert(pos2 + k, node);
+        }
 
         self.nb_moves += 1;
         self.update_route(r1);
@@ -953,30 +1233,44 @@ impl<'a> LocalSearch<'a> {
         let route2_len = self.routes[r2].nodes.len();
         let u = self.routes[r1].nodes[pos1].id;
         let v = self.routes[r2].nodes[pos2].id;
-        let (pu, nu) = (self.routes[r1].nodes[pos1 - 1].id, self.routes[r1].nodes[pos1 + 1].id);
-        let (pv, nv) = (self.routes[r2].nodes[pos2 - 1].id, self.routes[r2].nodes[pos2 + 1].id);
+        let (pu, nu) = (
+            self.routes[r1].nodes[pos1 - 1].id,
+            self.routes[r1].nodes[pos1 + 1].id,
+        );
+        let (pv, nv) = (
+            self.routes[r2].nodes[pos2 - 1].id,
+            self.routes[r2].nodes[pos2 + 1].id,
+        );
 
         let dr1 = self.data.dm(pu, nu) - self.data.dm(pu, u) - self.data.dm(u, nu);
         let dr2 = self.data.dm(pv, nv) - self.data.dm(pv, v) - self.data.dm(v, nv);
-        let delta_demand = self.data.demands[v] - self.data.demands[u] ;
+        let delta_demand = self.data.demands[v] - self.data.demands[u];
         let new_load1 = self.routes[r1].load + delta_demand;
         let new_load2 = self.routes[r2].load - delta_demand;
-        let new_pen1 = ((new_load1 - self.data.max_capacity).max(0) as i64) * self.params.penalty_capa as i64;
-        let new_pen2 = ((new_load2 - self.data.max_capacity).max(0) as i64) * self.params.penalty_capa as i64;
-        let cost_lb_r1_after_removal = (self.routes[r1].distance + dr1) as i64 + new_pen1 ;
-        let cost_lb_r2_after_removal = (self.routes[r2].distance + dr2) as i64 + new_pen2 ;
+        let new_pen1 =
+            ((new_load1 - self.data.max_capacity).max(0) as i64) * self.params.penalty_capa as i64;
+        let new_pen2 =
+            ((new_load2 - self.data.max_capacity).max(0) as i64) * self.params.penalty_capa as i64;
+        let cost_lb_r1_after_removal = (self.routes[r1].distance + dr1) as i64 + new_pen1;
+        let cost_lb_r2_after_removal = (self.routes[r2].distance + dr2) as i64 + new_pen2;
         let mut lb_new_total = cost_lb_r1_after_removal + cost_lb_r2_after_removal;
         let old_total = self.routes[r1].cost + self.routes[r2].cost;
-        if lb_new_total > old_total { return false; }
+        if lb_new_total > old_total {
+            return false;
+        }
 
         let hole_v = self.data.dm(pu, v) + self.data.dm(v, nu) - self.data.dm(pu, nu);
         let mut best_ins_v = hole_v;
         for t in 1..route1_len {
             let a_id = self.routes[r1].nodes[t - 1].id;
             let b_id = self.routes[r1].nodes[t].id;
-            if a_id == u || b_id == u { continue; }
+            if a_id == u || b_id == u {
+                continue;
+            }
             let delta = self.data.dm(a_id, v) + self.data.dm(v, b_id) - self.data.dm(a_id, b_id);
-            if delta < best_ins_v { best_ins_v = delta; }
+            if delta < best_ins_v {
+                best_ins_v = delta;
+            }
         }
 
         let hole_u = self.data.dm(pv, u) + self.data.dm(u, nv) - self.data.dm(pv, nv);
@@ -984,13 +1278,19 @@ impl<'a> LocalSearch<'a> {
         for t in 1..route2_len {
             let a_id = self.routes[r2].nodes[t - 1].id;
             let b_id = self.routes[r2].nodes[t].id;
-            if a_id == v || b_id == v { continue; }
+            if a_id == v || b_id == v {
+                continue;
+            }
             let delta = self.data.dm(a_id, u) + self.data.dm(u, b_id) - self.data.dm(a_id, b_id);
-            if delta < best_ins_u { best_ins_u = delta; }
+            if delta < best_ins_u {
+                best_ins_u = delta;
+            }
         }
 
         lb_new_total += (best_ins_v + best_ins_u) as i64;
-        if lb_new_total > old_total { return false; }
+        if lb_new_total > old_total {
+            return false;
+        }
 
         let mut left_excl1: Vec<Sequence> = vec![Sequence::default(); route1_len];
         let mut right_excl1: Vec<Sequence> = vec![Sequence::default(); route1_len];
@@ -999,12 +1299,16 @@ impl<'a> LocalSearch<'a> {
             let mut acc_left = r.nodes[0].seq0_i;
             for p in 1..route1_len {
                 left_excl1[p] = acc_left;
-                if p != pos1 { acc_left = Sequence::join2(self.data, &acc_left, &r.nodes[p].seq1); }
+                if p != pos1 {
+                    acc_left = Sequence::join2(self.data, &acc_left, &r.nodes[p].seq1);
+                }
             }
             let mut acc_right = r.nodes[route1_len - 1].seq1;
             right_excl1[route1_len - 1] = acc_right;
             for p in (1..route1_len - 1).rev() {
-                if p != pos1 { acc_right = Sequence::join2(self.data, &r.nodes[p].seq1, &acc_right); }
+                if p != pos1 {
+                    acc_right = Sequence::join2(self.data, &r.nodes[p].seq1, &acc_right);
+                }
                 right_excl1[p] = acc_right;
             }
         }
@@ -1016,12 +1320,16 @@ impl<'a> LocalSearch<'a> {
             let mut acc_left = r.nodes[0].seq0_i;
             for p in 1..route2_len {
                 left_excl2[p] = acc_left;
-                if p != pos2 { acc_left = Sequence::join2(self.data, &acc_left, &r.nodes[p].seq1); }
+                if p != pos2 {
+                    acc_left = Sequence::join2(self.data, &acc_left, &r.nodes[p].seq1);
+                }
             }
             let mut acc_right = r.nodes[route2_len - 1].seq1;
             right_excl2[route2_len - 1] = acc_right;
             for p in (1..route2_len - 1).rev() {
-                if p != pos2 { acc_right = Sequence::join2(self.data, &r.nodes[p].seq1, &acc_right); }
+                if p != pos2 {
+                    acc_right = Sequence::join2(self.data, &r.nodes[p].seq1, &acc_right);
+                }
                 right_excl2[p] = acc_right;
             }
         }
@@ -1030,19 +1338,39 @@ impl<'a> LocalSearch<'a> {
         let mut best_cost1 = i64::MAX / 4;
         let mut best_t1: usize = 1;
         for t in 1..route1_len {
-            let cand = Sequence::eval3(self.data, &self.params, &left_excl1[t], &v_seq1, &right_excl1[t]);
-            if cand < best_cost1 { best_cost1 = cand; best_t1 = t; }
+            let cand = Sequence::eval3(
+                self.data,
+                &self.params,
+                &left_excl1[t],
+                &v_seq1,
+                &right_excl1[t],
+            );
+            if cand < best_cost1 {
+                best_cost1 = cand;
+                best_t1 = t;
+            }
         }
 
         let u_seq1 = self.routes[r1].nodes[pos1].seq1;
         let mut best_cost2 = i64::MAX / 4;
         let mut best_t2: usize = 1;
         for t in 1..route2_len {
-            let cand = Sequence::eval3(self.data, &self.params, &left_excl2[t], &u_seq1, &right_excl2[t]);
-            if cand < best_cost2 { best_cost2 = cand; best_t2 = t; }
+            let cand = Sequence::eval3(
+                self.data,
+                &self.params,
+                &left_excl2[t],
+                &u_seq1,
+                &right_excl2[t],
+            );
+            if cand < best_cost2 {
+                best_cost2 = cand;
+                best_t2 = t;
+            }
         }
 
-        if best_cost1 + best_cost2 >= old_total { return false; }
+        if best_cost1 + best_cost2 >= old_total {
+            return false;
+        }
 
         let node_u = self.routes[r1].nodes[pos1].clone();
         let node_v = self.routes[r2].nodes[pos2].clone();
@@ -1064,13 +1392,19 @@ impl<'a> LocalSearch<'a> {
         true
     }
 
-    pub fn runls(&mut self, routes: &mut Vec<Vec<usize>>, rng: &mut SmallRng, params: Params, is_repair: bool, factor: usize) {
+    pub fn runls(
+        &mut self,
+        routes: &mut Vec<Vec<usize>>,
+        rng: &mut SmallRng,
+        params: Params,
+        is_repair: bool,
+        factor: usize,
+    ) {
         self.params = params;
         if !is_repair {
             self.load_from_routes(routes);
-        }
-        else {
-            self.params.penalty_tw   = (factor * self.params.penalty_tw).min(10_000);
+        } else {
+            self.params.penalty_tw = (factor * self.params.penalty_tw).min(10_000);
             self.params.penalty_capa = (factor * self.params.penalty_capa).min(10_000);
             self.nb_moves += 1;
             for rid in 0..self.routes.len() {
@@ -1100,13 +1434,15 @@ impl<'a> LocalSearch<'a> {
                     let c2 = self.neighbors_before[c1][(start + off) % neigh_len];
                     let r2 = self.node_route[c2];
                     let pos2 = self.node_pos[c2];
-                    if r1 == r2 { continue; }
+                    if r1 == r2 {
+                        continue;
+                    }
 
                     if self.when_last_modified[r1].max(self.when_last_modified[r2]) <= last_tested {
                         continue;
                     }
 
-                    if self.run_inter_route(r1, pos1, r2, pos2+1) {
+                    if self.run_inter_route(r1, pos1, r2, pos2 + 1) {
                         improved = true;
                         break;
                     }
@@ -1116,7 +1452,7 @@ impl<'a> LocalSearch<'a> {
                         break;
                     }
 
-                    if self.run_2optstar(r1, pos1, r2, pos2+1) {
+                    if self.run_2optstar(r1, pos1, r2, pos2 + 1) {
                         improved = true;
                         break;
                     }
@@ -1130,9 +1466,14 @@ impl<'a> LocalSearch<'a> {
                     for off in 0..swap_len {
                         let c2 = self.neighbors_capacity_swap[c1][(start_s + off) % swap_len];
                         let r2 = self.node_route[c2];
-                        if r1 == r2 { continue; }
+                        if r1 == r2 {
+                            continue;
+                        }
 
-                        if c1 < c2 || self.when_last_modified[r1].max(self.when_last_modified[r2]) <= last_tested {
+                        if c1 < c2
+                            || self.when_last_modified[r1].max(self.when_last_modified[r2])
+                                <= last_tested
+                        {
                             continue;
                         }
 
@@ -1164,8 +1505,10 @@ impl<'a> LocalSearch<'a> {
 
                 let r1 = self.node_route[c1];
                 if self.when_last_modified[r1] > last_tested {
-                    improved |= self.run_intra_route_relocate(self.node_route[c1], self.node_pos[c1]);
-                    improved |= self.run_intra_route_swap_right(self.node_route[c1], self.node_pos[c1]);
+                    improved |=
+                        self.run_intra_route_relocate(self.node_route[c1], self.node_pos[c1]);
+                    improved |=
+                        self.run_intra_route_swap_right(self.node_route[c1], self.node_pos[c1]);
                     improved |= self.run_2opt(self.node_route[c1], self.node_pos[c1]);
                 }
             }
@@ -1537,7 +1880,11 @@ pub struct Genetic<'a> {
 impl<'a> Genetic<'a> {
     pub fn new(data: &'a Problem, params: Params) -> Self {
         let population = Population::new(data);
-        Self { data, params, population }
+        Self {
+            data,
+            params,
+            population,
+        }
     }
 
     fn repair_and_maybe_add(&mut self, ls: &mut LocalSearch, rng: &mut SmallRng) {
@@ -1550,26 +1897,37 @@ impl<'a> Genetic<'a> {
         }
     }
 
-    pub fn generate_initial_individual(&mut self, rng: &mut SmallRng, ls: &mut LocalSearch, randomize: bool) {
+    pub fn generate_initial_individual(
+        &mut self,
+        rng: &mut SmallRng,
+        ls: &mut LocalSearch,
+        randomize: bool,
+    ) {
         let mut routes: Vec<Vec<usize>> = Constructive::build_routes(self.data, rng, randomize);
-        ls.runls(&mut routes, rng, self.params, false,0);
+        ls.runls(&mut routes, rng, self.params, false, 0);
         let ind = Individual::new_from_routes(self.data, &self.params, routes);
         let is_capa_feasible = ind.load_excess == 0;
         let is_tw_feasible = ind.tw_violation == 0;
 
         self.population.add(ind, &self.params);
-        self.population.record_and_adapt(is_capa_feasible, is_tw_feasible, &mut self.params);
-        if !is_capa_feasible || !is_tw_feasible { self.repair_and_maybe_add(ls, rng); }
+        self.population
+            .record_and_adapt(is_capa_feasible, is_tw_feasible, &mut self.params);
+        if !is_capa_feasible || !is_tw_feasible {
+            self.repair_and_maybe_add(ls, rng);
+        }
     }
 
     pub fn generate_crossover_individual(&mut self, rng: &mut SmallRng, ls: &mut LocalSearch) {
         let p1 = self.population.get_binary_tournament(rng);
         let mut p2 = self.population.get_binary_tournament(rng);
-        while std::ptr::eq(p1, p2) { p2 = self.population.get_binary_tournament(rng); }
+        while std::ptr::eq(p1, p2) {
+            p2 = self.population.get_binary_tournament(rng);
+        }
         let t1 = self.extract_giant_tour(&p1.routes);
         let t2 = self.extract_giant_tour(&p2.routes);
-        let extra = if rng.gen_ratio(1, 10) { 1 } else { 0 }; 
-        let target_routes = (p1.nb_routes + extra).clamp(self.data.lb_vehicles, self.data.nb_vehicles);
+        let extra = if rng.gen_ratio(1, 10) { 1 } else { 0 };
+        let target_routes =
+            (p1.nb_routes + extra).clamp(self.data.lb_vehicles, self.data.nb_vehicles);
 
         let mut child_tour = self.crossover_ox(&t1, &t2, rng);
         self.mutate_tour(&mut child_tour, rng);
@@ -1581,8 +1939,11 @@ impl<'a> Genetic<'a> {
         let is_tw_feasible = child.tw_violation == 0;
 
         self.population.add(child, &self.params);
-        self.population.record_and_adapt(is_capa_feasible, is_tw_feasible, &mut self.params);
-        if !is_capa_feasible || !is_tw_feasible { self.repair_and_maybe_add(ls, rng); }
+        self.population
+            .record_and_adapt(is_capa_feasible, is_tw_feasible, &mut self.params);
+        if !is_capa_feasible || !is_tw_feasible {
+            self.repair_and_maybe_add(ls, rng);
+        }
     }
 
     pub fn run(
@@ -1590,14 +1951,15 @@ impl<'a> Genetic<'a> {
         rng: &mut SmallRng,
         t0: &Instant,
         save_solution: Option<&dyn Fn(&Solution) -> Result<()>>,
-    ) -> Option<(Vec<Vec<usize>>,i32)> {
+    ) -> Option<(Vec<Vec<usize>>, i32)> {
         if let Some(save) = save_solution {
-            let dummy_routes: Vec<Vec<usize>> = (1..self.data.nb_nodes)
-                .map(|i| vec![0, i, 0])
-                .collect();
-            let _ = save(&Solution { routes: dummy_routes });
+            let dummy_routes: Vec<Vec<usize>> =
+                (1..self.data.nb_nodes).map(|i| vec![0, i, 0]).collect();
+            let _ = save(&Solution {
+                routes: dummy_routes,
+            });
         }
-        
+
         let mut ls = LocalSearch::new(self.data, self.params);
 
         let diversity_boost = if self.data.nb_nodes < 1000 { 3 } else { 1 };
@@ -1609,12 +1971,15 @@ impl<'a> Genetic<'a> {
         let mut it_noimprov: usize = 0;
         let mut it_total: usize = 0;
         while it_noimprov < self.params.max_it_noimprov && it_total < self.params.max_it_total {
-
             self.generate_crossover_individual(rng, &mut ls);
 
             if it_total % self.params.nb_it_traces == 0 {
                 self.population.print_trace(
-                    it_total, it_noimprov, t0.elapsed().as_secs_f64(), &self.params );
+                    it_total,
+                    it_noimprov,
+                    t0.elapsed().as_secs_f64(),
+                    &self.params,
+                );
             }
 
             let cur = self.population.best_metric();
@@ -1622,13 +1987,16 @@ impl<'a> Genetic<'a> {
                 best_metric = cur;
                 it_noimprov = 0;
 
-                if let Some(best) = self.population.best_feasible()  {
+                if let Some(best) = self.population.best_feasible() {
                     if let Some(save) = save_solution {
-                        let _ = save(&Solution {routes: best.routes});
+                        let _ = save(&Solution {
+                            routes: best.routes,
+                        });
                     }
                 }
+            } else {
+                it_noimprov += 1;
             }
-            else { it_noimprov += 1; }
             it_total += 1;
         }
 
@@ -1645,7 +2013,9 @@ impl<'a> Genetic<'a> {
                 best
             };
             if let Some(save) = save_solution {
-                let _ = save(&Solution { routes: chosen.routes.clone() });
+                let _ = save(&Solution {
+                    routes: chosen.routes.clone(),
+                });
             }
             Some((chosen.routes, chosen.cost as i32))
         } else {
@@ -1655,7 +2025,9 @@ impl<'a> Genetic<'a> {
 
     fn mutate_tour(&self, tour: &mut Vec<usize>, rng: &mut SmallRng) {
         let n = tour.len();
-        if n < 4 { return; }
+        if n < 4 {
+            return;
+        }
         if rng.gen_ratio(1, 5) {
             let i = rng.gen_range(0..n - 1);
             let j = rng.gen_range(i + 1..n);
@@ -1693,7 +2065,9 @@ impl<'a> Genetic<'a> {
 
     pub fn split(&self, giant: &Vec<usize>, target_routes: usize) -> Vec<Vec<usize>> {
         let n = giant.len();
-        if n == 0 { return Vec::new(); }
+        if n == 0 {
+            return Vec::new();
+        }
 
         let k = target_routes.max(1);
         let inf = i64::MAX / 4;
@@ -1709,9 +2083,12 @@ impl<'a> Genetic<'a> {
         for kk in 1..=k {
             for i in (kk - 1)..n {
                 let base = dp[kk - 1][i];
-                if base >= inf { continue; }
+                if base >= inf {
+                    continue;
+                }
 
-                let mut acc = Sequence::join2(self.data, &depot, &Sequence::singleton(self.data, giant[i]));
+                let mut acc =
+                    Sequence::join2(self.data, &depot, &Sequence::singleton(self.data, giant[i]));
                 for j in (i + 1)..=n {
                     let cost = Sequence::eval2(self.data, &self.params, &acc, &depot);
                     let cand = base + cost;
@@ -1719,7 +2096,9 @@ impl<'a> Genetic<'a> {
                         dp[kk][j] = cand;
                         pred[kk][j] = i;
                     }
-                    if acc.load > cap_limit { break; }
+                    if acc.load > cap_limit {
+                        break;
+                    }
                     if j < n {
                         let next = Sequence::singleton(self.data, giant[j]);
                         acc = Sequence::join2(self.data, &acc, &next);
@@ -1764,11 +2143,16 @@ impl<'a> Genetic<'a> {
     }
 
     pub fn extract_giant_tour(&self, routes: &[Vec<usize>]) -> Vec<usize> {
-        let (x0, y0) = (self.data.node_positions[0].0 as f64, self.data.node_positions[0].1 as f64);
+        let (x0, y0) = (
+            self.data.node_positions[0].0 as f64,
+            self.data.node_positions[0].1 as f64,
+        );
         let mut route_angles: Vec<(f64, usize)> = Vec::new();
 
         for (r_idx, r) in routes.iter().enumerate() {
-            if r.len() <= 2 { continue; }
+            if r.len() <= 2 {
+                continue;
+            }
             let mut sum_x = 0.0;
             let mut sum_y = 0.0;
             let mut cnt = 0usize;
@@ -1789,13 +2173,20 @@ impl<'a> Genetic<'a> {
         for &(_, r_idx) in &route_angles {
             let r = &routes[r_idx];
             for &id in r.iter().skip(1).take(r.len().saturating_sub(2)) {
-                if id != 0 { tour.push(id); }
+                if id != 0 {
+                    tour.push(id);
+                }
             }
         }
         tour
     }
 
-    pub fn crossover_ox(&self, parent1: &Vec<usize>, parent2: &Vec<usize>, rng: &mut SmallRng) -> Vec<usize> {
+    pub fn crossover_ox(
+        &self,
+        parent1: &Vec<usize>,
+        parent2: &Vec<usize>,
+        rng: &mut SmallRng,
+    ) -> Vec<usize> {
         let n = self.data.nb_nodes - 1;
 
         let mut child = vec![0usize; n];
@@ -1803,7 +2194,9 @@ impl<'a> Genetic<'a> {
 
         let start = rng.gen_range(0..n);
         let mut end = rng.gen_range(0..n);
-        while end == start { end = rng.gen_range(0..n); }
+        while end == start {
+            end = rng.gen_range(0..n);
+        }
 
         let stop = (end + 1) % n;
         let mut j = start;
@@ -1870,7 +2263,13 @@ impl Solver {
         let mut rng = SmallRng::from_seed(data.seed);
         let mut ga = Genetic::new(&data, params);
         Ok(ga.run(&mut rng, t0, save_solution).map(|(routes, cost)| {
-            (Solution { routes: routes.clone() }, cost, routes.len())
+            (
+                Solution {
+                    routes: routes.clone(),
+                },
+                cost,
+                routes.len(),
+            )
         }))
     }
 
@@ -1881,11 +2280,11 @@ impl Solver {
     ) -> Result<Option<Solution>> {
         let t0 = Instant::now();
         let data = TigLoader::load(&challenge);
-        let params = Params::initialize(hyperparameters,data.nb_nodes);
+        let params = Params::initialize(hyperparameters, data.nb_nodes);
         match Self::solve(data, params, &t0, save_solution) {
             Ok(Some((solution, _cost, _routes))) => Ok(Some(solution)),
             Ok(None) => Ok(None),
-            Err(_) => Ok(None)
+            Err(_) => Ok(None),
         }
     }
 }
@@ -1921,5 +2320,5 @@ pub fn help() {
     println!("  3: Balanced (500 iterations, recommended)");
     println!("  4: Deep search (5,000 iterations)");
     println!("  5: Very deep (50,000 iterations)");
-    println!("  6: Maximum quality (200,000 iterations)");    
+    println!("  6: Maximum quality (200,000 iterations)");
 }

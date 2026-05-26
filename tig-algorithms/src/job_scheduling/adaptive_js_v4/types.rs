@@ -143,7 +143,12 @@ pub struct EffortConfig {
 
 impl EffortConfig {
     pub fn default_effort() -> Self {
-        Self { job_shop_iters: 10000, hybrid_flow_shop_iters: 2000, fjsp_medium_iters: 2000, fjsp_high_iters: 2000 }
+        Self {
+            job_shop_iters: 10000,
+            hybrid_flow_shop_iters: 2000,
+            fjsp_medium_iters: 2000,
+            fjsp_high_iters: 2000,
+        }
     }
 
     pub fn with_job_shop_iters(mut self, v: usize) -> Self {

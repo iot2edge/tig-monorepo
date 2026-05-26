@@ -101,9 +101,12 @@ pub fn solve_challenge(
 ) -> anyhow::Result<()> {
     let max_distance = match hyperparameters {
         None => 10.5,
-        Some(h) => serde_json::from_value::<Hyperparameters>(Value::Object(h.clone()))
-            .map_err(|e| anyhow!("Failed to parse hyperparameters: {}", e))?
-            .max_distance as f32 / 100.0,
+        Some(h) => {
+            serde_json::from_value::<Hyperparameters>(Value::Object(h.clone()))
+                .map_err(|e| anyhow!("Failed to parse hyperparameters: {}", e))?
+                .max_distance as f32
+                / 100.0
+        }
     };
     //println!("Searching {} DB vectors of length {} for {} queries",challenge.database_size,challenge.vector_dims,challenge.num_queries);
 
@@ -129,8 +132,7 @@ pub fn solve_challenge(
     let d_db_norm_l2 = stream.alloc_zeros::<f32>(challenge.database_size as usize)?;
     let d_db_norm_l2_squared = stream.alloc_zeros::<f32>(challenge.database_size as usize)?;
     let d_query_norm_l2 = stream.alloc_zeros::<f32>(challenge.num_queries as usize)?;
-    let d_query_norm_l2_squared =
-        stream.alloc_zeros::<f32>(challenge.num_queries as usize)?;
+    let d_query_norm_l2_squared = stream.alloc_zeros::<f32>(challenge.num_queries as usize)?;
 
     // Allocation for conversion
     let num_db_el = challenge.database_size * challenge.vector_dims;
@@ -460,10 +462,8 @@ pub fn solve_challenge(
     //
 
     // --- TopK outputs ---
-    let mut d_topk_indices =
-        stream.alloc_zeros::<i32>((challenge.num_queries as usize) * topk)?;
-    let mut d_topk_dist =
-        stream.alloc_zeros::<f32>((challenge.num_queries as usize) * topk)?;
+    let mut d_topk_indices = stream.alloc_zeros::<i32>((challenge.num_queries as usize) * topk)?;
+    let mut d_topk_dist = stream.alloc_zeros::<f32>((challenge.num_queries as usize) * topk)?;
 
     // --- Geometry ---
     let words_per_plane = ((dims + 63) >> 6) as usize; // W
@@ -681,10 +681,8 @@ pub fn solve_challenge(
     let shared_refine = (challenge.vector_dims as usize * std::mem::size_of::<f32>()
         + threads_refine as usize * std::mem::size_of::<f32>()) as u32;
 
-    let mut d_refined_index =
-        stream.alloc_zeros::<i32>(challenge.num_queries as usize)?;
-    let mut d_refined_distance =
-        stream.alloc_zeros::<f32>(challenge.num_queries as usize)?;
+    let mut d_refined_index = stream.alloc_zeros::<i32>(challenge.num_queries as usize)?;
+    let mut d_refined_distance = stream.alloc_zeros::<f32>(challenge.num_queries as usize)?;
     let k_i32: i32 = topk as i32;
 
     let cfg_refine = LaunchConfig {

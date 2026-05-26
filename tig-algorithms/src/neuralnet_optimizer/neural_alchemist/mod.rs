@@ -3,11 +3,11 @@ use cudarc::{
     driver::{CudaModule, CudaSlice, CudaStream, LaunchConfig, PushKernelArg},
     runtime::sys::cudaDeviceProp,
 };
-use std::sync::Arc;
-use serde_json::{Map, Value};
-use tig_challenges::neuralnet_optimizer::*;
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use serde_json::{Map, Value};
+use std::sync::Arc;
+use tig_challenges::neuralnet_optimizer::*;
 
 const THREADS_PER_BLOCK: u32 = 256;
 const BLOCKS_PER_SM: u32 = 6;
@@ -16,12 +16,12 @@ const BLOCKS_PER_SM: u32 = 6;
 struct DualPhaseConsensusState {
     m: Vec<CudaSlice<f32>>,
     v: Vec<CudaSlice<f32>>,
-    prev_g: Vec<CudaSlice<f32>>,          
-    prev_u: Vec<CudaSlice<f32>>,          
-    slow_u: Vec<CudaSlice<f32>>,         
-    f: Vec<CudaSlice<f32>>,              
-    ef: Vec<CudaSlice<f32>>,             
-    upd: Vec<CudaSlice<f32>>,            
+    prev_g: Vec<CudaSlice<f32>>,
+    prev_u: Vec<CudaSlice<f32>>,
+    slow_u: Vec<CudaSlice<f32>>,
+    f: Vec<CudaSlice<f32>>,
+    ef: Vec<CudaSlice<f32>>,
+    upd: Vec<CudaSlice<f32>>,
     cfgs: Vec<LaunchConfig>,
     layer_lrs: Vec<f32>,
     spectral_boost: f32,
@@ -40,13 +40,19 @@ struct DualPhaseConsensusState {
     bn_layer_boost: f32,
     output_layer_damping: f32,
 
-    prev_val_loss: Option<f32>,           
+    prev_val_loss: Option<f32>,
 }
 
 impl OptimizerStateTrait for DualPhaseConsensusState {
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
-    fn box_clone(&self) -> Box<dyn OptimizerStateTrait> { Box::new(self.clone()) }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn box_clone(&self) -> Box<dyn OptimizerStateTrait> {
+        Box::new(self.clone())
+    }
 }
 
 pub fn solve_challenge(
@@ -102,8 +108,10 @@ fn optimizer_init_state(
         ef.push(stream.alloc_zeros::<f32>(n)?);
         upd.push(stream.alloc_zeros::<f32>(n)?);
     }
-    
-    let sm_blocks = (prop.multiProcessorCount as u32).saturating_mul(BLOCKS_PER_SM).max(1);
+
+    let sm_blocks = (prop.multiProcessorCount as u32)
+        .saturating_mul(BLOCKS_PER_SM)
+        .max(1);
     let mut cfgs = Vec::with_capacity(param_sizes.len());
     for &n in param_sizes {
         let calc_blocks = (n as u32 + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
@@ -205,18 +213,29 @@ fn spectral_phase_lr(s: &DualPhaseConsensusState, base_lr: f32) -> f32 {
 }
 
 #[inline]
-fn compute_blends(s: &DualPhaseConsensusState, val_loss: Option<f32>) -> (f32, f32, f32, f32, f32, f32, f32) {    
+fn compute_blends(
+    s: &DualPhaseConsensusState,
+    val_loss: Option<f32>,
+) -> (f32, f32, f32, f32, f32, f32, f32) {
     let t = s.step_count as f32;
     let warm = s.warmup_steps as f32;
     let total = s.total_steps as f32;
     let progress = (t / total.max(1.0)).min(1.0);
 
-    let (mut blend_adam, mut blend_norm, mut blend_sign, gamma, bb_blend, mut lookahead_alpha, mut lookahead_tau): (f32, f32, f32, f32, f32, f32, f32) = if t <= warm {
+    let (
+        mut blend_adam,
+        mut blend_norm,
+        mut blend_sign,
+        gamma,
+        bb_blend,
+        mut lookahead_alpha,
+        mut lookahead_tau,
+    ): (f32, f32, f32, f32, f32, f32, f32) = if t <= warm {
         (0.3, 0.7, 0.0, 0.25, 0.7, 0.0, 0.2)
     } else {
         let mut trend = 0.0f32;
         if let (Some(prev), Some(curr)) = (s.prev_val_loss, val_loss) {
-            trend = prev - curr; 
+            trend = prev - curr;
         }
 
         if trend > 1e-3 {
@@ -227,10 +246,10 @@ fn compute_blends(s: &DualPhaseConsensusState, val_loss: Option<f32>) -> (f32, f
             (0.55, 0.35, 0.10, 0.2, 0.5, 0.2, 0.2)
         }
     };
-    
+
     if t > warm {
         if let Some(curr) = val_loss {
-            if curr <= s.noise_variance * 5.0 {                
+            if curr <= s.noise_variance * 5.0 {
                 blend_sign = (blend_sign + 0.2).min(0.8);
                 lookahead_alpha = lookahead_alpha.max(0.45);
                 lookahead_tau = (lookahead_tau + 0.05).min(0.35);
@@ -245,7 +264,7 @@ fn compute_blends(s: &DualPhaseConsensusState, val_loss: Option<f32>) -> (f32, f
             }
         }
 
-        if progress > 0.8 {            
+        if progress > 0.8 {
             blend_sign = blend_sign.max(0.6);
             blend_norm *= 0.8;
             lookahead_alpha = lookahead_alpha.max(0.5);
@@ -276,12 +295,16 @@ fn optimizer_step(
     module: Arc<CudaModule>,
     _prop: &cudaDeviceProp,
 ) -> Result<Vec<CudaSlice<f32>>> {
-    let s = optimizer_state.as_any_mut().downcast_mut::<DualPhaseConsensusState>().unwrap();
+    let s = optimizer_state
+        .as_any_mut()
+        .downcast_mut::<DualPhaseConsensusState>()
+        .unwrap();
     s.step_count += 1;
     let mut global_damp = 1.0f32;
 
     if let Some(loss) = val_loss {
-        let dynamic_threshold = s.noise_variance * (1.1 + 0.1 * (s.step_count as f32 / s.total_steps as f32));
+        let dynamic_threshold =
+            s.noise_variance * (1.1 + 0.1 * (s.step_count as f32 / s.total_steps as f32));
         if loss <= dynamic_threshold && s.step_count > s.warmup_steps {
             global_damp *= 0.2;
         }
@@ -297,12 +320,26 @@ fn optimizer_step(
     let bias_correction1 = 1.0 - s.beta1.powi(t);
     let bias_correction2 = 1.0 - s.beta2.powi(t);
 
-    let (blend_adam, blend_norm, blend_sign, nesterov_gamma, bb_blend, lookahead_alpha, lookahead_tau) = compute_blends(s, val_loss);
+    let (
+        blend_adam,
+        blend_norm,
+        blend_sign,
+        nesterov_gamma,
+        bb_blend,
+        lookahead_alpha,
+        lookahead_tau,
+    ) = compute_blends(s, val_loss);
     let near_floor = val_loss.map_or(false, |loss| loss <= s.noise_variance * 3.0);
     let late_phase = s.step_count > s.total_steps * 3 / 4;
     let use_robust = s.step_count > s.warmup_steps && (near_floor || late_phase);
 
-    let (in_precision_zone, precision_gain, gate_lo, gate_hi, forward_gain): (bool, f32, f32, f32, f32) = if let Some(loss) = val_loss {
+    let (in_precision_zone, precision_gain, gate_lo, gate_hi, forward_gain): (
+        bool,
+        f32,
+        f32,
+        f32,
+        f32,
+    ) = if let Some(loss) = val_loss {
         if s.step_count > s.warmup_steps {
             let z_lo = s.noise_variance * 6.2;
             let z_hi = s.noise_variance * 8.6;
@@ -314,16 +351,36 @@ fn optimizer_step(
                 let forward_gain = if let Some(prev) = s.prev_val_loss {
                     let rel = ((prev - loss).max(0.0)) / (prev.abs() + 1e-6);
                     1.0 + (0.75 * rel).min(0.015)
-                } else { 1.0 };
+                } else {
+                    1.0
+                };
                 (true, pg, gate_lo, gate_hi, forward_gain)
-            } else { (false, 1.0, 0.66, 1.50, 1.0) }
-        } else { (false, 1.0, 0.66, 1.50, 1.0) }
-    } else { (false, 1.0, 0.66, 1.50, 1.0) };
+            } else {
+                (false, 1.0, 0.66, 1.50, 1.0)
+            }
+        } else {
+            (false, 1.0, 0.66, 1.50, 1.0)
+        }
+    } else {
+        (false, 1.0, 0.66, 1.50, 1.0)
+    };
 
-    let beta1_eff: f32 = if in_precision_zone { (s.beta1 + 0.04).min(0.995) } else { s.beta1 };
+    let beta1_eff: f32 = if in_precision_zone {
+        (s.beta1 + 0.04).min(0.995)
+    } else {
+        s.beta1
+    };
     let beta2_eff: f32 = s.beta2;
-    let eps_eff: f32 = if in_precision_zone { s.eps * 0.85 } else { s.eps };
-    let wd_eff: f32 = if in_precision_zone { s.weight_decay * 0.9 } else { s.weight_decay };
+    let eps_eff: f32 = if in_precision_zone {
+        s.eps * 0.85
+    } else {
+        s.eps
+    };
+    let wd_eff: f32 = if in_precision_zone {
+        s.weight_decay * 0.9
+    } else {
+        s.weight_decay
+    };
 
     let trust_backoff: f32 = if let (Some(prev), Some(curr)) = (s.prev_val_loss, val_loss) {
         let delta = curr - prev;
@@ -337,7 +394,7 @@ fn optimizer_step(
     };
 
     let k_fast = module.load_function("dual_consensus_fisher_kernel")?;
-    let k_robust = module.load_function("sign_ef_consensus_kernel")?;    
+    let k_robust = module.load_function("sign_ef_consensus_kernel")?;
 
     let mut updates = Vec::with_capacity(gradients.len());
 

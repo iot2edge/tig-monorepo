@@ -4,12 +4,14 @@ use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use tig_challenges::job_scheduling::*;
 
-use super::types::*;
 use super::construction::{construct_solution_conflict, neh_reentrant_flow_solution};
-use super::learning::{job_bias_from_solution, machine_penalty_from_solution, route_pref_from_solution_lite};
+use super::helpers::push_top_solutions;
+use super::learning::{
+    job_bias_from_solution, machine_penalty_from_solution, route_pref_from_solution_lite,
+};
 use super::local_search::critical_block_move_local_search;
 use super::rules::{choose_rule_bandit, rule_idx};
-use super::helpers::push_top_solutions;
+use super::types::*;
 
 fn strict_makespan(challenge: &Challenge, pre: &Pre, rank: &[usize]) -> Result<u32> {
     let route = pre
@@ -25,12 +27,10 @@ fn strict_makespan(challenge: &Challenge, pre: &Pre, rank: &[usize]) -> Result<u
 
     let mut remaining_ops = pre.total_ops;
 
-    let mut future: Vec<BinaryHeap<Reverse<(u32, usize, usize)>>> = (0..num_machines)
-        .map(|_| BinaryHeap::new())
-        .collect();
-    let mut avail: Vec<BinaryHeap<Reverse<(usize, usize)>>> = (0..num_machines)
-        .map(|_| BinaryHeap::new())
-        .collect();
+    let mut future: Vec<BinaryHeap<Reverse<(u32, usize, usize)>>> =
+        (0..num_machines).map(|_| BinaryHeap::new()).collect();
+    let mut avail: Vec<BinaryHeap<Reverse<(usize, usize)>>> =
+        (0..num_machines).map(|_| BinaryHeap::new()).collect();
 
     for job in 0..num_jobs {
         if pre.job_ops_len[job] == 0 {
@@ -54,9 +54,9 @@ fn strict_makespan(challenge: &Challenge, pre: &Pre, rank: &[usize]) -> Result<u
     let mut machine_events: BinaryHeap<Reverse<(u32, usize)>> = BinaryHeap::new();
 
     let compute_next_time = |m: usize,
-                            machine_avail: &Vec<u32>,
-                            future: &Vec<BinaryHeap<Reverse<(u32, usize, usize)>>>,
-                            avail: &Vec<BinaryHeap<Reverse<(usize, usize)>>>|
+                             machine_avail: &Vec<u32>,
+                             future: &Vec<BinaryHeap<Reverse<(u32, usize, usize)>>>,
+                             avail: &Vec<BinaryHeap<Reverse<(usize, usize)>>>|
      -> Option<u32> {
         if !avail[m].is_empty() {
             return Some(machine_avail[m]);
@@ -188,12 +188,10 @@ fn strict_simulate(challenge: &Challenge, pre: &Pre, rank: &[usize]) -> Result<(
 
     let mut remaining_ops = pre.total_ops;
 
-    let mut future: Vec<BinaryHeap<Reverse<(u32, usize, usize)>>> = (0..num_machines)
-        .map(|_| BinaryHeap::new())
-        .collect();
-    let mut avail: Vec<BinaryHeap<Reverse<(usize, usize)>>> = (0..num_machines)
-        .map(|_| BinaryHeap::new())
-        .collect();
+    let mut future: Vec<BinaryHeap<Reverse<(u32, usize, usize)>>> =
+        (0..num_machines).map(|_| BinaryHeap::new()).collect();
+    let mut avail: Vec<BinaryHeap<Reverse<(usize, usize)>>> =
+        (0..num_machines).map(|_| BinaryHeap::new()).collect();
 
     for job in 0..num_jobs {
         if pre.job_ops_len[job] == 0 {
@@ -217,9 +215,9 @@ fn strict_simulate(challenge: &Challenge, pre: &Pre, rank: &[usize]) -> Result<(
     let mut machine_events: BinaryHeap<Reverse<(u32, usize)>> = BinaryHeap::new();
 
     let compute_next_time = |m: usize,
-                            machine_avail: &Vec<u32>,
-                            future: &Vec<BinaryHeap<Reverse<(u32, usize, usize)>>>,
-                            avail: &Vec<BinaryHeap<Reverse<(usize, usize)>>>|
+                             machine_avail: &Vec<u32>,
+                             future: &Vec<BinaryHeap<Reverse<(u32, usize, usize)>>>,
+                             avail: &Vec<BinaryHeap<Reverse<(usize, usize)>>>|
      -> Option<u32> {
         if !avail[m].is_empty() {
             return Some(machine_avail[m]);
@@ -332,7 +330,11 @@ fn strict_simulate(challenge: &Challenge, pre: &Pre, rank: &[usize]) -> Result<(
     Ok((Solution { job_schedule }, makespan))
 }
 
-fn strict_best_by_order_search(challenge: &Challenge, pre: &Pre, passes: usize) -> Result<(Solution, u32)> {
+fn strict_best_by_order_search(
+    challenge: &Challenge,
+    pre: &Pre,
+    passes: usize,
+) -> Result<(Solution, u32)> {
     if pre.strict_route.is_none() || pre.flex_avg > 1.25 {
         return Err(anyhow!("not strict-like"));
     }
@@ -363,7 +365,7 @@ fn strict_best_by_order_search(challenge: &Challenge, pre: &Pre, passes: usize) 
     let mut best_order = order.clone();
 
     let max_passes = passes.max(1).min(6);
-    
+
     let mut cand_order: Vec<usize> = vec![0usize; n];
     for _ in 0..max_passes.min(2) {
         let mut improved = false;
@@ -415,7 +417,7 @@ fn strict_best_by_order_search(challenge: &Challenge, pre: &Pre, passes: usize) 
             break;
         }
     }
-    
+
     order = best_order.clone();
     for (pos, &j) in order.iter().enumerate() {
         rank[j] = pos;
@@ -443,7 +445,7 @@ fn strict_best_by_order_search(challenge: &Challenge, pre: &Pre, passes: usize) 
             break;
         }
     }
-    
+
     order = best_order.clone();
     for (pos, &j) in order.iter().enumerate() {
         rank[j] = pos;
@@ -628,8 +630,11 @@ pub fn solve(
 
     let base = &ranked[0].2;
     let mut learned_jb = Some(job_bias_from_solution(&pre, base)?);
-    let mut learned_mp =
-        Some(machine_penalty_from_solution(&pre, base, challenge.num_machines)?);
+    let mut learned_mp = Some(machine_penalty_from_solution(
+        &pre,
+        base,
+        challenge.num_machines,
+    )?);
     let mut learned_rp = if route_w_base > 0.0 {
         Some(route_pref_from_solution_lite(&pre, base, challenge)?)
     } else {
@@ -706,8 +711,7 @@ pub fn solve(
         } else {
             (0.08 + 0.22 * pre.jobshopness + 0.18 * pre.high_flex).clamp(0.05, 0.42)
         };
-        let learn_boost =
-            (1.0 + 0.35 * ((stuck as f64) / 120.0).clamp(0.0, 1.0)).clamp(1.0, 1.35);
+        let learn_boost = (1.0 + 0.35 * ((stuck as f64) / 120.0).clamp(0.0, 1.0)).clamp(1.0, 1.35);
         let learn_p = (learn_base * learn_boost).clamp(0.0, 0.60);
 
         let use_learn = learned_jb.is_some()
@@ -759,8 +763,7 @@ pub fn solve(
                     challenge.num_machines,
                 )?);
                 if route_w_base > 0.0 {
-                    learned_rp =
-                        Some(route_pref_from_solution_lite(&pre, &sol, challenge)?);
+                    learned_rp = Some(route_pref_from_solution_lite(&pre, &sol, challenge)?);
                 }
                 learn_updates_left -= 1;
             }
@@ -867,7 +870,11 @@ pub fn solve(
         14usize
     };
 
-    let top_cands = if pre.jobshopness > 0.55 { 36usize } else { 28usize };
+    let top_cands = if pre.jobshopness > 0.55 {
+        36usize
+    } else {
+        28usize
+    };
 
     for i in 0..ls_runs {
         let base_sol = &top_solutions[i].0;

@@ -1,16 +1,16 @@
-use super::instance::Instance;
-use super::config::Config;
-use super::solution::Individual;
-use super::gene_pool::{GenePool, Metric};
 use super::builder::Builder;
+use super::config::Config;
+use super::gene_pool::{GenePool, Metric};
+use super::instance::Instance;
 use super::operators::LocalOps;
 use super::route_eval::RouteEval;
-use rand::rngs::SmallRng;
-use rand::Rng;
-use rand::seq::SliceRandom;
-use tig_challenges::vehicle_routing::*;
+use super::solution::Individual;
 use anyhow::Result;
+use rand::rngs::SmallRng;
+use rand::seq::SliceRandom;
+use rand::Rng;
 use std::time::Instant;
+use tig_challenges::vehicle_routing::*;
 
 pub struct Evolution<'a> {
     pub data: &'a Instance,
@@ -28,7 +28,9 @@ impl<'a> Evolution<'a> {
         let k_max = data.nb_vehicles + 1;
         let dp_size = (k_max + 1) * n;
         Self {
-            data, params, population,
+            data,
+            params,
+            population,
             dp_buf: vec![0i64; dp_size],
             pred_buf: vec![0usize; dp_size],
             used_buf: vec![false; n],
@@ -44,14 +46,20 @@ impl<'a> Evolution<'a> {
         }
     }
 
-    pub fn generate_initial_individual(&mut self, rng: &mut SmallRng, ls: &mut LocalOps, randomize: bool) {
+    pub fn generate_initial_individual(
+        &mut self,
+        rng: &mut SmallRng,
+        ls: &mut LocalOps,
+        randomize: bool,
+    ) {
         let mut routes = Builder::build_routes(self.data, rng, randomize);
         ls.runls(&mut routes, rng, &self.params, false, 0);
         let ind = Individual::new_from_routes(self.data, &self.params, routes);
         let is_capa_feasible = ind.load_excess == 0;
         let is_tw_feasible = ind.tw_violation == 0;
         self.population.add(ind, &self.params);
-        self.population.record_and_adapt(is_capa_feasible, is_tw_feasible, &mut self.params);
+        self.population
+            .record_and_adapt(is_capa_feasible, is_tw_feasible, &mut self.params);
         if !is_capa_feasible || !is_tw_feasible {
             self.repair_and_maybe_add(ls, rng);
         }
@@ -62,10 +70,14 @@ impl<'a> Evolution<'a> {
             let data = self.data;
             let population = &self.population;
             let used = &mut self.used_buf;
-            for v in used.iter_mut() { *v = false; }
+            for v in used.iter_mut() {
+                *v = false;
+            }
             let p1 = population.get_binary_tournament(rng);
             let mut p2 = population.get_binary_tournament(rng);
-            while std::ptr::eq(p1, p2) { p2 = population.get_binary_tournament(rng); }
+            while std::ptr::eq(p1, p2) {
+                p2 = population.get_binary_tournament(rng);
+            }
             let t2 = Self::extract_giant_tour_s(data, &p2.routes);
             let extra = if rng.gen_ratio(1, 10) { 1 } else { 0 };
             let target_routes = (p1.nb_routes + extra).clamp(data.lb_vehicles, data.nb_vehicles);
@@ -75,15 +87,20 @@ impl<'a> Evolution<'a> {
         self.mutate_tour(&mut child_tour, rng);
 
         let mut child_routes = Self::split_buf(
-            self.data, &self.params, &child_tour, target_routes,
-            &mut self.dp_buf, &mut self.pred_buf,
+            self.data,
+            &self.params,
+            &child_tour,
+            target_routes,
+            &mut self.dp_buf,
+            &mut self.pred_buf,
         );
         ls.runls(&mut child_routes, rng, &self.params, false, 0);
         let child = Individual::new_from_routes(self.data, &self.params, child_routes);
         let is_capa_feasible = child.load_excess == 0;
         let is_tw_feasible = child.tw_violation == 0;
         self.population.add(child, &self.params);
-        self.population.record_and_adapt(is_capa_feasible, is_tw_feasible, &mut self.params);
+        self.population
+            .record_and_adapt(is_capa_feasible, is_tw_feasible, &mut self.params);
         if !is_capa_feasible || !is_tw_feasible {
             self.repair_and_maybe_add(ls, rng);
         }
@@ -96,8 +113,11 @@ impl<'a> Evolution<'a> {
         save_solution: Option<&dyn Fn(&Solution) -> Result<()>>,
     ) -> Option<(Vec<Vec<usize>>, i32)> {
         if let Some(save) = save_solution {
-            let dummy_routes: Vec<Vec<usize>> = (1..self.data.nb_nodes).map(|i| vec![0, i, 0]).collect();
-            let _ = save(&Solution { routes: dummy_routes });
+            let dummy_routes: Vec<Vec<usize>> =
+                (1..self.data.nb_nodes).map(|i| vec![0, i, 0]).collect();
+            let _ = save(&Solution {
+                routes: dummy_routes,
+            });
         }
 
         let mut ls = LocalOps::new(self.data, self.params);
@@ -113,7 +133,12 @@ impl<'a> Evolution<'a> {
             self.generate_crossover_individual(rng, &mut ls);
 
             if it_total % self.params.nb_it_traces == 0 {
-                self.population.print_trace(it_total, it_noimprov, t0.elapsed().as_secs_f64(), &self.params);
+                self.population.print_trace(
+                    it_total,
+                    it_noimprov,
+                    t0.elapsed().as_secs_f64(),
+                    &self.params,
+                );
             }
 
             let cur = self.population.best_metric();
@@ -122,7 +147,9 @@ impl<'a> Evolution<'a> {
                 it_noimprov = 0;
                 if let Some(best) = self.population.best_feasible() {
                     if let Some(save) = save_solution {
-                        let _ = save(&Solution { routes: best.routes });
+                        let _ = save(&Solution {
+                            routes: best.routes,
+                        });
                     }
                 }
             } else {
@@ -135,13 +162,18 @@ impl<'a> Evolution<'a> {
             let mut best_routes = best.routes.clone();
             ls.runls(&mut best_routes, rng, &self.params, false, 0);
             let best_after = Individual::new_from_routes(self.data, &self.params, best_routes);
-            let chosen = if best_after.tw_violation == 0 && best_after.load_excess == 0 && best_after.distance < best.distance {
+            let chosen = if best_after.tw_violation == 0
+                && best_after.load_excess == 0
+                && best_after.distance < best.distance
+            {
                 best_after
             } else {
                 best
             };
             if let Some(save) = save_solution {
-                let _ = save(&Solution { routes: chosen.routes.clone() });
+                let _ = save(&Solution {
+                    routes: chosen.routes.clone(),
+                });
             }
             Some((chosen.routes, chosen.cost as i32))
         } else {
@@ -151,7 +183,9 @@ impl<'a> Evolution<'a> {
 
     fn mutate_tour(&self, tour: &mut Vec<usize>, rng: &mut SmallRng) {
         let n = tour.len();
-        if n < 4 { return; }
+        if n < 4 {
+            return;
+        }
         if rng.gen_ratio(1, 5) {
             let i = rng.gen_range(0..n - 1);
             let j = rng.gen_range(i + 1..n);
@@ -160,14 +194,18 @@ impl<'a> Evolution<'a> {
         if rng.gen_ratio(1, 6) {
             let i = rng.gen_range(0..n);
             let mut j = rng.gen_range(0..n);
-            if j == i { j = (j + 1) % n; }
+            if j == i {
+                j = (j + 1) % n;
+            }
             let node = tour.remove(i);
             let pos = if j <= tour.len() { j } else { tour.len() };
             tour.insert(pos, node);
         }
         if n >= 8 && rng.gen_ratio(1, 8) {
             let mut cuts = [0usize; 4];
-            for c in cuts.iter_mut() { *c = rng.gen_range(1..n); }
+            for c in cuts.iter_mut() {
+                *c = rng.gen_range(1..n);
+            }
             cuts.sort_unstable();
             let (a, b, c, d) = (cuts[0], cuts[1], cuts[2], cuts[3]);
             let mut new_tour = Vec::with_capacity(n);
@@ -181,20 +219,33 @@ impl<'a> Evolution<'a> {
     }
 
     fn split_buf(
-        data: &Instance, params: &Config, giant: &[usize], target_routes: usize,
-        dp_buf: &mut Vec<i64>, pred_buf: &mut Vec<usize>,
+        data: &Instance,
+        params: &Config,
+        giant: &[usize],
+        target_routes: usize,
+        dp_buf: &mut Vec<i64>,
+        pred_buf: &mut Vec<usize>,
     ) -> Vec<Vec<usize>> {
         let n = giant.len();
-        if n == 0 { return Vec::new(); }
+        if n == 0 {
+            return Vec::new();
+        }
 
         let k = target_routes.max(1);
         let inf = i64::MAX / 4;
         let stride = n + 1;
         let needed = (k + 1) * stride;
 
-        if dp_buf.len() < needed { dp_buf.resize(needed, inf); pred_buf.resize(needed, 0); }
-        for v in dp_buf[..needed].iter_mut() { *v = inf; }
-        for v in pred_buf[..needed].iter_mut() { *v = 0; }
+        if dp_buf.len() < needed {
+            dp_buf.resize(needed, inf);
+            pred_buf.resize(needed, 0);
+        }
+        for v in dp_buf[..needed].iter_mut() {
+            *v = inf;
+        }
+        for v in pred_buf[..needed].iter_mut() {
+            *v = 0;
+        }
         dp_buf[0] = 0;
 
         let cap_limit: i32 = (1.5 * (data.max_capacity as f32)) as i32;
@@ -205,7 +256,9 @@ impl<'a> Evolution<'a> {
             let cur_row = kk * stride;
             for i in (kk - 1)..n {
                 let base = dp_buf[prev_row + i];
-                if base >= inf { continue; }
+                if base >= inf {
+                    continue;
+                }
 
                 let mut acc = RouteEval::join2(data, &depot, &RouteEval::singleton(data, giant[i]));
                 for j in (i + 1)..=n {
@@ -215,7 +268,9 @@ impl<'a> Evolution<'a> {
                         dp_buf[cur_row + j] = cand;
                         pred_buf[cur_row + j] = i;
                     }
-                    if acc.load > cap_limit { break; }
+                    if acc.load > cap_limit {
+                        break;
+                    }
                     if j < n {
                         let next = RouteEval::singleton(data, giant[j]);
                         acc = RouteEval::join2(data, &acc, &next);
@@ -228,7 +283,10 @@ impl<'a> Evolution<'a> {
         let mut best_val = dp_buf[stride + n];
         for kk in 2..=k {
             let val = dp_buf[kk * stride + n];
-            if val < best_val { best_val = val; best_k = kk; }
+            if val < best_val {
+                best_val = val;
+                best_k = kk;
+            }
         }
 
         if best_val >= inf {
@@ -241,7 +299,9 @@ impl<'a> Evolution<'a> {
             let i = pred_buf[kk * stride + j];
             let mut r: Vec<usize> = Vec::with_capacity((j - i) + 2);
             r.push(0);
-            for p in i..j { r.push(giant[p]); }
+            for p in i..j {
+                r.push(giant[p]);
+            }
             r.push(0);
             routes.push(r);
             j = i;
@@ -255,10 +315,15 @@ impl<'a> Evolution<'a> {
     }
 
     fn extract_giant_tour_s(data: &Instance, routes: &[Vec<usize>]) -> Vec<usize> {
-        let (x0, y0) = (data.node_positions[0].0 as f64, data.node_positions[0].1 as f64);
+        let (x0, y0) = (
+            data.node_positions[0].0 as f64,
+            data.node_positions[0].1 as f64,
+        );
         let mut route_angles: Vec<(f64, usize)> = Vec::new();
         for (r_idx, r) in routes.iter().enumerate() {
-            if r.len() <= 2 { continue; }
+            if r.len() <= 2 {
+                continue;
+            }
             let mut sum_x = 0.0;
             let mut sum_y = 0.0;
             let mut cnt = 0usize;
@@ -278,21 +343,35 @@ impl<'a> Evolution<'a> {
         for &(_, r_idx) in &route_angles {
             let r = &routes[r_idx];
             for &id in r.iter().skip(1).take(r.len().saturating_sub(2)) {
-                if id != 0 { tour.push(id); }
+                if id != 0 {
+                    tour.push(id);
+                }
             }
         }
         tour
     }
 
-    fn crossover_rbx_buf(data: &Instance, p1: &Individual, t2: &[usize], rng: &mut SmallRng, used: &mut Vec<bool>) -> Vec<usize> {
+    fn crossover_rbx_buf(
+        data: &Instance,
+        p1: &Individual,
+        t2: &[usize],
+        rng: &mut SmallRng,
+        used: &mut Vec<bool>,
+    ) -> Vec<usize> {
         let n = data.nb_nodes - 1;
-        if n == 0 { return Vec::new(); }
+        if n == 0 {
+            return Vec::new();
+        }
 
         let mut cand: Vec<usize> = Vec::new();
         for (idx, r) in p1.routes.iter().enumerate() {
-            if r.len() > 2 { cand.push(idx); }
+            if r.len() > 2 {
+                cand.push(idx);
+            }
         }
-        if cand.is_empty() { return t2.to_vec(); }
+        if cand.is_empty() {
+            return t2.to_vec();
+        }
 
         cand.shuffle(rng);
         let keep = rng.gen_range(1..=cand.len().min(3));
@@ -302,15 +381,27 @@ impl<'a> Evolution<'a> {
         for &ri in &cand {
             let r = &p1.routes[ri];
             for &id in r.iter().skip(1).take(r.len() - 2) {
-                if !used[id] { used[id] = true; child.push(id); }
+                if !used[id] {
+                    used[id] = true;
+                    child.push(id);
+                }
             }
         }
         for &id in t2 {
-            if !used[id] { used[id] = true; child.push(id); }
+            if !used[id] {
+                used[id] = true;
+                child.push(id);
+            }
         }
         if child.len() < n {
             for id in 1..data.nb_nodes {
-                if !used[id] { used[id] = true; child.push(id); if child.len() == n { break; } }
+                if !used[id] {
+                    used[id] = true;
+                    child.push(id);
+                    if child.len() == n {
+                        break;
+                    }
+                }
             }
         } else if child.len() > n {
             child.truncate(n);

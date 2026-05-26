@@ -43,9 +43,15 @@ pub struct OptimizerState {
 }
 
 impl OptimizerStateTrait for OptimizerState {
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
-    fn box_clone(&self) -> Box<dyn OptimizerStateTrait> { Box::new(self.clone()) }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn box_clone(&self) -> Box<dyn OptimizerStateTrait> {
+        Box::new(self.clone())
+    }
 }
 
 #[inline]
@@ -66,13 +72,24 @@ pub fn spectral_phase_lr(s: &OptimizerState, base_lr: f32) -> f32 {
 }
 
 #[inline]
-pub fn compute_blends(s: &OptimizerState, val_loss: Option<f32>) -> (f32, f32, f32, f32, f32, f32, f32) {
+pub fn compute_blends(
+    s: &OptimizerState,
+    val_loss: Option<f32>,
+) -> (f32, f32, f32, f32, f32, f32, f32) {
     let t = s.step_count as f32;
     let warm = s.warmup_steps as f32;
     let total = s.total_steps as f32;
     let progress = (t / total.max(1.0)).min(1.0);
 
-    let (mut blend_adam, mut blend_norm, mut blend_sign, gamma, bb_blend, mut lookahead_alpha, mut lookahead_tau): (f32, f32, f32, f32, f32, f32, f32) = if t <= warm {
+    let (
+        mut blend_adam,
+        mut blend_norm,
+        mut blend_sign,
+        gamma,
+        bb_blend,
+        mut lookahead_alpha,
+        mut lookahead_tau,
+    ): (f32, f32, f32, f32, f32, f32, f32) = if t <= warm {
         (0.35, 0.65, 0.0, 0.22, 0.6, 0.0, 0.2)
     } else {
         let mut trend = 0.0f32;
@@ -128,7 +145,7 @@ pub fn compute_blends(s: &OptimizerState, val_loss: Option<f32>) -> (f32, f32, f
 
 pub fn update_state_from_val_loss(s: &mut OptimizerState, epoch: usize, val_loss: Option<f32>) {
     s.step_count += 1;
-    
+
     if s.step_count == 1 {
         s.last_epoch = epoch;
     }
@@ -151,7 +168,11 @@ pub fn update_state_from_val_loss(s: &mut OptimizerState, epoch: usize, val_loss
             }
 
             if s.val_loss_history.len() >= 6 {
-                let min_loss = s.val_loss_history.iter().copied().fold(f32::INFINITY, f32::min);
+                let min_loss = s
+                    .val_loss_history
+                    .iter()
+                    .copied()
+                    .fold(f32::INFINITY, f32::min);
                 let recent_avg = s.val_loss_history.iter().rev().take(10).sum::<f32>() / 10.0;
                 let target_nv = (min_loss / 5.0).min(recent_avg / 8.0);
                 s.noise_variance = 0.85 * s.noise_variance + 0.15 * target_nv;
@@ -243,13 +264,16 @@ pub fn compute_global_damp(s: &mut OptimizerState, val_loss: Option<f32>) -> f32
                 if s.step_count.saturating_sub(s.last_pulse_step) > 80 {
                     s.lr_boost *= 0.96;
                 }
-                if s.lr_boost < 1.02 { s.lr_boost = 1.0; }
+                if s.lr_boost < 1.02 {
+                    s.lr_boost = 1.0;
+                }
             }
         }
     }
 
     if let Some(loss) = val_loss {
-        let dynamic_threshold = s.noise_variance * (1.1 + 0.1 * (s.step_count as f32 / s.total_steps as f32));
+        let dynamic_threshold =
+            s.noise_variance * (1.1 + 0.1 * (s.step_count as f32 / s.total_steps as f32));
         if loss <= dynamic_threshold && s.step_count > s.warmup_steps {
             let proximity = (loss / dynamic_threshold).clamp(0.4, 1.0);
             let plateau_factor: f32 = if s.plateau_count > 10 { 1.2 } else { 1.0 };
@@ -267,7 +291,10 @@ pub fn compute_global_damp(s: &mut OptimizerState, val_loss: Option<f32>) -> f32
     global_damp
 }
 
-pub fn compute_precision_params(s: &OptimizerState, val_loss: Option<f32>) -> (bool, f32, f32, f32, f32) {
+pub fn compute_precision_params(
+    s: &OptimizerState,
+    val_loss: Option<f32>,
+) -> (bool, f32, f32, f32, f32) {
     if let Some(loss) = val_loss {
         if s.step_count > s.warmup_steps {
             let z_lo = s.noise_variance * 6.2;
@@ -280,7 +307,9 @@ pub fn compute_precision_params(s: &OptimizerState, val_loss: Option<f32>) -> (b
                 let forward_gain = if let Some(prev) = s.prev_val_loss {
                     let rel = ((prev - loss).max(0.0)) / (prev.abs() + 1e-6);
                     1.0 + (0.75 * rel).min(0.015)
-                } else { 1.0 };
+                } else {
+                    1.0
+                };
                 return (true, pg, gate_lo, gate_hi, forward_gain);
             }
         }
@@ -291,7 +320,13 @@ pub fn compute_precision_params(s: &OptimizerState, val_loss: Option<f32>) -> (b
 pub fn finalize_state(s: &mut OptimizerState, val_loss: Option<f32>) {
     if let Some(curr) = val_loss {
         s.best_val_loss = Some(match s.best_val_loss {
-            Some(b) => if curr < b { curr } else { b },
+            Some(b) => {
+                if curr < b {
+                    curr
+                } else {
+                    b
+                }
+            }
             None => curr,
         });
     }

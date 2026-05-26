@@ -1,12 +1,12 @@
-mod instance;
-mod config;
-mod route_eval;
-mod solution;
 mod builder;
-mod operators;
-mod gene_pool;
+mod config;
 mod evolution;
+mod gene_pool;
+mod instance;
+mod operators;
+mod route_eval;
 mod runner;
+mod solution;
 
 pub use runner::Solver;
 

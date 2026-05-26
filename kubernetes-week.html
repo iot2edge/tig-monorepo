@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kubernetes in One Week</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #5c6870;
+      --paper: #fbfbf7;
+      --panel: #ffffff;
+      --line: #d9dfda;
+      --green: #19735f;
+      --green-soft: #dff3eb;
+      --blue: #2866b1;
+      --blue-soft: #e5effc;
+      --yellow: #f4bd3b;
+      --yellow-soft: #fff4ce;
+      --red: #bd4b45;
+      --red-soft: #ffe7e3;
+      --shadow: 0 18px 50px rgba(23, 32, 38, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .shell {
+      min-height: 100vh;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid rgba(23, 32, 38, 0.12);
+      background: rgba(251, 251, 247, 0.92);
+      backdrop-filter: blur(16px);
+    }
+
+    .nav {
+      width: min(1180px, calc(100% - 32px));
+      min-height: 64px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 210px;
+      font-weight: 800;
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: conic-gradient(from 90deg, var(--blue), var(--green), var(--yellow), var(--blue));
+      display: grid;
+      place-items: center;
+      color: white;
+      box-shadow: 0 8px 20px rgba(40, 102, 177, 0.24);
+    }
+
+    .brand-mark span {
+      width: 18px;
+      height: 18px;
+      border: 3px solid currentColor;
+      border-radius: 50%;
+      display: block;
+      position: relative;
+    }
+
+    .brand-mark span::before,
+    .brand-mark span::after {
+      content: "";
+      position: absolute;
+      inset: 4px -7px;
+      border-top: 3px solid currentColor;
+      transform: rotate(45deg);
+    }
+
+    .brand-mark span::after {
+      transform: rotate(-45deg);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .nav-links a,
+    .ghost-button {
+      min-height: 36px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 7px 11px;
+      color: var(--muted);
+      text-decoration: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .nav-links a:hover,
+    .ghost-button:hover {
+      border-color: var(--line);
+      color: var(--ink);
+      background: white;
+    }
+
+    .hero {
+      min-height: calc(100vh - 64px);
+      display: grid;
+      align-items: center;
+      background:
+        linear-gradient(rgba(251, 251, 247, 0.82), rgba(251, 251, 247, 0.92)),
+        url("data:image/svg+xml,%3Csvg width='1400' height='900' viewBox='0 0 1400 900' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='1400' height='900' fill='%23e8efe9'/%3E%3Cg opacity='.95'%3E%3Crect x='128' y='140' width='270' height='148' rx='18' fill='%23ffffff'/%3E%3Crect x='450' y='110' width='270' height='148' rx='18' fill='%23ffffff'/%3E%3Crect x='772' y='140' width='270' height='148' rx='18' fill='%23ffffff'/%3E%3Crect x='1010' y='384' width='270' height='148' rx='18' fill='%23ffffff'/%3E%3Crect x='690' y='600' width='270' height='148' rx='18' fill='%23ffffff'/%3E%3Crect x='290' y='590' width='270' height='148' rx='18' fill='%23ffffff'/%3E%3Cpath d='M395 214H450M720 184h52M1042 288l88 96M1008 532l-80 68M690 674H560M290 664l-90-376' stroke='%232866b1' stroke-width='10' stroke-linecap='round'/%3E%3Ccircle cx='263' cy='214' r='46' fill='%232866b1'/%3E%3Ccircle cx='585' cy='184' r='46' fill='%2319735f'/%3E%3Ccircle cx='907' cy='214' r='46' fill='%23f4bd3b'/%3E%3Ccircle cx='1145' cy='458' r='46' fill='%23bd4b45'/%3E%3Ccircle cx='825' cy='674' r='46' fill='%232866b1'/%3E%3Ccircle cx='425' cy='664' r='46' fill='%2319735f'/%3E%3C/g%3E%3C/svg%3E");
+      background-size: cover;
+      background-position: center;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-inner {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 76px 0 54px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.02fr) minmax(320px, 0.98fr);
+      align-items: center;
+      gap: 46px;
+    }
+
+    .kicker {
+      width: fit-content;
+      margin: 0 0 18px;
+      padding: 7px 11px;
+      border-radius: 8px;
+      background: rgba(25, 115, 95, 0.12);
+      color: #0d5e4d;
+      font-size: 0.88rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 780px;
+      margin: 0;
+      font-size: clamp(3rem, 8vw, 6.8rem);
+      line-height: 0.92;
+      letter-spacing: 0;
+    }
+
+    .hero-copy {
+      max-width: 650px;
+      margin: 24px 0 30px;
+      color: #344148;
+      font-size: clamp(1.08rem, 2.3vw, 1.34rem);
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .primary-button,
+    .secondary-button {
+      min-height: 46px;
+      border-radius: 8px;
+      border: 1px solid var(--ink);
+      padding: 11px 16px;
+      text-decoration: none;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .primary-button {
+      background: var(--ink);
+      color: white;
+    }
+
+    .secondary-button {
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--ink);
+    }
+
+    .course-panel {
+      border: 1px solid rgba(23, 32, 38, 0.15);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .progress-ring {
+      width: 66px;
+      height: 66px;
+      border-radius: 50%;
+      background: conic-gradient(var(--green) calc(var(--progress, 0) * 1%), #e9ece9 0);
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+    }
+
+    .progress-ring span {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: white;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      font-size: 0.9rem;
+    }
+
+    .week-list {
+      display: grid;
+      gap: 1px;
+      background: var(--line);
+    }
+
+    .week-item {
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: white;
+    }
+
+    .day-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-weight: 900;
+    }
+
+    .week-item strong {
+      display: block;
+    }
+
+    .week-item span {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .check {
+      width: 24px;
+      height: 24px;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    main section {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 76px 0;
+    }
+
+    .section-title {
+      max-width: 760px;
+      margin-bottom: 28px;
+    }
+
+    .section-title h2 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .section-title p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .concept-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .concept-card,
+    .lecture-note,
+    .lesson-card,
+    .lab,
+    .quiz,
+    .terms,
+    .exam-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .lecture-stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .lecture-note {
+      padding: 24px;
+    }
+
+    .lecture-note h3 {
+      margin: 0 0 12px;
+      font-size: clamp(1.35rem, 2.4vw, 2rem);
+    }
+
+    .lecture-note p {
+      margin: 0 0 14px;
+      color: #35424a;
+      font-size: 1.03rem;
+    }
+
+    .lecture-note p:last-child {
+      margin-bottom: 0;
+    }
+
+    .lecture-note h4 {
+      margin: 20px 0 8px;
+      font-size: 1rem;
+    }
+
+    .lecture-note ul {
+      margin: 8px 0 0;
+      padding-left: 22px;
+      color: #35424a;
+    }
+
+    .lecture-note li {
+      margin: 6px 0;
+    }
+
+    .lecture-note .example {
+      border-left: 4px solid var(--green);
+      border-radius: 0 8px 8px 0;
+      background: var(--green-soft);
+      padding: 12px 14px;
+      margin: 16px 0;
+      color: #213c35;
+    }
+
+    .lecture-note pre {
+      overflow-x: auto;
+      border-radius: 8px;
+      background: #141c22;
+      color: #f4f7f3;
+      padding: 16px;
+      margin: 14px 0;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.9rem;
+    }
+
+    .concept-card {
+      min-height: 210px;
+      padding: 18px;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
+
+    .icon-tile {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 900;
+      font-size: 1.05rem;
+    }
+
+    .icon-tile.blue { background: var(--blue); }
+    .icon-tile.green { background: var(--green); }
+    .icon-tile.yellow { background: #c7890b; }
+    .icon-tile.red { background: var(--red); }
+
+    .concept-card h3,
+    .lesson-card h3,
+    .lab h3,
+    .quiz h3,
+    .terms h3,
+    .exam-card h3 {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+
+    .concept-card p,
+    .lesson-card p,
+    .lab p,
+    .quiz p,
+    .terms p,
+    .exam-card p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .cluster-stage {
+      display: grid;
+      grid-template-columns: 290px 1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .cluster-controls {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .cluster-button {
+      width: 100%;
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: var(--ink);
+      text-align: left;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .cluster-button.active,
+    .cluster-button:hover {
+      border-color: var(--blue);
+      background: var(--blue-soft);
+    }
+
+    .cluster-diagram {
+      min-height: 420px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(40, 102, 177, 0.07) 1px, transparent 1px),
+        linear-gradient(rgba(40, 102, 177, 0.07) 1px, transparent 1px),
+        white;
+      background-size: 32px 32px;
+      padding: 18px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 16px;
+    }
+
+    .control-plane,
+    .node-row {
+      border: 2px solid var(--blue);
+      border-radius: 8px;
+      background: rgba(229, 239, 252, 0.72);
+      padding: 14px;
+    }
+
+    .node-row {
+      border-color: var(--green);
+      background: rgba(223, 243, 235, 0.72);
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .plane-title {
+      margin: 0 0 10px;
+      font-weight: 900;
+    }
+
+    .component-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .component,
+    .node {
+      border: 1px solid rgba(23, 32, 38, 0.16);
+      border-radius: 8px;
+      background: white;
+      padding: 10px;
+      min-height: 72px;
+      display: grid;
+      align-content: center;
+      gap: 3px;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+
+    .component.highlight,
+    .node.highlight,
+    .pod.highlight {
+      border-color: var(--red);
+      box-shadow: 0 0 0 4px rgba(189, 75, 69, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .component strong,
+    .node strong {
+      font-size: 0.9rem;
+    }
+
+    .component span,
+    .node span {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .pods {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .pod {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--yellow-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 9px;
+      font-size: 0.82rem;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+
+    .pod code {
+      font-size: 0.78rem;
+    }
+
+    .caption {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.96rem;
+    }
+
+    .day-tabs {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .day-tab {
+      min-height: 52px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 900;
+    }
+
+    .day-tab.active {
+      background: var(--ink);
+      color: white;
+      border-color: var(--ink);
+    }
+
+    .lesson-card {
+      padding: 22px;
+    }
+
+    .lesson-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .lesson-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 14px 0 18px;
+    }
+
+    .pill {
+      border-radius: 8px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      padding: 6px 9px;
+      font-size: 0.86rem;
+      font-weight: 800;
+    }
+
+    .topic-list,
+    .task-list {
+      margin: 14px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+    }
+
+    .topic-list li,
+    .task-list li {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 9px;
+      align-items: start;
+      color: #35424a;
+    }
+
+    .dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      background: var(--green-soft);
+      color: var(--green);
+      display: grid;
+      place-items: center;
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+
+    .side-note {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f7faf8;
+      padding: 16px;
+    }
+
+    .side-note h4 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+
+    .side-note p {
+      margin: 0 0 12px;
+    }
+
+    .command-block {
+      overflow-x: auto;
+      border-radius: 8px;
+      background: #141c22;
+      color: #f4f7f3;
+      padding: 16px;
+      margin: 14px 0 0;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.9rem;
+    }
+
+    .command-block code {
+      white-space: pre;
+    }
+
+    .lab-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .lab {
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .quiz {
+      padding: 22px;
+    }
+
+    .quiz-form {
+      display: grid;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .question {
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      color: #35424a;
+      cursor: pointer;
+    }
+
+    .option input {
+      margin-top: 4px;
+      accent-color: var(--blue);
+    }
+
+    .result {
+      min-height: 44px;
+      border-radius: 8px;
+      background: var(--yellow-soft);
+      padding: 12px;
+      font-weight: 800;
+    }
+
+    .terms {
+      padding: 22px;
+    }
+
+    .term-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .term {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fcfdfb;
+    }
+
+    .term strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .term span {
+      color: var(--muted);
+      font-size: 0.93rem;
+    }
+
+    .exam-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .exam-card {
+      padding: 20px;
+    }
+
+    .footer {
+      border-top: 1px solid var(--line);
+      padding: 30px 16px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 940px) {
+      .hero-inner,
+      .cluster-stage,
+      .lesson-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .concept-grid,
+      .lab-grid,
+      .term-grid,
+      .exam-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .component-row,
+      .node-row,
+      .day-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      .nav {
+        align-items: flex-start;
+        padding: 12px 0;
+        flex-direction: column;
+      }
+
+      .nav-links {
+        justify-content: flex-start;
+      }
+
+      .hero {
+        min-height: auto;
+      }
+
+      .hero-inner {
+        padding-top: 48px;
+      }
+
+      .concept-grid,
+      .lab-grid,
+      .term-grid,
+      .exam-grid,
+      .component-row,
+      .node-row,
+      .day-tabs {
+        grid-template-columns: 1fr;
+      }
+
+      main section {
+        padding: 54px 0;
+      }
+
+      h1 {
+        font-size: clamp(2.8rem, 18vw, 4.8rem);
+      }
+
+      .week-item {
+        grid-template-columns: 38px 1fr;
+      }
+
+      .week-item .check {
+        grid-column: 2;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <nav class="nav" aria-label="Main navigation">
+        <a class="brand" href="#top" aria-label="Kubernetes in One Week home">
+          <span class="brand-mark" aria-hidden="true"><span></span></span>
+          <span>Kubernetes in One Week</span>
+        </a>
+        <div class="nav-links">
+          <a href="#map">Map</a>
+          <a href="#lecture-notes">Lectures</a>
+          <a href="#cluster">Cluster</a>
+          <a href="#plan">7 Days</a>
+          <a href="#labs">Labs</a>
+          <a href="#quiz">Quiz</a>
+          <button class="ghost-button" type="button" id="resetProgress">Reset</button>
+        </div>
+      </nav>
+    </header>
+
+    <section class="hero" id="top">
+      <div class="hero-inner">
+        <div>
+          <p class="kicker">Zero foundation friendly</p>
+          <h1>Kubernetes from nothing to useful in 7 days</h1>
+          <p class="hero-copy">
+            A focused beginner lecture website for learning what Kubernetes is, how its pieces fit,
+            and how to deploy, expose, scale, debug, and ship a small app by the end of the week.
+          </p>
+          <div class="hero-actions">
+            <a class="primary-button" href="#plan">Start day 1</a>
+            <a class="secondary-button" href="#cluster">See the cluster model</a>
+          </div>
+        </div>
+
+        <aside class="course-panel" aria-label="Course progress">
+          <div class="panel-head">
+            <div>
+              <h2>Your one-week path</h2>
+              <p class="caption">Check each day when you finish the video, notes, and lab.</p>
+            </div>
+            <div class="progress-ring" id="progressRing" style="--progress: 0">
+              <span id="progressText">0%</span>
+            </div>
+          </div>
+          <div class="week-list" id="weekChecklist">
+            <label class="week-item">
+              <span class="day-badge">1</span>
+              <span><strong>Containers and clusters</strong><span>What problem Kubernetes solves.</span></span>
+              <input class="check" type="checkbox" data-day="1">
+            </label>
+            <label class="week-item">
+              <span class="day-badge">2</span>
+              <span><strong>Pods and YAML</strong><span>The smallest deployable unit.</span></span>
+              <input class="check" type="checkbox" data-day="2">
+            </label>
+            <label class="week-item">
+              <span class="day-badge">3</span>
+              <span><strong>Deployments and Services</strong><span>Run copies and give them a stable address.</span></span>
+              <input class="check" type="checkbox" data-day="3">
+            </label>
+            <label class="week-item">
+              <span class="day-badge">4</span>
+              <span><strong>Config and storage</strong><span>Settings, secrets, volumes, and persistence.</span></span>
+              <input class="check" type="checkbox" data-day="4">
+            </label>
+            <label class="week-item">
+              <span class="day-badge">5</span>
+              <span><strong>Networking</strong><span>DNS, Ingress, ports, and traffic flow.</span></span>
+              <input class="check" type="checkbox" data-day="5">
+            </label>
+            <label class="week-item">
+              <span class="day-badge">6</span>
+              <span><strong>Operations</strong><span>Logs, rollout, probes, and resources.</span></span>
+              <input class="check" type="checkbox" data-day="6">
+            </label>
+            <label class="week-item">
+              <span class="day-badge">7</span>
+              <span><strong>Capstone</strong><span>Ship and explain your own app.</span></span>
+              <input class="check" type="checkbox" data-day="7">
+            </label>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <main>
+      <section id="map">
+        <div class="section-title">
+          <h2>The mental map</h2>
+          <p>Start with these four ideas. Most Kubernetes details are just combinations of them.</p>
+        </div>
+        <div class="concept-grid">
+          <article class="concept-card">
+            <span class="icon-tile blue">C</span>
+            <h3>Container</h3>
+            <p>A packaged app with everything it needs to run. Docker builds images; Kubernetes runs containers from those images.</p>
+          </article>
+          <article class="concept-card">
+            <span class="icon-tile green">P</span>
+            <h3>Pod</h3>
+            <p>The smallest thing Kubernetes schedules. Usually one app container plus its shared network and storage space.</p>
+          </article>
+          <article class="concept-card">
+            <span class="icon-tile yellow">D</span>
+            <h3>Deployment</h3>
+            <p>A controller that keeps the desired number of Pods alive and manages updates without manual babysitting.</p>
+          </article>
+          <article class="concept-card">
+            <span class="icon-tile red">S</span>
+            <h3>Service</h3>
+            <p>A stable network name and IP for a changing set of Pods. Apps talk to Services instead of chasing Pod addresses.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="lecture-notes">
+        <div class="section-title">
+          <h2>Lecture notes</h2>
+          <p>These are the actual lessons. Read one per day, then do the matching lab and checkpoint.</p>
+        </div>
+        <div class="lecture-stack">
+          <article class="lecture-note">
+            <h3>Lecture 1: Why Kubernetes exists</h3>
+            <h4>Learning objectives</h4>
+            <ul>
+              <li>Understand the problem Kubernetes solves.</li>
+              <li>Explain the difference between a container runtime and a container orchestrator.</li>
+              <li>Describe desired state in plain language.</li>
+            </ul>
+            <p>
+              Imagine you have a small web application. At first, you copy the application onto one server and run it.
+              If it crashes, you SSH into the server and restart it. If traffic grows, you buy a bigger server or copy
+              the app to another machine. This can work for a toy project, but production systems quickly become messier:
+              several services, several versions, multiple machines, failed disks, traffic spikes, configuration changes,
+              deployments, rollbacks, and security updates.
+            </p>
+            <p>
+              Containers solve one part of the problem. A container image packages your application and its runtime
+              dependencies so it can run consistently on different machines. But a container image does not decide which
+              machine to run on. It does not restart itself after a node failure. It does not automatically create three
+              copies, roll out version 2, roll back to version 1, or give other services a stable address to call.
+            </p>
+            <p>
+              Kubernetes is the orchestration layer around containers. You give Kubernetes a desired state: "I want three
+              replicas of this app, using this image, with this port exposed." Kubernetes continuously compares that
+              desired state with the real state of the cluster. When reality differs, Kubernetes acts.
+            </p>
+            <h4>Imperative versus declarative</h4>
+            <p>
+              An imperative instruction says exactly what to do: "start this container on server A." A declarative
+              instruction says what final state should exist: "there should be three running replicas of this app."
+              Kubernetes is powerful because it keeps pursuing the declared final state even after crashes, restarts, and
+              infrastructure changes.
+            </p>
+            <pre><code># Imperative style: do this one action
+docker run -p 8080:80 nginx
+
+# Declarative Kubernetes idea: make this state true
+kubectl create deployment web --image=nginx
+kubectl scale deployment web --replicas=3</code></pre>
+            <p class="example">
+              Checkpoint: Docker runs containers. Kubernetes decides how containers should be scheduled, restarted,
+              connected, scaled, and updated across a cluster.
+            </p>
+          </article>
+
+          <article class="lecture-note">
+            <h3>Lecture 2: Cluster, nodes, and the control plane</h3>
+            <h4>Learning objectives</h4>
+            <ul>
+              <li>Identify the control plane and worker nodes.</li>
+              <li>Explain what the API Server, Scheduler, controllers, etcd, and kubelet do.</li>
+              <li>Trace what happens after you run <code>kubectl apply</code>.</li>
+            </ul>
+            <p>
+              A Kubernetes cluster is a set of machines working together. The machines are called nodes. Some nodes run
+              the control plane, which is responsible for cluster decisions. Worker nodes run your application workloads.
+              In local learning tools like Minikube or Kind, everything may run on your laptop, but the logical parts are
+              still the same.
+            </p>
+            <p>
+              The API Server is the front door. When you run <code>kubectl</code>, you are talking to the API Server.
+              The API Server validates your request and stores the desired object state. <code>etcd</code> is the
+              strongly consistent database where cluster state is kept. The Scheduler watches for Pods that do not yet
+              have a node and picks a suitable node. Controllers watch for differences between desired state and real
+              state, then create or update objects to close the gap.
+            </p>
+            <p>
+              Each worker node runs a kubelet. The kubelet is the node agent. It talks to the container runtime, starts
+              containers, reports status, and makes sure the Pods assigned to that node are running as expected.
+            </p>
+            <h4>Request flow</h4>
+            <ul>
+              <li>You run <code>kubectl apply -f deployment.yaml</code>.</li>
+              <li>The API Server validates and stores the Deployment.</li>
+              <li>The Deployment controller creates a ReplicaSet.</li>
+              <li>The ReplicaSet creates Pod objects.</li>
+              <li>The Scheduler assigns each Pod to a node.</li>
+              <li>The kubelet on each node starts the containers.</li>
+            </ul>
+            <pre><code>kubectl get nodes
+kubectl get pods -A
+kubectl cluster-info
+kubectl describe node &lt;node-name&gt;</code></pre>
+            <p class="example">
+              Common mistake: thinking <code>kubectl</code> directly starts containers. It does not. It sends requests to
+              the API Server; Kubernetes components react from there.
+            </p>
+          </article>
+
+          <article class="lecture-note">
+            <h3>Lecture 3: Pods and YAML</h3>
+            <h4>Learning objectives</h4>
+            <ul>
+              <li>Define a Pod and explain why it is not a virtual machine.</li>
+              <li>Read the basic structure of a Kubernetes manifest.</li>
+              <li>Create, inspect, log, and delete a Pod.</li>
+            </ul>
+            <p>
+              The smallest unit Kubernetes schedules is a Pod. A Pod usually contains one application container, although
+              it can contain more than one tightly related container. Containers inside the same Pod share network space,
+              which means they can talk to each other through <code>localhost</code>.
+            </p>
+            <p>
+              Kubernetes objects are usually written as YAML manifests. A manifest says what kind of object you want,
+              gives it metadata like a name and labels, and defines the desired spec. The common shape is
+              <code>apiVersion</code>, <code>kind</code>, <code>metadata</code>, and <code>spec</code>.
+            </p>
+            <pre><code>apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-pod
+  labels:
+    app: hello
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.27
+      ports:
+        - containerPort: 80</code></pre>
+            <h4>How to read this manifest</h4>
+            <ul>
+              <li><code>apiVersion</code> tells Kubernetes which API group/version this object belongs to.</li>
+              <li><code>kind</code> says the object type: here, a Pod.</li>
+              <li><code>metadata.name</code> gives the object a name.</li>
+              <li><code>metadata.labels</code> adds searchable identity tags.</li>
+              <li><code>spec.containers</code> describes the containers that should run inside the Pod.</li>
+            </ul>
+            <pre><code>kubectl apply -f pod.yaml
+kubectl get pods
+kubectl describe pod hello-pod
+kubectl logs hello-pod
+kubectl delete pod hello-pod</code></pre>
+            <p class="example">
+              Common mistake: creating raw Pods for long-running apps. Learn Pods first, but use Deployments for real
+              applications because Deployments replace failed Pods.
+            </p>
+          </article>
+
+          <article class="lecture-note">
+            <h3>Lecture 4: Deployments and the control loop</h3>
+            <h4>Learning objectives</h4>
+            <ul>
+              <li>Understand why Deployments are preferred over raw Pods.</li>
+              <li>Explain replicas, ReplicaSets, rollout, and rollback.</li>
+              <li>Scale an app and watch Kubernetes repair it.</li>
+            </ul>
+            <p>
+              You can create a Pod directly, but in real applications you usually create a Deployment. A Deployment says
+              which container image to run and how many replicas you want. If a Pod crashes or is deleted, the Deployment
+              controller makes a replacement.
+            </p>
+            <p>
+              This is the Kubernetes control loop in action. You declare desired state, Kubernetes observes actual state,
+              and controllers act to close the gap. If you ask for three replicas and only two are running, Kubernetes
+              creates another. If you update the image version, Kubernetes performs a rollout.
+            </p>
+            <p>
+              This is why deleting one Pod in a Deployment does not delete the application. The controller sees that the
+              desired replica count is no longer satisfied and creates a new Pod.
+            </p>
+            <pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27
+          ports:
+            - containerPort: 80</code></pre>
+            <h4>Important relationship</h4>
+            <p>
+              A Deployment owns a ReplicaSet. A ReplicaSet owns Pods. The Pod template inside the Deployment defines what
+              new Pods should look like. When you change the template, such as changing the image version, Kubernetes
+              creates a new ReplicaSet and performs a rollout.
+            </p>
+            <pre><code>kubectl apply -f deployment.yaml
+kubectl get deploy,rs,pod
+kubectl scale deployment web --replicas=5
+kubectl set image deployment/web nginx=nginx:1.28
+kubectl rollout status deployment/web
+kubectl rollout undo deployment/web</code></pre>
+            <p class="example">
+              Checkpoint: if you delete a Pod owned by a Deployment, Kubernetes creates a replacement because the desired
+              replica count still says that Pod should exist.
+            </p>
+          </article>
+
+          <article class="lecture-note">
+            <h3>Lecture 5: Services and networking</h3>
+            <h4>Learning objectives</h4>
+            <ul>
+              <li>Explain why Pod IPs are not stable enough for app-to-app communication.</li>
+              <li>Connect labels, selectors, and Services.</li>
+              <li>Understand ClusterIP, NodePort, LoadBalancer, and Ingress at a beginner level.</li>
+            </ul>
+            <p>
+              Pods are replaceable. Their IP addresses can change whenever Pods are recreated. That is a problem if one
+              application needs to call another. A Service solves this by giving a stable network name and address to a
+              changing group of Pods.
+            </p>
+            <p>
+              Services use labels and selectors. Pods have labels like <code>app: web</code>. A Service selector can say
+              "send traffic to Pods with <code>app: web</code>". The Service stays stable even when individual Pods come
+              and go.
+            </p>
+            <p>
+              The beginner Service types are ClusterIP, NodePort, and LoadBalancer. ClusterIP is internal to the cluster.
+              NodePort exposes a port on nodes. LoadBalancer asks the cloud provider for an external load balancer.
+              Ingress is commonly used for HTTP routing into Services.
+            </p>
+            <pre><code>apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  type: ClusterIP
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 80</code></pre>
+            <h4>Traffic path</h4>
+            <ul>
+              <li>A client calls <code>http://web</code> from inside the cluster.</li>
+              <li>Cluster DNS resolves <code>web</code> to the Service.</li>
+              <li>The Service finds Pods matching <code>app: web</code>.</li>
+              <li>Traffic is forwarded to one healthy matching Pod.</li>
+            </ul>
+            <pre><code>kubectl get svc
+kubectl get endpoints web
+kubectl run curl --image=curlimages/curl -it --rm -- sh
+curl http://web</code></pre>
+            <p class="example">
+              Common mistake: Service selector does not match Pod labels. If a Service has no endpoints, check labels
+              first with <code>kubectl get pods --show-labels</code>.
+            </p>
+          </article>
+
+          <article class="lecture-note">
+            <h3>Lecture 6: Configuration, storage, and health</h3>
+            <h4>Learning objectives</h4>
+            <ul>
+              <li>Separate container image from environment-specific configuration.</li>
+              <li>Know when to use ConfigMaps, Secrets, and Volumes.</li>
+              <li>Understand readiness and liveness probes.</li>
+            </ul>
+            <p>
+              Application images should be reusable across environments. Configuration should usually live outside the
+              image. Kubernetes gives you ConfigMaps for non-secret settings and Secrets for sensitive values. These can
+              be exposed as environment variables or mounted as files.
+            </p>
+            <p>
+              Storage is more complex because Pods are temporary. If a Pod disappears, files inside the container can
+              disappear too. For persistent data, Kubernetes uses Volumes, PersistentVolumes, and PersistentVolumeClaims.
+              This lets a workload request storage without hard-coding the exact disk.
+            </p>
+            <p>
+              Health checks are called probes. A readiness probe tells Kubernetes whether a container is ready to receive
+              traffic. A liveness probe tells Kubernetes whether a container should be restarted.
+            </p>
+            <pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+data:
+  APP_MODE: learning
+  LOG_LEVEL: info
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: web-secret
+type: Opaque
+stringData:
+  API_KEY: change-me</code></pre>
+            <h4>Using config in a Deployment</h4>
+            <pre><code>envFrom:
+  - configMapRef:
+      name: web-config
+  - secretRef:
+      name: web-secret</code></pre>
+            <h4>Probes in plain language</h4>
+            <ul>
+              <li>Readiness: "Should this Pod receive traffic right now?"</li>
+              <li>Liveness: "Is this container stuck badly enough that Kubernetes should restart it?"</li>
+              <li>Startup: "Give this slow-starting app more time before liveness checks begin."</li>
+            </ul>
+            <pre><code>readinessProbe:
+  httpGet:
+    path: /
+    port: 80
+  initialDelaySeconds: 5
+  periodSeconds: 10</code></pre>
+            <p class="example">
+              Common mistake: putting every setting in the container image. Build the image once, then use ConfigMaps,
+              Secrets, and environment-specific manifests to change runtime behavior.
+            </p>
+          </article>
+
+          <article class="lecture-note">
+            <h3>Lecture 7: Debugging and the full deployment story</h3>
+            <h4>Learning objectives</h4>
+            <ul>
+              <li>Build a first-response debugging routine.</li>
+              <li>Recognize common Pod failure states.</li>
+              <li>Explain the complete path from YAML to running app.</li>
+            </ul>
+            <p>
+              When something breaks, start by asking Kubernetes what it sees. Use <code>kubectl get</code> for status,
+              <code>kubectl describe</code> for events and details, and <code>kubectl logs</code> for application output.
+              Common beginner failures include bad image names, missing environment variables, failing probes, insufficient
+              resources, and Services selecting the wrong Pods.
+            </p>
+            <p>
+              The full story is this: you write desired state in YAML, apply it through the API Server, Kubernetes stores
+              it, controllers notice what needs to exist, the Scheduler places Pods on nodes, kubelets run containers, and
+              Services give stable network access to those Pods.
+            </p>
+            <h4>Debugging routine</h4>
+            <pre><code>kubectl get pods
+kubectl describe pod &lt;pod-name&gt;
+kubectl logs &lt;pod-name&gt;
+kubectl get events --sort-by=.lastTimestamp
+kubectl get deploy,rs,pod,svc
+kubectl describe svc &lt;service-name&gt;</code></pre>
+            <h4>Common statuses</h4>
+            <ul>
+              <li><code>ImagePullBackOff</code>: Kubernetes cannot pull the image. Check image name, tag, registry, and credentials.</li>
+              <li><code>CrashLoopBackOff</code>: the container starts, crashes, and restarts repeatedly. Check logs and command arguments.</li>
+              <li><code>Pending</code>: the Pod has not been scheduled. Check resources, node availability, taints, and storage claims.</li>
+              <li><code>Running but not ready</code>: the container is alive, but readiness checks are failing.</li>
+            </ul>
+            <h4>Final story to memorize</h4>
+            <p>
+              You write YAML that describes desired state. <code>kubectl</code> sends it to the API Server. The API Server
+              stores it in <code>etcd</code>. Controllers create the needed child objects. The Scheduler assigns Pods to
+              nodes. Kubelets start containers. Services and Ingress route traffic. Probes and controllers keep checking
+              whether reality still matches the desired state.
+            </p>
+            <p class="example">
+              If you can explain Pod, Deployment, Service, ConfigMap, Secret, Volume, probe, and rollout, you have the
+              foundation needed to keep learning Kubernetes without feeling lost.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="cluster">
+        <div class="section-title">
+          <h2>How a cluster thinks</h2>
+          <p>Click a role to highlight where it lives. Keep this picture in your head while learning commands.</p>
+        </div>
+        <div class="cluster-stage">
+          <div class="cluster-controls" aria-label="Cluster role controls">
+            <button class="cluster-button active" type="button" data-highlight="api">API Server: front door</button>
+            <button class="cluster-button" type="button" data-highlight="scheduler">Scheduler: chooses nodes</button>
+            <button class="cluster-button" type="button" data-highlight="controller">Controllers: repair drift</button>
+            <button class="cluster-button" type="button" data-highlight="etcd">etcd: cluster memory</button>
+            <button class="cluster-button" type="button" data-highlight="kubelet">Kubelet: node agent</button>
+            <button class="cluster-button" type="button" data-highlight="pod">Pods: your workloads</button>
+          </div>
+
+          <div>
+            <div class="cluster-diagram" aria-label="Kubernetes cluster diagram">
+              <div class="control-plane">
+                <p class="plane-title">Control plane</p>
+                <div class="component-row">
+                  <div class="component highlight" data-part="api"><strong>API Server</strong><span>Receives kubectl and app requests</span></div>
+                  <div class="component" data-part="scheduler"><strong>Scheduler</strong><span>Places Pods on nodes</span></div>
+                  <div class="component" data-part="controller"><strong>Controllers</strong><span>Keep reality matching YAML</span></div>
+                  <div class="component" data-part="etcd"><strong>etcd</strong><span>Stores cluster state</span></div>
+                </div>
+              </div>
+
+              <div class="node-row">
+                <div class="node" data-part="kubelet">
+                  <strong>Worker node A</strong>
+                  <span>kubelet + runtime</span>
+                  <div class="pods">
+                    <div class="pod" data-part="pod"><span>web</span><code>10.1.0.8</code></div>
+                    <div class="pod" data-part="pod"><span>web</span><code>10.1.0.9</code></div>
+                  </div>
+                </div>
+                <div class="node" data-part="kubelet">
+                  <strong>Worker node B</strong>
+                  <span>kubelet + runtime</span>
+                  <div class="pods">
+                    <div class="pod" data-part="pod"><span>api</span><code>10.1.1.4</code></div>
+                    <div class="pod" data-part="pod"><span>api</span><code>10.1.1.5</code></div>
+                  </div>
+                </div>
+                <div class="node" data-part="kubelet">
+                  <strong>Worker node C</strong>
+                  <span>kubelet + runtime</span>
+                  <div class="pods">
+                    <div class="pod" data-part="pod"><span>db</span><code>10.1.2.3</code></div>
+                    <div class="pod" data-part="pod"><span>job</span><code>10.1.2.7</code></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="caption" id="clusterCaption">The API Server is the front door. Every command and controller action goes through it.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="plan">
+        <div class="section-title">
+          <h2>Seven-day lecture plan</h2>
+          <p>Each day is designed for about 90 to 150 minutes: one lecture block, one hands-on lab, and one checkpoint.</p>
+        </div>
+
+        <div class="day-tabs" role="tablist" aria-label="Daily lesson tabs">
+          <button class="day-tab active" type="button" data-day-tab="0">Day 1</button>
+          <button class="day-tab" type="button" data-day-tab="1">Day 2</button>
+          <button class="day-tab" type="button" data-day-tab="2">Day 3</button>
+          <button class="day-tab" type="button" data-day-tab="3">Day 4</button>
+          <button class="day-tab" type="button" data-day-tab="4">Day 5</button>
+          <button class="day-tab" type="button" data-day-tab="5">Day 6</button>
+          <button class="day-tab" type="button" data-day-tab="6">Day 7</button>
+        </div>
+
+        <article class="lesson-card" id="lessonCard" aria-live="polite"></article>
+      </section>
+
+      <section id="labs">
+        <div class="section-title">
+          <h2>Hands-on labs</h2>
+          <p>Use Minikube, Kind, Docker Desktop Kubernetes, or any disposable learning cluster.</p>
+        </div>
+        <div class="lab-grid">
+          <article class="lab">
+            <h3>Lab 1: run something</h3>
+            <p>Create a Deployment, expose it, and open it locally.</p>
+            <pre class="command-block"><code>kubectl create deployment hello --image=nginx
+kubectl expose deployment hello --port=80 --type=NodePort
+kubectl get pods,svc</code></pre>
+          </article>
+          <article class="lab">
+            <h3>Lab 2: scale and heal</h3>
+            <p>Ask Kubernetes for three copies, delete one, and watch it come back.</p>
+            <pre class="command-block"><code>kubectl scale deployment hello --replicas=3
+kubectl get pods -w
+kubectl delete pod &lt;one-pod-name&gt;</code></pre>
+          </article>
+          <article class="lab">
+            <h3>Lab 3: inspect a failure</h3>
+            <p>Break an image name, read the events, fix it, and explain the status.</p>
+            <pre class="command-block"><code>kubectl set image deployment/hello nginx=nginx:badtag
+kubectl describe pod &lt;new-pod-name&gt;
+kubectl rollout undo deployment/hello</code></pre>
+          </article>
+        </div>
+      </section>
+
+      <section id="terms">
+        <div class="section-title">
+          <h2>Vocabulary you will actually use</h2>
+          <p>Short definitions beat memorizing documentation pages on week one.</p>
+        </div>
+        <article class="terms">
+          <h3>Core terms</h3>
+          <div class="term-grid">
+            <div class="term"><strong>Manifest</strong><span>A YAML file that describes desired cluster state.</span></div>
+            <div class="term"><strong>Namespace</strong><span>A named boundary for organizing resources inside one cluster.</span></div>
+            <div class="term"><strong>ReplicaSet</strong><span>The lower-level object that keeps a number of matching Pods alive.</span></div>
+            <div class="term"><strong>ConfigMap</strong><span>Non-secret configuration mounted into Pods or exposed as environment variables.</span></div>
+            <div class="term"><strong>Secret</strong><span>Sensitive values stored separately from app images and manifests.</span></div>
+            <div class="term"><strong>Ingress</strong><span>HTTP routing from outside the cluster to Services inside the cluster.</span></div>
+            <div class="term"><strong>Probe</strong><span>A health check Kubernetes uses to know whether a container is ready or alive.</span></div>
+            <div class="term"><strong>Resource limit</strong><span>A CPU or memory boundary that stops one workload from consuming too much.</span></div>
+            <div class="term"><strong>Rollout</strong><span>A controlled update from one version of a Deployment to another.</span></div>
+          </div>
+        </article>
+      </section>
+
+      <section id="quiz">
+        <div class="section-title">
+          <h2>Checkpoint quiz</h2>
+          <p>Answer without searching first. Getting these right means the foundation is landing.</p>
+        </div>
+        <article class="quiz">
+          <h3>Beginner Kubernetes check</h3>
+          <form class="quiz-form" id="quizForm">
+            <div class="question">
+              <strong>1. What is the smallest unit Kubernetes schedules?</strong>
+              <label class="option"><input type="radio" name="q1" value="node"> Node</label>
+              <label class="option"><input type="radio" name="q1" value="pod"> Pod</label>
+              <label class="option"><input type="radio" name="q1" value="image"> Image</label>
+            </div>
+            <div class="question">
+              <strong>2. Why do we usually use a Service?</strong>
+              <label class="option"><input type="radio" name="q2" value="storage"> To store files permanently</label>
+              <label class="option"><input type="radio" name="q2" value="network"> To give changing Pods a stable network address</label>
+              <label class="option"><input type="radio" name="q2" value="build"> To build container images</label>
+            </div>
+            <div class="question">
+              <strong>3. What does a Deployment mainly manage?</strong>
+              <label class="option"><input type="radio" name="q3" value="replicas"> Replica count and rollout of Pods</label>
+              <label class="option"><input type="radio" name="q3" value="dns"> External DNS ownership</label>
+              <label class="option"><input type="radio" name="q3" value="hardware"> Physical server purchases</label>
+            </div>
+            <div class="question">
+              <strong>4. Where do you look first when a Pod is not starting?</strong>
+              <label class="option"><input type="radio" name="q4" value="events"> kubectl describe pod and events</label>
+              <label class="option"><input type="radio" name="q4" value="logo"> The Kubernetes logo</label>
+              <label class="option"><input type="radio" name="q4" value="browser"> Browser cache settings</label>
+            </div>
+            <button class="primary-button" type="submit">Grade quiz</button>
+            <div class="result" id="quizResult">Your score will appear here.</div>
+          </form>
+        </article>
+      </section>
+
+      <section id="capstone">
+        <div class="section-title">
+          <h2>End-of-week target</h2>
+          <p>By day 7, you should be able to explain and demo a small app like this.</p>
+        </div>
+        <div class="exam-grid">
+          <article class="exam-card">
+            <h3>Capstone build</h3>
+            <ul class="task-list">
+              <li><span class="dot">1</span><span>Deploy a web app with two replicas.</span></li>
+              <li><span class="dot">2</span><span>Expose it with a Service and, optionally, an Ingress.</span></li>
+              <li><span class="dot">3</span><span>Add a ConfigMap and prove the app reads it.</span></li>
+              <li><span class="dot">4</span><span>Run a rollout update and undo it.</span></li>
+              <li><span class="dot">5</span><span>Show logs, describe output, events, and resource status.</span></li>
+            </ul>
+          </article>
+          <article class="exam-card">
+            <h3>Explain it out loud</h3>
+            <p>
+              "I wrote desired state in YAML. The API Server stored it. Controllers noticed the desired
+              Pods did not exist, the Scheduler placed them on nodes, kubelets ran containers, and a
+              Service gave users a stable way to reach them."
+            </p>
+            <pre class="command-block"><code>kubectl apply -f app.yaml
+kubectl get deploy,pod,svc
+kubectl logs deploy/my-app
+kubectl rollout status deploy/my-app</code></pre>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      Built for a first Kubernetes week: understand the model, practice commands, then ship a tiny system.
+    </footer>
+  </div>
+
+  <script>
+    const lessons = [
+      {
+        title: "Day 1: Containers, clusters, and why Kubernetes exists",
+        time: "90 min",
+        outcome: "You can explain containers, nodes, clusters, and the control plane.",
+        topics: [
+          "What a container image is and why it makes apps portable",
+          "The difference between Docker and Kubernetes",
+          "Cluster vocabulary: node, control plane, worker, workload",
+          "Install kubectl and choose a local cluster tool"
+        ],
+        lab: "Start a local cluster and run kubectl get nodes.",
+        command: "kubectl version --client\nkubectl get nodes\nkubectl cluster-info",
+        checkpoint: "Explain why Kubernetes is useful when one container becomes many containers."
+      },
+      {
+        title: "Day 2: Pods and YAML manifests",
+        time: "120 min",
+        outcome: "You can read and apply a simple Pod manifest.",
+        topics: [
+          "Pod lifecycle: Pending, Running, Succeeded, Failed, CrashLoopBackOff",
+          "YAML shape: apiVersion, kind, metadata, spec",
+          "Images, ports, environment variables, and labels",
+          "kubectl apply, get, describe, logs, and delete"
+        ],
+        lab: "Create a Pod from YAML, inspect it, view logs, then delete it.",
+        command: "kubectl apply -f pod.yaml\nkubectl get pods\nkubectl describe pod demo\nkubectl logs demo",
+        checkpoint: "Describe a Pod without using the phrase virtual machine."
+      },
+      {
+        title: "Day 3: Deployments and Services",
+        time: "150 min",
+        outcome: "You can run multiple app copies and reach them through one stable name.",
+        topics: [
+          "Why raw Pods are rarely enough",
+          "Deployments, ReplicaSets, replicas, and rolling updates",
+          "Service selectors and stable networking",
+          "ClusterIP, NodePort, and LoadBalancer in beginner terms"
+        ],
+        lab: "Deploy nginx, scale it to three replicas, expose it, and delete a Pod.",
+        command: "kubectl create deployment web --image=nginx\nkubectl scale deploy/web --replicas=3\nkubectl expose deploy/web --port=80\nkubectl get deploy,rs,pod,svc",
+        checkpoint: "Explain why deleting one Pod does not delete the app."
+      },
+      {
+        title: "Day 4: Configuration, secrets, and storage",
+        time: "120 min",
+        outcome: "You can separate app code from environment-specific settings.",
+        topics: [
+          "Environment variables from ConfigMaps",
+          "When to use Secrets and what they do not magically solve",
+          "Volumes, PersistentVolumes, and PersistentVolumeClaims",
+          "Why stateful systems are harder than stateless systems"
+        ],
+        lab: "Create a ConfigMap and mount it into a Deployment.",
+        command: "kubectl create configmap app-config --from-literal=MODE=learning\nkubectl set env deployment/web --from=configmap/app-config\nkubectl describe deploy web",
+        checkpoint: "Name one thing that belongs in a ConfigMap and one thing that belongs in a Secret."
+      },
+      {
+        title: "Day 5: Networking and traffic flow",
+        time: "150 min",
+        outcome: "You can trace a request from a user to a container.",
+        topics: [
+          "Pod IPs, Service IPs, labels, and selectors",
+          "Built-in DNS names for Services",
+          "Ingress as HTTP routing, not a Service replacement",
+          "Common port fields: port, targetPort, nodePort, containerPort"
+        ],
+        lab: "Connect two Deployments through a Service name.",
+        command: "kubectl run curl --image=curlimages/curl -it --rm -- sh\ncurl http://web.default.svc.cluster.local",
+        checkpoint: "Explain why app code should call a Service name instead of a Pod IP."
+      },
+      {
+        title: "Day 6: Debugging and operations",
+        time: "150 min",
+        outcome: "You can diagnose common beginner failures.",
+        topics: [
+          "Events, logs, describe output, and rollout status",
+          "ImagePullBackOff, CrashLoopBackOff, Pending, and OOMKilled",
+          "Readiness and liveness probes",
+          "CPU and memory requests and limits"
+        ],
+        lab: "Break an image tag, inspect the error, then undo the rollout.",
+        command: "kubectl set image deploy/web nginx=nginx:does-not-exist\nkubectl rollout status deploy/web\nkubectl describe pod <pod-name>\nkubectl rollout undo deploy/web",
+        checkpoint: "List your first three commands when a Deployment is unhealthy."
+      },
+      {
+        title: "Day 7: Capstone and review",
+        time: "180 min",
+        outcome: "You can deploy, expose, scale, update, debug, and explain a small app.",
+        topics: [
+          "Write one clean manifest for a Deployment and Service",
+          "Add configuration and health checks",
+          "Perform a rollout update and rollback",
+          "Teach the cluster story back in your own words"
+        ],
+        lab: "Build a tiny app deployment from scratch and demo it.",
+        command: "kubectl apply -f app.yaml\nkubectl get all\nkubectl rollout restart deploy/my-app\nkubectl logs deploy/my-app",
+        checkpoint: "Give a five-minute explanation of the full request path and control loop."
+      }
+    ];
+
+    const captions = {
+      api: "The API Server is the front door. Every command and controller action goes through it.",
+      scheduler: "The Scheduler watches for unscheduled Pods and chooses a worker node for them.",
+      controller: "Controllers compare desired state with real state and keep repairing drift.",
+      etcd: "etcd stores the cluster's source of truth: objects, configuration, and state.",
+      kubelet: "The kubelet runs on each node and makes sure assigned Pods are actually running.",
+      pod: "Pods are where your containers run. They are replaceable, so do not treat them like pets."
+    };
+
+    const lessonCard = document.getElementById("lessonCard");
+    const dayTabs = document.querySelectorAll(".day-tab");
+    const checks = document.querySelectorAll(".check");
+    const progressRing = document.getElementById("progressRing");
+    const progressText = document.getElementById("progressText");
+    const resetProgress = document.getElementById("resetProgress");
+    const progressKey = "kubernetes-week-progress";
+
+    function renderLesson(index) {
+      const lesson = lessons[index];
+      lessonCard.innerHTML = `
+        <div class="lesson-layout">
+          <div>
+            <h3>${lesson.title}</h3>
+            <div class="lesson-meta">
+              <span class="pill">${lesson.time}</span>
+              <span class="pill">${lesson.outcome}</span>
+            </div>
+            <ul class="topic-list">
+              ${lesson.topics.map((topic, topicIndex) => `<li><span class="dot">${topicIndex + 1}</span><span>${topic}</span></li>`).join("")}
+            </ul>
+            <pre class="command-block"><code>${lesson.command}</code></pre>
+          </div>
+          <aside class="side-note">
+            <h4>Lab</h4>
+            <p>${lesson.lab}</p>
+            <h4>Checkpoint</h4>
+            <p>${lesson.checkpoint}</p>
+          </aside>
+        </div>
+      `;
+    }
+
+    dayTabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const index = Number(tab.dataset.dayTab);
+        dayTabs.forEach((item) => item.classList.remove("active"));
+        tab.classList.add("active");
+        renderLesson(index);
+      });
+    });
+
+    function getStoredProgress() {
+      try {
+        return JSON.parse(localStorage.getItem(progressKey)) || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveProgress() {
+      const state = {};
+      checks.forEach((check) => {
+        state[check.dataset.day] = check.checked;
+      });
+      localStorage.setItem(progressKey, JSON.stringify(state));
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const completed = Array.from(checks).filter((check) => check.checked).length;
+      const percent = Math.round((completed / checks.length) * 100);
+      progressRing.style.setProperty("--progress", percent);
+      progressText.textContent = `${percent}%`;
+    }
+
+    function restoreProgress() {
+      const state = getStoredProgress();
+      checks.forEach((check) => {
+        check.checked = Boolean(state[check.dataset.day]);
+        check.addEventListener("change", saveProgress);
+      });
+      updateProgress();
+    }
+
+    resetProgress.addEventListener("click", () => {
+      localStorage.removeItem(progressKey);
+      checks.forEach((check) => {
+        check.checked = false;
+      });
+      updateProgress();
+    });
+
+    document.querySelectorAll(".cluster-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const target = button.dataset.highlight;
+        document.querySelectorAll(".cluster-button").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        document.querySelectorAll("[data-part]").forEach((part) => {
+          part.classList.toggle("highlight", part.dataset.part === target);
+        });
+        document.getElementById("clusterCaption").textContent = captions[target];
+      });
+    });
+
+    document.getElementById("quizForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const answers = new FormData(event.currentTarget);
+      const correct = {
+        q1: "pod",
+        q2: "network",
+        q3: "replicas",
+        q4: "events"
+      };
+      const score = Object.entries(correct).filter(([key, value]) => answers.get(key) === value).length;
+      const result = document.getElementById("quizResult");
+      result.textContent = `Score: ${score}/4. ${score === 4 ? "Excellent. Your foundation is ready for the capstone." : "Review the mental map and try again."}`;
+    });
+
+    renderLesson(0);
+    restoreProgress();
+  </script>
+</body>
+</html>

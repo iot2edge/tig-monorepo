@@ -9,14 +9,12 @@ pub fn solve_challenge(
     Err(anyhow::anyhow!("This algorithm is no longer compatible."))
 }
 
-
 // Old code that is no longer compatible
 #[cfg(none)]
 mod dead_code {
-    use std::collections::BTreeSet;
     use serde_json::{Map, Value};
+    use std::collections::BTreeSet;
     use tig_challenges::vehicle_routing::*;
-
 
     mod utils {
 
@@ -78,8 +76,8 @@ mod dead_code {
                     if new_arrival_time > due_times[insert_node] {
                         continue;
                     }
-                    let old_arrival_time =
-                        ready_times[next_node].max(curr_time + distance_matrix[curr_node][next_node]);
+                    let old_arrival_time = ready_times[next_node]
+                        .max(curr_time + distance_matrix[curr_node][next_node]);
 
                     let c11 = distance_matrix[curr_node][insert_node]
                         + distance_matrix[insert_node][next_node]
@@ -297,7 +295,10 @@ mod dead_code {
             true
         }
 
-        pub fn calculate_route_distance(route: &Vec<usize>, distance_matrix: &Vec<Vec<i32>>) -> i32 {
+        pub fn calculate_route_distance(
+            route: &Vec<usize>,
+            distance_matrix: &Vec<Vec<i32>>,
+        ) -> i32 {
             let mut distance = 0;
             for i in 0..route.len() - 1 {
                 distance += distance_matrix[route[i]][route[i + 1]];
@@ -310,11 +311,11 @@ mod dead_code {
         use super::utils::*;
         use super::*;
 
-    pub fn solve_challenge(
-        challenge: &Challenge,
-        save_solution: &dyn Fn(&Solution) -> anyhow::Result<()>,
-        hyperparameters: &Option<Map<String, Value>>,
-    ) -> anyhow::Result<()> {
+        pub fn solve_challenge(
+            challenge: &Challenge,
+            save_solution: &dyn Fn(&Solution) -> anyhow::Result<()>,
+            hyperparameters: &Option<Map<String, Value>>,
+        ) -> anyhow::Result<()> {
             let num_nodes = challenge.difficulty.num_nodes;
             let max_capacity = challenge.max_capacity;
             let demands = &challenge.demands;
@@ -453,7 +454,9 @@ mod dead_code {
                     ) {
                         let mut new_routes = best_routes.clone();
 
-                        if new_routes[route1_idx].len() > pos1 && new_routes[route1_idx][pos1] == node {
+                        if new_routes[route1_idx].len() > pos1
+                            && new_routes[route1_idx][pos1] == node
+                        {
                             new_routes[route1_idx].remove(pos1);
                             new_routes[route2_idx].insert(best_pos, node);
 
@@ -474,7 +477,8 @@ mod dead_code {
                                         route_demands[route1_idx] -= demands[node];
                                         route_demands[route2_idx] += demands[node];
                                         for (i, route) in best_routes.iter().enumerate() {
-                                            for (j, &n) in route[1..route.len() - 1].iter().enumerate()
+                                            for (j, &n) in
+                                                route[1..route.len() - 1].iter().enumerate()
                                             {
                                                 node_positions[n] = (i, j + 1);
                                             }
@@ -752,7 +756,9 @@ mod dead_code {
                     ) {
                         let mut new_routes = best_routes.clone();
 
-                        if new_routes[route1_idx].len() > pos1 && new_routes[route1_idx][pos1] == node {
+                        if new_routes[route1_idx].len() > pos1
+                            && new_routes[route1_idx][pos1] == node
+                        {
                             new_routes[route1_idx].remove(pos1);
                             new_routes[route2_idx].insert(best_pos, node);
 
@@ -773,7 +779,8 @@ mod dead_code {
                                         route_demands[route1_idx] -= demands[node];
                                         route_demands[route2_idx] += demands[node];
                                         for (i, route) in best_routes.iter().enumerate() {
-                                            for (j, &n) in route[1..route.len() - 1].iter().enumerate()
+                                            for (j, &n) in
+                                                route[1..route.len() - 1].iter().enumerate()
                                             {
                                                 node_positions[n] = (i, j + 1);
                                             }
@@ -917,7 +924,10 @@ mod dead_code {
 
                                         let old_distance =
                                             calculate_route_distance(&route1, distance_matrix)
-                                                + calculate_route_distance(&route2, distance_matrix);
+                                                + calculate_route_distance(
+                                                    &route2,
+                                                    distance_matrix,
+                                                );
                                         let new_distance =
                                             calculate_route_distance(&new_route1, distance_matrix)
                                                 + calculate_route_distance(
@@ -1035,7 +1045,9 @@ mod dead_code {
                                 if let Some(pos) = best_insertion_pos {
                                     let mut new_route = route1.clone();
 
-                                    for (idx, &node) in route2[1..route2.len() - 1].iter().enumerate() {
+                                    for (idx, &node) in
+                                        route2[1..route2.len() - 1].iter().enumerate()
+                                    {
                                         new_route.insert(pos + idx, node);
                                     }
 

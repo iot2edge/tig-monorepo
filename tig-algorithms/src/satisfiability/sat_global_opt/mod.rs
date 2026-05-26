@@ -1,6 +1,9 @@
-use rand::{rngs::{SmallRng, StdRng}, Rng, SeedableRng};
-use std::collections::HashMap;
+use rand::{
+    rngs::{SmallRng, StdRng},
+    Rng, SeedableRng,
+};
 use serde_json::{Map, Value};
+use std::collections::HashMap;
 use tig_challenges::satisfiability::*;
 
 pub fn solve_challenge(
@@ -8,8 +11,11 @@ pub fn solve_challenge(
     save_solution: &dyn Fn(&Solution) -> anyhow::Result<()>,
     hyperparameters: &Option<Map<String, Value>>,
 ) -> anyhow::Result<()> {
-    let _ = save_solution(&Solution { variables: vec![false; challenge.num_variables] });
-    let mut rng = SmallRng::seed_from_u64(u64::from_le_bytes(challenge.seed[..8].try_into().unwrap()) as u64);
+    let _ = save_solution(&Solution {
+        variables: vec![false; challenge.num_variables],
+    });
+    let mut rng =
+        SmallRng::seed_from_u64(u64::from_le_bytes(challenge.seed[..8].try_into().unwrap()) as u64);
 
     let mut p_single = vec![false; challenge.num_variables];
     let mut n_single = vec![false; challenge.num_variables];
@@ -151,7 +157,6 @@ pub fn solve_challenge(
         }
     }
 
-
     let mut residual_ = Vec::with_capacity(num_clauses);
     let mut residual_indices = vec![None; num_clauses];
 
@@ -170,7 +175,6 @@ pub fn solve_challenge(
     let max_num_rounds = ((max_fuel - base_fuel) / flip_fuel) as usize;
     loop {
         if !residual_.is_empty() {
-            
             let rand_val = rng.gen::<usize>();
 
             let i = residual_[rand_val % residual_.len()];
@@ -184,15 +188,19 @@ pub fn solve_challenge(
             }
             for &l in c.iter() {
                 let abs_l = l.abs() as usize - 1;
-                let clauses_to_check = if variables[abs_l] { &p_clauses[abs_l] } else { &n_clauses[abs_l] };
-                
+                let clauses_to_check = if variables[abs_l] {
+                    &p_clauses[abs_l]
+                } else {
+                    &n_clauses[abs_l]
+                };
+
                 let mut sad = 0;
                 for &c in clauses_to_check {
                     if num_good_so_far[c] == 1 {
                         sad += 1;
                     }
                 }
-            
+
                 if sad < min_sad {
                     min_sad = sad;
                     v_min_sad = abs_l;

@@ -6,11 +6,11 @@ use serde_json::{Map, Value};
 use std::sync::Arc;
 use tig_challenges::hypergraph::*;
 
+mod track_100k;
 mod track_10k;
+mod track_200k;
 mod track_20k;
 mod track_50k;
-mod track_100k;
-mod track_200k;
 
 pub fn solve_challenge(
     challenge: &Challenge,
@@ -19,7 +19,7 @@ pub fn solve_challenge(
     module: Arc<CudaModule>,
     stream: Arc<CudaStream>,
     prop: &cudaDeviceProp,
-) -> anyhow::Result<()> {    
+) -> anyhow::Result<()> {
     let dummy_partition: Vec<u32> = (0..challenge.num_nodes as u32)
         .map(|i| i % challenge.num_parts as u32)
         .collect();
@@ -28,12 +28,54 @@ pub fn solve_challenge(
     })?;
 
     match challenge.num_hyperedges {
-        10000 => track_10k::solve(challenge, save_solution, hyperparameters, module, stream, prop),
-        20000 => track_20k::solve(challenge, save_solution, hyperparameters, module, stream, prop),
-        50000 => track_50k::solve(challenge, save_solution, hyperparameters, module, stream, prop),
-        100000 => track_100k::solve(challenge, save_solution, hyperparameters, module, stream, prop),
-        200000 => track_200k::solve(challenge, save_solution, hyperparameters, module, stream, prop),
-        _ => track_10k::solve(challenge, save_solution, hyperparameters, module, stream, prop),
+        10000 => track_10k::solve(
+            challenge,
+            save_solution,
+            hyperparameters,
+            module,
+            stream,
+            prop,
+        ),
+        20000 => track_20k::solve(
+            challenge,
+            save_solution,
+            hyperparameters,
+            module,
+            stream,
+            prop,
+        ),
+        50000 => track_50k::solve(
+            challenge,
+            save_solution,
+            hyperparameters,
+            module,
+            stream,
+            prop,
+        ),
+        100000 => track_100k::solve(
+            challenge,
+            save_solution,
+            hyperparameters,
+            module,
+            stream,
+            prop,
+        ),
+        200000 => track_200k::solve(
+            challenge,
+            save_solution,
+            hyperparameters,
+            module,
+            stream,
+            prop,
+        ),
+        _ => track_10k::solve(
+            challenge,
+            save_solution,
+            hyperparameters,
+            module,
+            stream,
+            prop,
+        ),
     }
 }
 

@@ -128,8 +128,7 @@ pub fn perturb_by_strategy(
     let strength_scaled = strength + (selected.len() / 40);
     let n_remove = (base_remove * adaptive_mult)
         .min(
-            ((selected.len() / if stall_count >= 4 { 12 } else { 16 }).max(1))
-                .max(strength_scaled),
+            ((selected.len() / if stall_count >= 4 { 12 } else { 16 }).max(1)).max(strength_scaled),
         )
         .min(selected.len() / 3);
 
@@ -166,7 +165,9 @@ pub fn perturb_by_strategy(
                 (state.contrib[i] as i64 * 1000) / (w as i64).max(1)
                     + (state.support[i] as i64) * 200
             }
-            5 => (state.support[i] as i64) * 500 - (w as i64) * 220 + (state.contrib[i] as i64) / 50,
+            5 => {
+                (state.support[i] as i64) * 500 - (w as i64) * 220 + (state.contrib[i] as i64) / 50
+            }
             _ => (state.contrib[i] as i64) - (state.usage[i] as i64) * 50,
         };
 
@@ -262,8 +263,7 @@ pub fn perturb_by_strategy(
                         + (state.support[i] as i64) * 200
                 }
                 5 => {
-                    (state.support[i] as i64) * 500
-                        - (w as i64) * 220
+                    (state.support[i] as i64) * 500 - (w as i64) * 220
                         + (state.contrib[i] as i64) / 50
                 }
                 _ => (state.contrib[i] as i64) - (state.usage[i] as i64) * 50,
@@ -497,7 +497,13 @@ pub fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
         hubs_all.push((s, i));
     }
     hubs_all.sort_unstable_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
-    let hubs_k: usize = if n >= 4500 { 320 } else if n >= 2500 { 256 } else { 192 };
+    let hubs_k: usize = if n >= 4500 {
+        320
+    } else if n >= 2500 {
+        256
+    } else {
+        192
+    };
     let hubs_static: Vec<usize> = hubs_all
         .into_iter()
         .take(hubs_k.min(n))
@@ -505,11 +511,23 @@ pub fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
         .collect();
 
     let mut n_starts: usize = if n <= 600 {
-        if hard { 4 } else { 3 }
+        if hard {
+            4
+        } else {
+            3
+        }
     } else if n <= 1500 {
-        if hard { 3 } else { 2 }
+        if hard {
+            3
+        } else {
+            2
+        }
     } else if n >= 2500 {
-        if hard { 4 } else { 3 }
+        if hard {
+            4
+        } else {
+            3
+        }
     } else {
         2
     };
@@ -576,8 +594,7 @@ pub fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
         let mut best_new_val = base_val;
 
         {
-            let mut hyb =
-                State::new_empty(challenge, &total_pre, &hubs_static, neigh_pre.as_ref());
+            let mut hyb = State::new_empty(challenge, &total_pre, &hubs_static, neigh_pre.as_ref());
             {
                 let b1 = best.as_ref().unwrap();
                 let b2 = second.as_ref().unwrap();
@@ -622,8 +639,7 @@ pub fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
         };
 
         if union_cnt > 0 && (inter_cnt * 100) / union_cnt <= 85 {
-            let mut hyb =
-                State::new_empty(challenge, &total_pre, &hubs_static, neigh_pre.as_ref());
+            let mut hyb = State::new_empty(challenge, &total_pre, &hubs_static, neigh_pre.as_ref());
             {
                 let b1 = best.as_ref().unwrap();
                 let b2 = second.as_ref().unwrap();
@@ -776,8 +792,7 @@ pub fn run_one_instance(challenge: &Challenge, params: &Params) -> Solution {
             stall_count += 1;
 
             let strategy = perturbation_round % 7;
-            let strength =
-                params.perturbation_strength_base + (perturbation_round as usize) / 2;
+            let strength = params.perturbation_strength_base + (perturbation_round as usize) / 2;
             perturb_by_strategy(&mut state, &mut rng, strength, stall_count, strategy);
             greedy_reconstruct(&mut state, &mut rng, strategy);
             rebuild_windows(&mut state);

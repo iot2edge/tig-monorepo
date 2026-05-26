@@ -263,6 +263,21 @@ pub use knap_quality_opt as c003_a115;
 pub mod near_knap_v4;
 pub use near_knap_v4 as c003_a120;
 
+pub mod near_knap_v5;
+
+pub mod knap_fast;
+
+pub mod knap_apex;
+
+pub mod near_knap_zenith;
+pub use near_knap_zenith as c003_a200;
+
+pub mod near_knap_summit;
+pub use near_knap_summit as c003_a201;
+
+pub mod near_knap_v6;
+pub use near_knap_v6 as c003_a202;
+
 // c003_a121
 
 // c003_a122

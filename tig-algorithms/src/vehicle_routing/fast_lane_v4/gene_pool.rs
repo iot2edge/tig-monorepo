@@ -1,5 +1,5 @@
-use super::instance::Instance;
 use super::config::Config;
+use super::instance::Instance;
 use super::solution::Individual;
 use rand::rngs::SmallRng;
 use rand::Rng;
@@ -45,7 +45,11 @@ impl<'a> GenePool<'a> {
 
     pub fn add(&mut self, ind: Individual, params: &Config) {
         let is_feasible = ind.load_excess == 0 && ind.tw_violation == 0;
-        let sub = if is_feasible { &mut self.feasible } else { &mut self.infeasible };
+        let sub = if is_feasible {
+            &mut self.feasible
+        } else {
+            &mut self.infeasible
+        };
 
         let new_idx = sub.indivs.len();
         sub.indivs.push(ind);
@@ -72,20 +76,36 @@ impl<'a> GenePool<'a> {
         self.since_last_adapt += 1;
 
         if self.since_last_adapt == period {
-            let cap_ok = self.cap_window.iter().rev().take(period).filter(|&&b| b).count();
-            let tw_ok = self.tw_window.iter().rev().take(period).filter(|&&b| b).count();
+            let cap_ok = self
+                .cap_window
+                .iter()
+                .rev()
+                .take(period)
+                .filter(|&&b| b)
+                .count();
+            let tw_ok = self
+                .tw_window
+                .iter()
+                .rev()
+                .take(period)
+                .filter(|&&b| b)
+                .count();
             let frac_cap = (cap_ok as f64) / (period as f64);
             let frac_tw = (tw_ok as f64) / (period as f64);
 
             if frac_cap < params.target_ratio {
-                params.penalty_capa = (((params.penalty_capa as f64) * 1.3).ceil()).clamp(1.0, 10_000.0) as usize;
+                params.penalty_capa =
+                    (((params.penalty_capa as f64) * 1.3).ceil()).clamp(1.0, 10_000.0) as usize;
             } else {
-                params.penalty_capa = (((params.penalty_capa as f64) * 0.7).floor()).clamp(1.0, 10_000.0) as usize;
+                params.penalty_capa =
+                    (((params.penalty_capa as f64) * 0.7).floor()).clamp(1.0, 10_000.0) as usize;
             }
             if frac_tw < params.target_ratio {
-                params.penalty_tw = (((params.penalty_tw as f64) * 1.3).ceil()).clamp(1.0, 10_000.0) as usize;
+                params.penalty_tw =
+                    (((params.penalty_tw as f64) * 1.3).ceil()).clamp(1.0, 10_000.0) as usize;
             } else {
-                params.penalty_tw = (((params.penalty_tw as f64) * 0.7).floor()).clamp(1.0, 10_000.0) as usize;
+                params.penalty_tw =
+                    (((params.penalty_tw as f64) * 0.7).floor()).clamp(1.0, 10_000.0) as usize;
             }
 
             self.since_last_adapt = 0;
@@ -133,7 +153,11 @@ impl<'a> GenePool<'a> {
         let (f2, i2, b2) = pick(rng);
 
         if b1 <= b2 {
-            if f1 { &self.feasible.indivs[i1] } else { &self.infeasible.indivs[i1] }
+            if f1 {
+                &self.feasible.indivs[i1]
+            } else {
+                &self.infeasible.indivs[i1]
+            }
         } else if f2 {
             &self.feasible.indivs[i2]
         } else {
@@ -171,7 +195,14 @@ impl<'a> GenePool<'a> {
         }
     }
 
-    pub fn print_trace(&self, _it_total: usize, _it_no_improve: usize, _elapsed_sec: f64, _params: &Config) {}
+    pub fn print_trace(
+        &self,
+        _it_total: usize,
+        _it_no_improve: usize,
+        _elapsed_sec: f64,
+        _params: &Config,
+    ) {
+    }
 
     fn worst_index_biased_with_clone_priority(sub: &Subpopulation) -> usize {
         const CLONE_EPS: f64 = 1e-6;

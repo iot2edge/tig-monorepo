@@ -1,6 +1,9 @@
 // TIG's UI uses the pattern `tig_challenges::vector_search` to automatically detect your algorithm's challenge
 use anyhow::Result;
-use cudarc::driver::{safe::{LaunchConfig, CudaModule, CudaStream}, PushKernelArg};
+use cudarc::driver::{
+    safe::{CudaModule, CudaStream, LaunchConfig},
+    PushKernelArg,
+};
 use cudarc::runtime::sys::cudaDeviceProp;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -13,7 +16,9 @@ pub struct Hyperparameters {
     pub db_batch_size: u32,
 }
 
-fn default_db_batch_size() -> u32 { 1024 }
+fn default_db_batch_size() -> u32 {
+    1024
+}
 
 impl Default for Hyperparameters {
     fn default() -> Self {
@@ -31,7 +36,8 @@ pub fn solve_challenge(
     stream: Arc<CudaStream>,
     _prop: &cudaDeviceProp,
 ) -> Result<()> {
-    let hps: Hyperparameters = hyperparameters.as_ref()
+    let hps: Hyperparameters = hyperparameters
+        .as_ref()
         .and_then(|m| serde_json::from_value(serde_json::Value::Object(m.clone())).ok())
         .unwrap_or_default();
 
@@ -70,7 +76,8 @@ pub fn solve_challenge(
         let is_first_batch_i: i32 = if batch_idx == 0 { 1 } else { 0 };
 
         unsafe {
-            stream.launch_builder(&search_func)
+            stream
+                .launch_builder(&search_func)
                 .arg(&challenge.d_query_vectors)
                 .arg(&challenge.d_database_vectors)
                 .arg(&mut d_results)
@@ -90,7 +97,11 @@ pub fn solve_challenge(
     let indexes: Vec<usize> = result_indices
         .iter()
         .map(|&idx| {
-            if idx < 0 || idx >= database_size as i32 { 0 } else { idx as usize }
+            if idx < 0 || idx >= database_size as i32 {
+                0
+            } else {
+                idx as usize
+            }
         })
         .collect();
 

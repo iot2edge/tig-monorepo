@@ -2,8 +2,8 @@ use anyhow::Result;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use tig_challenges::job_scheduling::*;
 
-use super::types::*;
 use super::infra::*;
+use super::types::*;
 
 pub fn solve(
     challenge: &Challenge,
@@ -34,7 +34,8 @@ pub fn solve(
     let target_margin: u32 =
         ((pre.avg_op_min * (0.9 + 0.9 * pre.high_flex + 0.6 * pre.jobshopness)).max(1.0)) as u32;
 
-    let route_w_base: f64 = (0.040 + 0.10 * pre.high_flex + 0.08 * pre.jobshopness).clamp(0.04, 0.22);
+    let route_w_base: f64 =
+        (0.040 + 0.10 * pre.high_flex + 0.08 * pre.jobshopness).clamp(0.04, 0.22);
 
     if pre.flow_route.is_some() && pre.flow_pt_by_job.is_some() {
         let (sol, mk) =
@@ -75,8 +76,11 @@ pub fn solve(
 
     let base = &ranked[0].2;
     let mut learned_jb = Some(job_bias_from_solution(pre, base)?);
-    let mut learned_mp =
-        Some(machine_penalty_from_solution(pre, base, challenge.num_machines)?);
+    let mut learned_mp = Some(machine_penalty_from_solution(
+        pre,
+        base,
+        challenge.num_machines,
+    )?);
     let mut learned_rp = Some(route_pref_from_solution_lite(pre, base, challenge)?);
     let mut learn_updates_left = 10usize;
 
@@ -139,8 +143,7 @@ pub fn solve(
         };
 
         let learn_base = (0.08 + 0.22 * pre.jobshopness + 0.18 * pre.high_flex).clamp(0.05, 0.42);
-        let learn_boost =
-            (1.0 + 0.35 * ((stuck as f64) / 120.0).clamp(0.0, 1.0)).clamp(1.0, 1.35);
+        let learn_boost = (1.0 + 0.35 * ((stuck as f64) / 120.0).clamp(0.0, 1.0)).clamp(1.0, 1.35);
         let learn_p = (learn_base * learn_boost).clamp(0.0, 0.60);
 
         let use_learn = learned_jb.is_some()
@@ -269,9 +272,9 @@ pub fn solve(
 
     for i in 0..ls_runs {
         let base_sol = &top_solutions[i].0;
-        if let Some((sol2, mk2)) =
-            critical_block_move_local_search_ex(pre, challenge, base_sol, ls_iters, ls_cands, ls_perturb)?
-        {
+        if let Some((sol2, mk2)) = critical_block_move_local_search_ex(
+            pre, challenge, base_sol, ls_iters, ls_cands, ls_perturb,
+        )? {
             if mk2 < best_makespan {
                 best_makespan = mk2;
                 best_solution = Some(sol2.clone());
@@ -280,7 +283,7 @@ pub fn solve(
             push_top_solutions(&mut top_solutions, &sol2, mk2, 25);
         }
     }
-    
+
     if let Some(ref sol) = best_solution {
         if let Some((improved_sol, improved_mk)) = greedy_reassign_pass(pre, challenge, sol)? {
             if improved_mk < best_makespan {
@@ -367,7 +370,10 @@ fn greedy_reassign_pass(
             }
 
             if best_m != cur_machine {
-                let old_pos = ds.machine_seq[cur_machine].iter().position(|&x| x == node).unwrap();
+                let old_pos = ds.machine_seq[cur_machine]
+                    .iter()
+                    .position(|&x| x == node)
+                    .unwrap();
                 ds.machine_seq[cur_machine].remove(old_pos);
                 ds.machine_seq[best_m].push(node);
                 ds.node_machine[node] = best_m;

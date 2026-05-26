@@ -1,7 +1,7 @@
+use super::helpers::*;
+use super::types::*;
 use anyhow::{anyhow, Result};
 use tig_challenges::job_scheduling::*;
-use super::types::*;
-use super::helpers::*;
 
 pub fn build_pre(challenge: &Challenge) -> Result<Pre> {
     let num_jobs = challenge.num_jobs;
@@ -178,7 +178,11 @@ pub fn build_pre(challenge: &Challenge) -> Result<Pre> {
             flow_cnt += 1;
         }
     }
-    let flow_like = if flow_cnt > 0 { (flow_sum / (flow_cnt as f64)).clamp(0.0, 1.0) } else { 0.5 };
+    let flow_like = if flow_cnt > 0 {
+        (flow_sum / (flow_cnt as f64)).clamp(0.0, 1.0)
+    } else {
+        0.5
+    };
     let jobshopness = (1.0 - flow_like).clamp(0.0, 1.0);
 
     let mut machine_weight = vec![1.0f64; num_machines];
@@ -202,7 +206,9 @@ pub fn build_pre(challenge: &Challenge) -> Result<Pre> {
         pop
     };
 
-    let bn_focus = ((3.0 / flex_avg).clamp(0.7, 2.6) * (1.0 + 0.55 * load_cv) * (0.85 + 0.55 * jobshopness)).clamp(0.6, 3.4);
+    let bn_focus =
+        ((3.0 / flex_avg).clamp(0.7, 2.6) * (1.0 + 0.55 * load_cv) * (0.85 + 0.55 * jobshopness))
+            .clamp(0.6, 3.4);
 
     let mut product_suf_min: Vec<Vec<u32>> = Vec::with_capacity(product_ops.len());
     let mut product_suf_avg: Vec<Vec<f64>> = Vec::with_capacity(product_ops.len());
@@ -241,7 +247,11 @@ pub fn build_pre(challenge: &Challenge) -> Result<Pre> {
             if i + 1 < n {
                 let next = &ops[i + 1];
                 nxt_m[i] = next.min_pt;
-                nxt_fi[i] = if next.flex > 0 { 1.0 / (next.flex as f64) } else { 0.0 };
+                nxt_fi[i] = if next.flex > 0 {
+                    1.0 / (next.flex as f64)
+                } else {
+                    0.0
+                };
             }
         }
 
@@ -254,7 +264,8 @@ pub fn build_pre(challenge: &Challenge) -> Result<Pre> {
         product_next_flex_inv.push(nxt_fi);
     }
 
-    let time_scale = (horizon * (2.65 + 0.15 * load_cv + 0.10 * jobshopness + 0.10 * high_flex)).max(1.0);
+    let time_scale =
+        (horizon * (2.65 + 0.15 * load_cv + 0.10 * jobshopness + 0.10 * high_flex)).max(1.0);
 
     let mut job_flow_pref = vec![0.0f64; num_jobs];
     let use_flow_pref = flow_like > 0.82 && jobshopness < 0.38 && max_ops >= 2;
@@ -306,7 +317,11 @@ pub fn build_pre(challenge: &Challenge) -> Result<Pre> {
 
         let n1 = (num_jobs.saturating_sub(1)) as f64;
         for (pos, &j) in perm.iter().enumerate() {
-            job_flow_pref[j] = if n1 > 0.0 { 1.0 - (pos as f64) / n1 } else { 1.0 };
+            job_flow_pref[j] = if n1 > 0.0 {
+                1.0 - (pos as f64) / n1
+            } else {
+                1.0
+            };
         }
     }
 

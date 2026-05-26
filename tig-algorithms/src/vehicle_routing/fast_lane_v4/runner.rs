@@ -1,11 +1,11 @@
-use super::instance::{Instance, NodeData};
 use super::config::Config;
 use super::evolution::Evolution;
+use super::instance::{Instance, NodeData};
 use anyhow::Result;
-use tig_challenges::vehicle_routing::*;
-use serde_json::{Map, Value};
 use rand::{rngs::SmallRng, SeedableRng};
+use serde_json::{Map, Value};
 use std::time::Instant;
+use tig_challenges::vehicle_routing::*;
 
 pub struct TigLoader;
 
@@ -21,12 +21,14 @@ impl TigLoader {
         let ratio = total_demand / challenge.max_capacity as f64;
         let lb_vehicles = ratio.ceil() as usize;
 
-        let node_data: Vec<NodeData> = (0..nb_nodes).map(|i| NodeData {
-            start_tw: challenge.ready_times[i],
-            end_tw: challenge.due_times[i],
-            service_time: service_times[i],
-            demand: challenge.demands[i],
-        }).collect();
+        let node_data: Vec<NodeData> = (0..nb_nodes)
+            .map(|i| NodeData {
+                start_tw: challenge.ready_times[i],
+                end_tw: challenge.due_times[i],
+                service_time: service_times[i],
+                demand: challenge.demands[i],
+            })
+            .collect();
 
         Instance {
             seed: challenge.seed,
@@ -36,7 +38,12 @@ impl TigLoader {
             demands: challenge.demands.clone(),
             node_positions: challenge.node_positions.clone(),
             max_capacity: challenge.max_capacity,
-            distance_matrix: challenge.distance_matrix.iter().flatten().copied().collect(),
+            distance_matrix: challenge
+                .distance_matrix
+                .iter()
+                .flatten()
+                .copied()
+                .collect(),
             service_times,
             start_tw: challenge.ready_times.clone(),
             end_tw: challenge.due_times.clone(),
@@ -57,7 +64,13 @@ impl Solver {
         let mut rng = SmallRng::from_seed(data.seed);
         let mut ga = Evolution::new(&data, params);
         Ok(ga.run(&mut rng, t0, save_solution).map(|(routes, cost)| {
-            (Solution { routes: routes.clone() }, cost, routes.len())
+            (
+                Solution {
+                    routes: routes.clone(),
+                },
+                cost,
+                routes.len(),
+            )
         }))
     }
 

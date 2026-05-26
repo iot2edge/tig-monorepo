@@ -1,6 +1,9 @@
-use rand::{rngs::{SmallRng, StdRng}, Rng, SeedableRng};
-use std::collections::HashMap;
+use rand::{
+    rngs::{SmallRng, StdRng},
+    Rng, SeedableRng,
+};
 use serde_json::{Map, Value};
+use std::collections::HashMap;
 use tig_challenges::satisfiability::*;
 
 pub fn solve_challenge(
@@ -8,8 +11,11 @@ pub fn solve_challenge(
     save_solution: &dyn Fn(&Solution) -> anyhow::Result<()>,
     hyperparameters: &Option<Map<String, Value>>,
 ) -> anyhow::Result<()> {
-    let _ = save_solution(&Solution { variables: vec![false; challenge.num_variables] });
-    let mut rng = SmallRng::seed_from_u64(u64::from_le_bytes(challenge.seed[..8].try_into().unwrap()) as u64);
+    let _ = save_solution(&Solution {
+        variables: vec![false; challenge.num_variables],
+    });
+    let mut rng =
+        SmallRng::seed_from_u64(u64::from_le_bytes(challenge.seed[..8].try_into().unwrap()) as u64);
 
     let mut p_single = vec![false; challenge.num_variables];
     let mut n_single = vec![false; challenge.num_variables];
@@ -151,7 +157,6 @@ pub fn solve_challenge(
         }
     }
 
-
     let mut residual_ = Vec::with_capacity(num_clauses);
 
     for (i, &num_good) in num_good_so_far.iter().enumerate() {
@@ -159,7 +164,7 @@ pub fn solve_challenge(
             residual_.push(i);
         }
     }
-    
+
     let base_prob = 0.52;
     let mut current_prob = base_prob;
     let check_interval = 50;
@@ -180,16 +185,16 @@ pub fn solve_challenge(
                 while !residual_.is_empty() {
                     let id = rand_val % residual_.len();
                     i = *residual_.get_unchecked(id);
-                    if num_good_so_far[i] > 0 { 
-                        residual_.swap_remove(id); 
+                    if num_good_so_far[i] > 0 {
+                        residual_.swap_remove(id);
                     } else {
-                        break
+                        break;
                     }
                 }
                 if residual_.is_empty() {
                     break;
                 }
-                 
+
                 let mut min_sad = clauses.len();
                 let mut v_min_sad = usize::MAX;
                 let c = clauses.get_unchecked_mut(i);
@@ -201,56 +206,56 @@ pub fn solve_challenge(
 
                 let mut zero_found = None;
                 'outer: for &l in c.iter() {
-                   let abs_l = l.abs() as usize - 1;
-                   let clauses_to_check = if *variables.get_unchecked(abs_l) {
-                       p_clauses.get_unchecked(abs_l)
-                   } else {
-                       n_clauses.get_unchecked(abs_l)
-                   };
-                   
-                   for &c in clauses_to_check {
-                       if *num_good_so_far.get_unchecked(c) == 1 {
-                           continue 'outer;
-                       }
-                   }
-                   zero_found = Some(abs_l);
-                   break;
+                    let abs_l = l.abs() as usize - 1;
+                    let clauses_to_check = if *variables.get_unchecked(abs_l) {
+                        p_clauses.get_unchecked(abs_l)
+                    } else {
+                        n_clauses.get_unchecked(abs_l)
+                    };
+
+                    for &c in clauses_to_check {
+                        if *num_good_so_far.get_unchecked(c) == 1 {
+                            continue 'outer;
+                        }
+                    }
+                    zero_found = Some(abs_l);
+                    break;
                 }
-                
+
                 let v = if let Some(abs_l) = zero_found {
-                   abs_l
+                    abs_l
                 } else if rand_val < (current_prob * (usize::MAX as f64)) as usize {
-                   c[0].abs() as usize - 1
+                    c[0].abs() as usize - 1
                 } else {
-                   let mut min_sad = usize::MAX;
-                   let mut v_min_sad = c[0].abs() as usize - 1;
-                   
-                   for &l in c.iter() {
-                       let abs_l = l.abs() as usize - 1;
-                       let clauses_to_check = if *variables.get_unchecked(abs_l) {
-                           p_clauses.get_unchecked(abs_l)
-                       } else {
-                           n_clauses.get_unchecked(abs_l)
-                       };
-                       
-                       let mut sad = 0;
-                       for &c in clauses_to_check {
-                           if *num_good_so_far.get_unchecked(c) == 1 {
-                               sad += 1;
-                           }
-                           if sad >= min_sad {
-                               break;
-                           }
-                       }
-                       
-                       if sad < min_sad {
-                           min_sad = sad;
-                           v_min_sad = abs_l;
-                       }
-                   }
-                   v_min_sad
+                    let mut min_sad = usize::MAX;
+                    let mut v_min_sad = c[0].abs() as usize - 1;
+
+                    for &l in c.iter() {
+                        let abs_l = l.abs() as usize - 1;
+                        let clauses_to_check = if *variables.get_unchecked(abs_l) {
+                            p_clauses.get_unchecked(abs_l)
+                        } else {
+                            n_clauses.get_unchecked(abs_l)
+                        };
+
+                        let mut sad = 0;
+                        for &c in clauses_to_check {
+                            if *num_good_so_far.get_unchecked(c) == 1 {
+                                sad += 1;
+                            }
+                            if sad >= min_sad {
+                                break;
+                            }
+                        }
+
+                        if sad < min_sad {
+                            min_sad = sad;
+                            v_min_sad = abs_l;
+                        }
+                    }
+                    v_min_sad
                 };
-                
+
                 let was_true = *variables.get_unchecked(v);
                 let clauses_to_decrement = if was_true {
                     p_clauses.get_unchecked(v)
@@ -262,12 +267,12 @@ pub fn solve_challenge(
                 } else {
                     p_clauses.get_unchecked(v)
                 };
-        
+
                 for &cid in clauses_to_increment {
                     let num_good = num_good_so_far.get_unchecked_mut(cid);
                     *num_good += 1;
                 }
-        
+
                 for &cid in clauses_to_decrement {
                     let num_good = num_good_so_far.get_unchecked_mut(cid);
                     *num_good -= 1;
@@ -275,7 +280,7 @@ pub fn solve_challenge(
                         residual_.push(cid);
                     }
                 }
-        
+
                 *variables.get_unchecked_mut(v) = !was_true;
             } else {
                 break;
@@ -285,7 +290,7 @@ pub fn solve_challenge(
             //     return Ok(());
             // }
         }
-     }
+    }
     let _ = save_solution(&Solution { variables });
     return Ok(());
 }

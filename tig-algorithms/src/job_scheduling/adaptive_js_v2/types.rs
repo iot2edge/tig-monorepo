@@ -158,20 +158,55 @@ pub struct EffortConfig {
 
 impl EffortConfig {
     pub fn default_effort() -> Self {
-        Self { num_restarts: 500, job_shop_iters: 3000, flow_shop_iters: 2600, hybrid_flow_shop_iters: 2000, fjsp_medium_iters: 2000, fjsp_high_iters: 2000 }
+        Self {
+            num_restarts: 500,
+            job_shop_iters: 3000,
+            flow_shop_iters: 2600,
+            hybrid_flow_shop_iters: 2000,
+            fjsp_medium_iters: 2000,
+            fjsp_high_iters: 2000,
+        }
     }
 
     pub fn from_str(s: &str) -> Self {
         match s.to_lowercase().as_str() {
-            "medium" => Self { num_restarts: 1000, job_shop_iters: 4000, flow_shop_iters: 4000, hybrid_flow_shop_iters: 3000, fjsp_medium_iters: 3000, fjsp_high_iters: 3000 },
-            "high" => Self { num_restarts: 1500, job_shop_iters: 5000, flow_shop_iters: 6000, hybrid_flow_shop_iters: 4000, fjsp_medium_iters: 4000, fjsp_high_iters: 4000 },
-            "extreme" => Self { num_restarts: 2000, job_shop_iters: 6000, flow_shop_iters: 10000, hybrid_flow_shop_iters: 5000, fjsp_medium_iters: 5000, fjsp_high_iters: 5000 },
+            "medium" => Self {
+                num_restarts: 1000,
+                job_shop_iters: 4000,
+                flow_shop_iters: 4000,
+                hybrid_flow_shop_iters: 3000,
+                fjsp_medium_iters: 3000,
+                fjsp_high_iters: 3000,
+            },
+            "high" => Self {
+                num_restarts: 1500,
+                job_shop_iters: 5000,
+                flow_shop_iters: 6000,
+                hybrid_flow_shop_iters: 4000,
+                fjsp_medium_iters: 4000,
+                fjsp_high_iters: 4000,
+            },
+            "extreme" => Self {
+                num_restarts: 2000,
+                job_shop_iters: 6000,
+                flow_shop_iters: 10000,
+                hybrid_flow_shop_iters: 5000,
+                fjsp_medium_iters: 5000,
+                fjsp_high_iters: 5000,
+            },
             _ => Self::default_effort(),
         }
     }
 
     pub fn from_value(v: usize) -> Self {
-        Self { num_restarts: v.clamp(1, 20000), job_shop_iters: 3000, flow_shop_iters: 2600, hybrid_flow_shop_iters: 2000, fjsp_medium_iters: 2000, fjsp_high_iters: 2000 }
+        Self {
+            num_restarts: v.clamp(1, 20000),
+            job_shop_iters: 3000,
+            flow_shop_iters: 2600,
+            hybrid_flow_shop_iters: 2000,
+            fjsp_medium_iters: 2000,
+            fjsp_high_iters: 2000,
+        }
     }
 
     pub fn with_job_shop_iters(mut self, v: usize) -> Self {

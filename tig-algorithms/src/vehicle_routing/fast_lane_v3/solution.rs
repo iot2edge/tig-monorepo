@@ -1,5 +1,5 @@
-use super::instance::Instance;
 use super::config::Config;
+use super::instance::Instance;
 use super::route_eval::RouteEval;
 
 #[derive(Clone)]
@@ -53,7 +53,12 @@ impl Individual {
     }
 
     #[inline]
-    pub fn compute_penalized_cost(distance: i32, tw_violation: i32, load_excess: i32, params: &Config) -> i64 {
+    pub fn compute_penalized_cost(
+        distance: i32,
+        tw_violation: i32,
+        load_excess: i32,
+        params: &Config,
+    ) -> i64 {
         (distance as i64)
             + (params.penalty_tw as i64) * (tw_violation as i64)
             + (params.penalty_capa as i64) * (load_excess as i64)
@@ -61,10 +66,18 @@ impl Individual {
 
     #[inline]
     pub fn recompute_cost(&mut self, params: &Config) {
-        self.cost = Self::compute_penalized_cost(self.distance, self.tw_violation, self.load_excess, params);
+        self.cost = Self::compute_penalized_cost(
+            self.distance,
+            self.tw_violation,
+            self.load_excess,
+            params,
+        );
     }
 
-    fn build_pred_succ_and_count(data: &Instance, routes: &Vec<Vec<usize>>) -> (Vec<usize>, Vec<usize>, usize) {
+    fn build_pred_succ_and_count(
+        data: &Instance,
+        routes: &Vec<Vec<usize>>,
+    ) -> (Vec<usize>, Vec<usize>, usize) {
         let n_all = data.nb_nodes;
         let mut pred = vec![0usize; n_all];
         let mut succ = vec![0usize; n_all];

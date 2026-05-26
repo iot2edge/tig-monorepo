@@ -177,7 +177,10 @@ impl Config {
     pub fn initialize(hyperparameters: &Option<Map<String, Value>>, nb_nodes: usize) -> Self {
         let mut base_params = Self::defaults(nb_nodes);
 
-        if let Some(v) = hyperparameters.as_ref().and_then(|m| m.get("exploration_level")) {
+        if let Some(v) = hyperparameters
+            .as_ref()
+            .and_then(|m| m.get("exploration_level"))
+        {
             match v {
                 Value::Number(n) => {
                     if let Some(u) = n.as_u64() {

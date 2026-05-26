@@ -3,14 +3,13 @@ use cudarc::{
     driver::{CudaModule, CudaSlice, CudaStream, LaunchConfig, PushKernelArg},
     runtime::sys::cudaDeviceProp,
 };
+use serde_json::{Map, Value};
 use std::sync::Arc;
 use tig_challenges::neuralnet_optimizer::*;
-use serde_json::{Map, Value};
 
 use super::helpers::{
-    OptimizerState,
-    spectral_phase_lr, compute_blends, update_state_from_val_loss,
-    compute_global_damp, compute_precision_params, finalize_state,
+    compute_blends, compute_global_damp, compute_precision_params, finalize_state,
+    spectral_phase_lr, update_state_from_val_loss, OptimizerState,
 };
 
 pub fn solve(
@@ -21,7 +20,16 @@ pub fn solve(
     stream: Arc<CudaStream>,
     prop: &cudaDeviceProp,
 ) -> Result<()> {
-    training_loop(challenge, save_solution, module, stream, prop, optimizer_init, optimizer_query, optimizer_step)?;
+    training_loop(
+        challenge,
+        save_solution,
+        module,
+        stream,
+        prop,
+        optimizer_init,
+        optimizer_query,
+        optimizer_step,
+    )?;
     Ok(())
 }
 
@@ -34,7 +42,9 @@ fn optimizer_init(
 ) -> Result<Box<dyn OptimizerStateTrait>> {
     let threads_per_block: u32 = 128;
     let blocks_per_sm: u32 = 4;
-    let sm_blocks = (prop.multiProcessorCount as u32).saturating_mul(blocks_per_sm).max(1);
+    let sm_blocks = (prop.multiProcessorCount as u32)
+        .saturating_mul(blocks_per_sm)
+        .max(1);
 
     let mut m = Vec::new();
     let mut v = Vec::new();
@@ -138,7 +148,7 @@ fn optimizer_query(
     Ok(None)
 }
 
-fn compute_trend_factor(history: &[f32], best: f32) -> f32 {    
+fn compute_trend_factor(history: &[f32], best: f32) -> f32 {
     let n = history.len();
     if n < 3 {
         return 1.0f32;
@@ -223,8 +233,15 @@ fn optimizer_step(
     let bias_correction1 = 1.0f32 - s.beta1.powi(t.max(1));
     let bias_correction2 = 1.0f32 - s.beta2.powi(t.max(1));
 
-    let (blend_adam, blend_norm, blend_sign, nesterov_gamma, bb_blend, lookahead_alpha, lookahead_tau) =
-        compute_blends(s, val_loss);
+    let (
+        blend_adam,
+        blend_norm,
+        blend_sign,
+        nesterov_gamma,
+        bb_blend,
+        lookahead_alpha,
+        lookahead_tau,
+    ) = compute_blends(s, val_loss);
 
     let near_floor = val_loss.map_or(false, |loss| loss <= s.noise_variance * 3.0f32);
     let late_phase = s.step_count > (s.total_steps * 60 / 100);
@@ -239,7 +256,11 @@ fn optimizer_step(
         s.beta1
     };
     let beta2_eff: f32 = s.beta2;
-    let eps_eff: f32 = if in_precision_zone { s.eps * 0.85f32 } else { s.eps };
+    let eps_eff: f32 = if in_precision_zone {
+        s.eps * 0.85f32
+    } else {
+        s.eps
+    };
 
     let mut wd_eff: f32 = if in_precision_zone {
         s.weight_decay * 1.05f32
@@ -258,13 +279,23 @@ fn optimizer_step(
     let trust_backoff: f32 = if s.step_count > s.warmup_steps {
         if let (Some(best), Some(curr)) = (s.best_val_loss, val_loss) {
             let r = curr / (best + 1e-8f32);
-            if r > 2.5f32 { 0.18f32 }
-            else if r > 1.8f32 { 0.32f32 }
-            else if r > 1.3f32 { 0.55f32 }
-            else if r > 1.1f32 { 0.80f32 }
-            else { 1.0f32 }
-        } else { 1.0f32 }
-    } else { 1.0f32 };
+            if r > 2.5f32 {
+                0.18f32
+            } else if r > 1.8f32 {
+                0.32f32
+            } else if r > 1.3f32 {
+                0.55f32
+            } else if r > 1.1f32 {
+                0.80f32
+            } else {
+                1.0f32
+            }
+        } else {
+            1.0f32
+        }
+    } else {
+        1.0f32
+    };
 
     let trend_trust: f32 = if s.step_count > s.warmup_steps + 10 {
         if let Some(best) = s.best_val_loss {
@@ -304,7 +335,8 @@ fn optimizer_step(
             1.0f32
         };
 
-        let effective_lr = lr * layer_multiplier * precision_gain * forward_gain * trust_backoff * trend_trust;
+        let effective_lr =
+            lr * layer_multiplier * precision_gain * forward_gain * trust_backoff * trend_trust;
 
         let rel_update_cap: f32 = if near_floor { 0.11f32 } else { 0.17f32 };
         let rel_update_cap = if is_output {

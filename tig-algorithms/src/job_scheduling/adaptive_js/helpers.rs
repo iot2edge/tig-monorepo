@@ -48,7 +48,11 @@ pub fn push_top_k_raw(top: &mut Vec<RawCand>, c: RawCand, k: usize) {
 }
 
 #[inline]
-pub fn best_second_and_counts(time: u32, machine_avail: &[u32], op: &OpInfo) -> (u32, u32, usize, usize) {
+pub fn best_second_and_counts(
+    time: u32,
+    machine_avail: &[u32],
+    op: &OpInfo,
+) -> (u32, u32, usize, usize) {
     let mut best = INF;
     let mut second = INF;
     let mut cnt_best = 0usize;
@@ -146,8 +150,15 @@ pub fn best_two_by_pt(op: &OpInfo) -> [(usize, u32); 2] {
 }
 
 #[inline]
-pub fn push_top_solutions(top: &mut Vec<(tig_challenges::job_scheduling::Solution, u32)>, sol: tig_challenges::job_scheduling::Solution, mk: u32, cap: usize) {
-    let pos = top.binary_search_by_key(&mk, |(_, m)| *m).unwrap_or_else(|e| e);
+pub fn push_top_solutions(
+    top: &mut Vec<(tig_challenges::job_scheduling::Solution, u32)>,
+    sol: tig_challenges::job_scheduling::Solution,
+    mk: u32,
+    cap: usize,
+) {
+    let pos = top
+        .binary_search_by_key(&mk, |(_, m)| *m)
+        .unwrap_or_else(|e| e);
     top.insert(pos, (sol, mk));
     if top.len() > cap {
         top.truncate(cap);
@@ -172,7 +183,12 @@ pub fn flow_makespan(seq: &[usize], pt: &[Vec<u32>], comp: &mut [u32]) -> u32 {
 }
 
 #[inline]
-pub fn reentrant_makespan(seq: &[usize], route: &[usize], pt: &[Vec<u32>], mready: &mut [u32]) -> u32 {
+pub fn reentrant_makespan(
+    seq: &[usize],
+    route: &[usize],
+    pt: &[Vec<u32>],
+    mready: &mut [u32],
+) -> u32 {
     mready.fill(0);
     let mut mk = 0u32;
     for &j in seq {

@@ -25,31 +25,38 @@ pub use adaptive_js_v3 as c007_a008;
 pub mod adaptive_js_v4;
 pub use adaptive_js_v4 as c007_a011;
 
-// c007_a012
+pub mod near_jsp_v1;
+pub use near_jsp_v1 as c007_a012;
 
-// c007_a013
+// c007_a013 — adaptive_js_v5 (chain, merged r115)
 
 // c007_a014
 
 // c007_a015
 
-// c007_a016
+// c007_a016 — job_eight (chain, active r117)
 
-// c007_a017
+// c007_a017 — adaptive_js_v6 (chain, active r117)
 
-// c007_a018
+// c007_a018 — job_nine (chain, pushed r116)
 
-// c007_a019
+pub mod near_jsp_v2;
+pub use near_jsp_v2 as c007_a019;
 
-// c007_a020
+pub mod near_jsp_v3;
+pub use near_jsp_v3 as c007_a020;
 
-// c007_a021
+pub mod near_jsp_v4;
+pub use near_jsp_v4 as c007_a021;
 
-// c007_a022
+pub mod near_jsp_v5;
+pub use near_jsp_v5 as c007_a022;
 
-// c007_a023
+pub mod near_jsp_v15;
+pub use near_jsp_v15 as c007_a023;
 
-// c007_a024
+pub mod near_jsp_v6;
+pub use near_jsp_v6 as c007_a024;
 
 // c007_a025
 

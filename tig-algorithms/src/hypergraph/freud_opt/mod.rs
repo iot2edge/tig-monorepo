@@ -2,9 +2,9 @@ use cudarc::{
     driver::{safe::LaunchConfig, CudaModule, CudaStream, PushKernelArg},
     runtime::sys::cudaDeviceProp,
 };
+use serde_json::{Map, Value};
 use std::sync::Arc;
 use std::time::Instant;
-use serde_json::{Map, Value};
 use tig_challenges::hypergraph::*;
 
 pub fn help() {
@@ -33,7 +33,9 @@ pub fn solve_challenge(
     let dummy_partition: Vec<u32> = (0..challenge.num_nodes as u32)
         .map(|i| i % challenge.num_parts as u32)
         .collect();
-    save_solution(&Solution { partition: dummy_partition })?;
+    save_solution(&Solution {
+        partition: dummy_partition,
+    })?;
 
     let block_size = std::cmp::min(128, prop.maxThreadsPerBlock as u32);
 
@@ -53,7 +55,11 @@ pub fn solve_challenge(
     let t_load_elapsed = t_load.elapsed();
 
     let cfg = LaunchConfig {
-        grid_dim: ((challenge.num_nodes as u32 + block_size - 1) / block_size, 1, 1),
+        grid_dim: (
+            (challenge.num_nodes as u32 + block_size - 1) / block_size,
+            1,
+            1,
+        ),
         block_dim: (block_size, 1, 1),
         shared_mem_bytes: 0,
     };
@@ -65,10 +71,14 @@ pub fn solve_challenge(
     };
 
     let hedge_cfg = LaunchConfig {
-        grid_dim: ((challenge.num_hyperedges as u32 + block_size - 1) / block_size, 1, 1),
+        grid_dim: (
+            (challenge.num_hyperedges as u32 + block_size - 1) / block_size,
+            1,
+            1,
+        ),
         block_dim: (block_size, 1, 1),
         shared_mem_bytes: 0,
-    };       
+    };
 
     let mut num_hedge_clusters = 64;
 
@@ -110,18 +120,22 @@ pub fn solve_challenge(
 
     let mut sorted_move_nodes: Vec<i32> = Vec::with_capacity(n);
     let mut sorted_move_parts_cpu: Vec<i32> = Vec::with_capacity(n);
-    let mut valid_indices: Vec<usize> = Vec::with_capacity(n);    
+    let mut valid_indices: Vec<usize> = Vec::with_capacity(n);
 
     let default_refinement = if challenge.num_hyperedges < 20_000 {
         400usize
     } else {
         500usize
     };
-    
-    println!("refinement: {:?}", hyperparameters.as_ref().and_then(|p| p.get("refinement")));
+
+    println!(
+        "refinement: {:?}",
+        hyperparameters.as_ref().and_then(|p| p.get("refinement"))
+    );
 
     let refinement_rounds = if let Some(params) = hyperparameters {
-        params.get("refinement")
+        params
+            .get("refinement")
             .and_then(|v| v.as_i64())
             .map(|v| v.clamp(50, 5000) as usize)
             .unwrap_or(default_refinement)
@@ -131,20 +145,26 @@ pub fn solve_challenge(
 
     let t_init = Instant::now();
     unsafe {
-        stream.launch_builder(&hyperedge_cluster_kernel)
+        stream
+            .launch_builder(&hyperedge_cluster_kernel)
             .arg(&(challenge.num_hyperedges as i32))
             .arg(&(num_hedge_clusters as i32))
             .arg(&challenge.d_hyperedge_offsets)
             .arg(&mut d_hyperedge_clusters)
             .launch(LaunchConfig {
-                grid_dim: ((challenge.num_hyperedges as u32 + block_size - 1) / block_size, 1, 1),
+                grid_dim: (
+                    (challenge.num_hyperedges as u32 + block_size - 1) / block_size,
+                    1,
+                    1,
+                ),
                 block_dim: (block_size, 1, 1),
                 shared_mem_bytes: 0,
             })?;
     }
 
     unsafe {
-        stream.launch_builder(&compute_preferences_kernel)
+        stream
+            .launch_builder(&compute_preferences_kernel)
             .arg(&(challenge.num_nodes as i32))
             .arg(&(challenge.num_parts as i32))
             .arg(&(num_hedge_clusters as i32))
@@ -160,7 +180,7 @@ pub fn solve_challenge(
 
     let pref_parts = stream.memcpy_dtov(&d_pref_parts)?;
     let pref_priorities = stream.memcpy_dtov(&d_pref_priorities)?;
-    
+
     let mut indices: Vec<usize> = (0..challenge.num_nodes as usize).collect();
     indices.sort_unstable_by(|&a, &b| pref_priorities[b].cmp(&pref_priorities[a]));
 
@@ -171,7 +191,8 @@ pub fn solve_challenge(
     let d_sorted_parts = stream.memcpy_stod(&sorted_parts)?;
 
     unsafe {
-        stream.launch_builder(&execute_assignments_kernel)
+        stream
+            .launch_builder(&execute_assignments_kernel)
             .arg(&(challenge.num_nodes as i32))
             .arg(&(challenge.num_parts as i32))
             .arg(&(challenge.max_part_size as i32))
@@ -185,8 +206,16 @@ pub fn solve_challenge(
     let t_init_elapsed = t_init.elapsed();
 
     let mut stagnant_rounds = 0;
-    let early_exit_round = if challenge.num_hyperedges < 20_000 { 90 } else { 70 };
-    let max_stagnant_rounds = if challenge.num_hyperedges < 20_000 { 30 } else { 20 };
+    let early_exit_round = if challenge.num_hyperedges < 20_000 {
+        90
+    } else {
+        70
+    };
+    let max_stagnant_rounds = if challenge.num_hyperedges < 20_000 {
+        30
+    } else {
+        20
+    };
 
     let t_refine1 = Instant::now();
     let mut t_gpu_kernels = 0u128;
@@ -204,7 +233,8 @@ pub fn solve_challenge(
 
         let t0 = Instant::now();
         unsafe {
-            stream.launch_builder(&precompute_edge_flags_kernel)
+            stream
+                .launch_builder(&precompute_edge_flags_kernel)
                 .arg(&(challenge.num_hyperedges as i32))
                 .arg(&(challenge.num_nodes as i32))
                 .arg(&challenge.d_hyperedge_nodes)
@@ -216,7 +246,8 @@ pub fn solve_challenge(
         }
 
         unsafe {
-            stream.launch_builder(&compute_moves_kernel)
+            stream
+                .launch_builder(&compute_moves_kernel)
                 .arg(&(challenge.num_nodes as i32))
                 .arg(&(challenge.num_parts as i32))
                 .arg(&(challenge.max_part_size as i32))
@@ -258,42 +289,49 @@ pub fn solve_challenge(
 
         let use_gpu_sort = num_passes > 0 && num_passes <= 3;
 
-        let (d_sorted_nodes_ref, d_sorted_parts_ref): (&cudarc::driver::CudaSlice<i32>, &cudarc::driver::CudaSlice<i32>);
+        let (d_sorted_nodes_ref, d_sorted_parts_ref): (
+            &cudarc::driver::CudaSlice<i32>,
+            &cudarc::driver::CudaSlice<i32>,
+        );
         let d_sorted_nodes_tmp: cudarc::driver::CudaSlice<i32>;
         let d_sorted_parts_tmp: cudarc::driver::CudaSlice<i32>;
         let num_to_process: i32;
 
         if use_gpu_sort {
             unsafe {
-                stream.launch_builder(&invert_keys_kernel)
+                stream
+                    .launch_builder(&invert_keys_kernel)
                     .arg(&(n as i32))
                     .arg(&max_priority)
                     .arg(&d_move_priorities)
                     .arg(&mut d_sort_keys_a)
                     .launch(cfg.clone())?;
-                
-                stream.launch_builder(&init_indices_kernel)
+
+                stream
+                    .launch_builder(&init_indices_kernel)
                     .arg(&(n as i32))
                     .arg(&mut d_sort_vals_a)
                     .launch(cfg.clone())?;
             }
-            
+
             for pass in 0..num_passes {
                 let shift = pass * 8;
-                
+
                 stream.memset_zeros(&mut d_ready_flag)?;
-                
+
                 if pass % 2 == 0 {
                     unsafe {
-                        stream.launch_builder(&radix_hist_kernel)
+                        stream
+                            .launch_builder(&radix_hist_kernel)
                             .arg(&(n as i32))
                             .arg(&num_chunks)
                             .arg(&d_sort_keys_a)
                             .arg(&shift)
                             .arg(&mut d_chunk_histograms)
                             .launch(radix_cfg.clone())?;
-                        
-                        stream.launch_builder(&radix_prefix_scatter_kernel)
+
+                        stream
+                            .launch_builder(&radix_prefix_scatter_kernel)
                             .arg(&(n as i32))
                             .arg(&num_chunks)
                             .arg(&d_sort_keys_a)
@@ -308,15 +346,17 @@ pub fn solve_challenge(
                     }
                 } else {
                     unsafe {
-                        stream.launch_builder(&radix_hist_kernel)
+                        stream
+                            .launch_builder(&radix_hist_kernel)
                             .arg(&(n as i32))
                             .arg(&num_chunks)
                             .arg(&d_sort_keys_b)
                             .arg(&shift)
                             .arg(&mut d_chunk_histograms)
                             .launch(radix_cfg.clone())?;
-                        
-                        stream.launch_builder(&radix_prefix_scatter_kernel)
+
+                        stream
+                            .launch_builder(&radix_prefix_scatter_kernel)
                             .arg(&(n as i32))
                             .arg(&num_chunks)
                             .arg(&d_sort_keys_b)
@@ -332,10 +372,15 @@ pub fn solve_challenge(
                 }
             }
 
-            let sorted_vals = if num_passes % 2 == 0 { &d_sort_vals_a } else { &d_sort_vals_b };
+            let sorted_vals = if num_passes % 2 == 0 {
+                &d_sort_vals_a
+            } else {
+                &d_sort_vals_b
+            };
 
             unsafe {
-                stream.launch_builder(&gather_sorted_kernel)
+                stream
+                    .launch_builder(&gather_sorted_kernel)
                     .arg(&(n as i32))
                     .arg(sorted_vals)
                     .arg(&d_move_parts)
@@ -366,7 +411,8 @@ pub fn solve_challenge(
                 break;
             }
 
-            valid_indices.sort_unstable_by(|&a, &b| move_priorities_vec[b].cmp(&move_priorities_vec[a]));
+            valid_indices
+                .sort_unstable_by(|&a, &b| move_priorities_vec[b].cmp(&move_priorities_vec[a]));
 
             sorted_move_nodes.clear();
             sorted_move_parts_cpu.clear();
@@ -386,7 +432,8 @@ pub fn solve_challenge(
 
         let t4 = Instant::now();
         unsafe {
-            stream.launch_builder(&execute_moves_kernel)
+            stream
+                .launch_builder(&execute_moves_kernel)
                 .arg(&num_to_process)
                 .arg(d_sorted_nodes_ref)
                 .arg(d_sorted_parts_ref)
@@ -418,7 +465,8 @@ pub fn solve_challenge(
 
     let t_balance = Instant::now();
     unsafe {
-        stream.launch_builder(&balance_kernel)
+        stream
+            .launch_builder(&balance_kernel)
             .arg(&(challenge.num_nodes as i32))
             .arg(&(challenge.num_parts as i32))
             .arg(&1)
@@ -436,7 +484,8 @@ pub fn solve_challenge(
         let mut d_num_valid_moves = stream.memcpy_stod(&zero)?;
 
         unsafe {
-            stream.launch_builder(&precompute_edge_flags_kernel)
+            stream
+                .launch_builder(&precompute_edge_flags_kernel)
                 .arg(&(challenge.num_hyperedges as i32))
                 .arg(&(challenge.num_nodes as i32))
                 .arg(&challenge.d_hyperedge_nodes)
@@ -448,7 +497,8 @@ pub fn solve_challenge(
         }
 
         unsafe {
-            stream.launch_builder(&compute_moves_kernel)
+            stream
+                .launch_builder(&compute_moves_kernel)
                 .arg(&(challenge.num_nodes as i32))
                 .arg(&(challenge.num_parts as i32))
                 .arg(&(challenge.max_part_size as i32))
@@ -496,35 +546,39 @@ pub fn solve_challenge(
 
         if use_gpu_sort {
             unsafe {
-                stream.launch_builder(&invert_keys_kernel)
+                stream
+                    .launch_builder(&invert_keys_kernel)
                     .arg(&(n as i32))
                     .arg(&max_priority2)
                     .arg(&d_move_priorities)
                     .arg(&mut d_sort_keys_a)
                     .launch(cfg.clone())?;
-                
-                stream.launch_builder(&init_indices_kernel)
+
+                stream
+                    .launch_builder(&init_indices_kernel)
                     .arg(&(n as i32))
                     .arg(&mut d_sort_vals_a)
                     .launch(cfg.clone())?;
             }
-            
+
             for pass in 0..num_passes2 {
                 let shift = pass * 8;
-                
+
                 stream.memset_zeros(&mut d_ready_flag)?;
-                
+
                 if pass % 2 == 0 {
                     unsafe {
-                        stream.launch_builder(&radix_hist_kernel)
+                        stream
+                            .launch_builder(&radix_hist_kernel)
                             .arg(&(n as i32))
                             .arg(&num_chunks)
                             .arg(&d_sort_keys_a)
                             .arg(&shift)
                             .arg(&mut d_chunk_histograms)
                             .launch(radix_cfg.clone())?;
-                        
-                        stream.launch_builder(&radix_prefix_scatter_kernel)
+
+                        stream
+                            .launch_builder(&radix_prefix_scatter_kernel)
                             .arg(&(n as i32))
                             .arg(&num_chunks)
                             .arg(&d_sort_keys_a)
@@ -539,15 +593,17 @@ pub fn solve_challenge(
                     }
                 } else {
                     unsafe {
-                        stream.launch_builder(&radix_hist_kernel)
+                        stream
+                            .launch_builder(&radix_hist_kernel)
                             .arg(&(n as i32))
                             .arg(&num_chunks)
                             .arg(&d_sort_keys_b)
                             .arg(&shift)
                             .arg(&mut d_chunk_histograms)
                             .launch(radix_cfg.clone())?;
-                        
-                        stream.launch_builder(&radix_prefix_scatter_kernel)
+
+                        stream
+                            .launch_builder(&radix_prefix_scatter_kernel)
                             .arg(&(n as i32))
                             .arg(&num_chunks)
                             .arg(&d_sort_keys_b)
@@ -562,11 +618,16 @@ pub fn solve_challenge(
                     }
                 }
             }
-            
-            let sorted_vals2 = if num_passes2 % 2 == 0 { &d_sort_vals_a } else { &d_sort_vals_b };
-            
+
+            let sorted_vals2 = if num_passes2 % 2 == 0 {
+                &d_sort_vals_a
+            } else {
+                &d_sort_vals_b
+            };
+
             unsafe {
-                stream.launch_builder(&gather_sorted_kernel)
+                stream
+                    .launch_builder(&gather_sorted_kernel)
                     .arg(&(n as i32))
                     .arg(sorted_vals2)
                     .arg(&d_move_parts)
@@ -574,13 +635,13 @@ pub fn solve_challenge(
                     .launch(cfg.clone())?;
             }
             stream.synchronize()?;
-            
+
             d_sorted_nodes_ref2 = sorted_vals2;
             d_sorted_parts_ref2 = &d_sorted_move_parts;
             num_to_process2 = n as i32;
         } else {
             let move_parts = stream.memcpy_dtov(&d_move_parts)?;
-            
+
             valid_indices.clear();
             valid_indices.extend(
                 move_priorities_vec2
@@ -589,29 +650,31 @@ pub fn solve_challenge(
                     .filter(|(_, &priority)| priority > 0)
                     .map(|(i, _)| i),
             );
-            
+
             if valid_indices.is_empty() {
                 break;
             }
 
-            valid_indices.sort_unstable_by(|&a, &b| move_priorities_vec2[b].cmp(&move_priorities_vec2[a]));
-            
+            valid_indices
+                .sort_unstable_by(|&a, &b| move_priorities_vec2[b].cmp(&move_priorities_vec2[a]));
+
             sorted_move_nodes.clear();
             sorted_move_parts_cpu.clear();
             sorted_move_nodes.extend(valid_indices.iter().map(|&i| i as i32));
             sorted_move_parts_cpu.extend(valid_indices.iter().map(|&i| move_parts[i]));
-            
+
             d_sorted_nodes_tmp2 = stream.memcpy_stod(&sorted_move_nodes)?;
             d_sorted_parts_tmp2 = stream.memcpy_stod(&sorted_move_parts_cpu)?;
             d_sorted_nodes_ref2 = &d_sorted_nodes_tmp2;
             d_sorted_parts_ref2 = &d_sorted_parts_tmp2;
             num_to_process2 = sorted_move_nodes.len() as i32;
         }
-        
+
         let mut d_moves_executed = stream.alloc_zeros::<i32>(1)?;
-        
+
         unsafe {
-            stream.launch_builder(&execute_moves_kernel)
+            stream
+                .launch_builder(&execute_moves_kernel)
                 .arg(&num_to_process2)
                 .arg(d_sorted_nodes_ref2)
                 .arg(d_sorted_parts_ref2)
@@ -622,33 +685,65 @@ pub fn solve_challenge(
                 .launch(one_thread_cfg.clone())?;
         }
         stream.synchronize()?;
-        
+
         let moves_executed = stream.memcpy_dtov(&d_moves_executed)?[0];
         if moves_executed == 0 {
             break;
         }
     }
     let t_refine2_elapsed = t_refine2.elapsed();
-    
+
     let partition = stream.memcpy_dtov(&d_partition)?;
     let partition_u32: Vec<u32> = partition.iter().map(|&x| x as u32).collect();
-    
-    save_solution(&Solution { partition: partition_u32 })?;
-    
+
+    save_solution(&Solution {
+        partition: partition_u32,
+    })?;
+
     let total_elapsed = total_start.elapsed();
     println!("=== FULL PROFILING ===");
-    println!("load_function:     {:.2}ms", t_load_elapsed.as_micros() as f64 / 1000.0);
-    println!("alloc_zeros:       {:.2}ms", t_alloc_elapsed.as_micros() as f64 / 1000.0);
-    println!("init (cluster+assign): {:.2}ms", t_init_elapsed.as_micros() as f64 / 1000.0);
-    println!("refine1 ({} rounds): {:.2}ms", actual_rounds, t_refine1_elapsed.as_micros() as f64 / 1000.0);
+    println!(
+        "load_function:     {:.2}ms",
+        t_load_elapsed.as_micros() as f64 / 1000.0
+    );
+    println!(
+        "alloc_zeros:       {:.2}ms",
+        t_alloc_elapsed.as_micros() as f64 / 1000.0
+    );
+    println!(
+        "init (cluster+assign): {:.2}ms",
+        t_init_elapsed.as_micros() as f64 / 1000.0
+    );
+    println!(
+        "refine1 ({} rounds): {:.2}ms",
+        actual_rounds,
+        t_refine1_elapsed.as_micros() as f64 / 1000.0
+    );
     println!("  - GPU kernels:   {:.2}ms", t_gpu_kernels as f64 / 1000.0);
-    println!("  - GPU sort:      {:.2}ms ({} times)", t_gpu_sort as f64 / 1000.0, gpu_sort_count);
-    println!("  - CPU sort:      {:.2}ms ({} times)", t_cpu_sort as f64 / 1000.0, cpu_sort_count);
+    println!(
+        "  - GPU sort:      {:.2}ms ({} times)",
+        t_gpu_sort as f64 / 1000.0,
+        gpu_sort_count
+    );
+    println!(
+        "  - CPU sort:      {:.2}ms ({} times)",
+        t_cpu_sort as f64 / 1000.0,
+        cpu_sort_count
+    );
     println!("  - execute_moves: {:.2}ms", t_execute as f64 / 1000.0);
-    println!("balance:           {:.2}ms", t_balance_elapsed.as_micros() as f64 / 1000.0);
-    println!("refine2 (24 rounds): {:.2}ms", t_refine2_elapsed.as_micros() as f64 / 1000.0);
-    println!("TOTAL:             {:.2}ms", total_elapsed.as_micros() as f64 / 1000.0);
+    println!(
+        "balance:           {:.2}ms",
+        t_balance_elapsed.as_micros() as f64 / 1000.0
+    );
+    println!(
+        "refine2 (24 rounds): {:.2}ms",
+        t_refine2_elapsed.as_micros() as f64 / 1000.0
+    );
+    println!(
+        "TOTAL:             {:.2}ms",
+        total_elapsed.as_micros() as f64 / 1000.0
+    );
     println!(">>> solve_challenge END");
-    
+
     Ok(())
 }

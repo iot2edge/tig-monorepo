@@ -1,13 +1,13 @@
 // TIG's UI uses the pattern `tig-algorithms/src/<challenge>/<algo_name>/mod.rs` to identify algorithms
-pub mod instance;
-pub mod config;
-pub mod route_eval;
 pub mod builder;
-pub mod solution;
-pub mod gene_pool;
-pub mod operators;
+pub mod config;
 pub mod evolution;
+pub mod gene_pool;
+pub mod instance;
+pub mod operators;
+pub mod route_eval;
 pub mod runner;
+pub mod solution;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};

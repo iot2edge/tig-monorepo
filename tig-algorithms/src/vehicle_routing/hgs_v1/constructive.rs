@@ -8,10 +8,12 @@ impl Constructive {
         let mut routes = Vec::new();
         let mut nodes: Vec<usize> = (1..data.nb_nodes).collect();
         let n = nodes.len();
-        nodes.sort_by(|&a, &b| data.dm(0,a).cmp(&data.dm(0,b)));
+        nodes.sort_by(|&a, &b| data.dm(0, a).cmp(&data.dm(0, b)));
 
         if randomize {
-            for i in 0..(n - 1) { nodes.swap(i, rng.gen_range(i + 1..=(i + 5).min(n - 1))); }
+            for i in 0..(n - 1) {
+                nodes.swap(i, rng.gen_range(i + 1..=(i + 5).min(n - 1)));
+            }
         }
 
         // Availability bitmap: true = not yet routed
@@ -19,13 +21,15 @@ impl Constructive {
         available[0] = false; // depot
 
         while let Some(node) = nodes.pop() {
-            if !available[node] { continue; }
+            if !available[node] {
+                continue;
+            }
             available[node] = false;
             let mut route = vec![0, node, 0];
             let mut route_demand = data.demands[node];
 
             while let Some((best_node, best_pos)) =
-                Self::find_best_insertion(&route, &nodes, &available, route_demand,data)
+                Self::find_best_insertion(&route, &nodes, &available, route_demand, data)
             {
                 available[best_node] = false;
                 route_demand += data.demands[best_node];
@@ -48,8 +52,9 @@ impl Constructive {
         let mut best_c2 = None;
         let mut best = None;
         for &insert_node in nodes.iter() {
-
-            if !available[insert_node] || route_demand + data.demands[insert_node] > data.max_capacity {
+            if !available[insert_node]
+                || route_demand + data.demands[insert_node] > data.max_capacity
+            {
                 continue;
             }
 
@@ -58,19 +63,18 @@ impl Constructive {
 
             for pos in 1..route.len() {
                 let next_node = route[pos];
-                let new_arrival_time_insert_node = data.start_tw[insert_node]
-                    .max(curr_time + data.dm(curr_node,insert_node));
+                let new_arrival_time_insert_node =
+                    data.start_tw[insert_node].max(curr_time + data.dm(curr_node, insert_node));
                 if new_arrival_time_insert_node > data.end_tw[insert_node] {
                     break;
                 }
 
                 // Extra distance caused by insertion
-                let c11 = data.dm(curr_node,insert_node)
-                    + data.dm(insert_node,next_node)
-                    - data.dm(curr_node,next_node);
+                let c11 = data.dm(curr_node, insert_node) + data.dm(insert_node, next_node)
+                    - data.dm(curr_node, next_node);
 
                 // Gain of distance compared to a direct trip
-                let c2 = data.dm(0,insert_node) - c11;
+                let c2 = data.dm(0, insert_node) - c11;
 
                 let c2_is_better = match best_c2 {
                     None => true,
@@ -90,8 +94,7 @@ impl Constructive {
                     best = Some((insert_node, pos));
                 }
 
-                curr_time = data.start_tw[next_node]
-                    .max(curr_time + data.dm(curr_node,next_node))
+                curr_time = data.start_tw[next_node].max(curr_time + data.dm(curr_node, next_node))
                     + data.service_times[next_node];
                 curr_node = next_node;
             }
@@ -108,7 +111,7 @@ impl Constructive {
     ) -> bool {
         for pos in start_pos..route.len() {
             let next_node = route[pos];
-            curr_time += data.dm(curr_node,next_node);
+            curr_time += data.dm(curr_node, next_node);
             if curr_time > data.end_tw[route[pos]] {
                 return false;
             }

@@ -1,5 +1,5 @@
 use cudarc::{
-    driver::{safe::LaunchConfig, CudaModule, CudaStream, PushKernelArg}, 
+    driver::{safe::LaunchConfig, CudaModule, CudaStream, PushKernelArg},
     runtime::sys::cudaDeviceProp,
 };
 use serde_json::{Map, Value};
@@ -139,7 +139,9 @@ pub fn solve(
         .map(|v| v.clamp(256, 1_000_000) as usize)
         .unwrap_or(if is_sparse {
             262_144
-        } else if challenge.num_hyperedges as usize >= 150_000 || challenge.num_nodes as usize >= 250_000 {
+        } else if challenge.num_hyperedges as usize >= 150_000
+            || challenge.num_nodes as usize >= 250_000
+        {
             131_072
         } else {
             200_000
@@ -184,7 +186,9 @@ pub fn solve(
 
     let mut indices: Vec<usize> = (0..challenge.num_nodes as usize).collect();
     indices.sort_unstable_by(|&a, &b| {
-        pref_priorities[b].cmp(&pref_priorities[a]).then_with(|| a.cmp(&b))
+        pref_priorities[b]
+            .cmp(&pref_priorities[a])
+            .then_with(|| a.cmp(&b))
     });
 
     let sorted_nodes: Vec<i32> = indices.iter().map(|&i| i as i32).collect();
@@ -307,7 +311,13 @@ pub fn solve(
         }
 
         let nodes_in_part_host = stream.memcpy_dtov(&d_nodes_in_part)?;
-        let slack = if round < 64 { 8usize } else if round < 256 { 4usize } else { 2usize };
+        let slack = if round < 64 {
+            8usize
+        } else if round < 256 {
+            4usize
+        } else {
+            2usize
+        };
 
         tgt_used.fill(0);
         for p in 0..num_parts_usize {
@@ -559,7 +569,8 @@ pub fn solve(
             if sorted_move_nodes.is_empty() {
                 let take = std::cmp::min(k_base, k_cand);
                 sorted_move_nodes.extend(valid_moves[..take].iter().map(|(n, _)| *n as i32));
-                sorted_move_parts.extend(valid_moves[..take].iter().map(|(_, key)| (key & 63) as i32));
+                sorted_move_parts
+                    .extend(valid_moves[..take].iter().map(|(_, key)| (key & 63) as i32));
             }
 
             let d_sorted_move_nodes = stream.memcpy_stod(&sorted_move_nodes)?;

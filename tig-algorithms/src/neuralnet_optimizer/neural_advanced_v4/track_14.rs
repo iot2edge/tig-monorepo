@@ -3,14 +3,13 @@ use cudarc::{
     driver::{CudaModule, CudaSlice, CudaStream, LaunchConfig, PushKernelArg},
     runtime::sys::cudaDeviceProp,
 };
+use serde_json::{Map, Value};
 use std::sync::Arc;
 use tig_challenges::neuralnet_optimizer::*;
-use serde_json::{Map, Value};
 
 use super::helpers::{
-    OptimizerState,
-    spectral_phase_lr, compute_blends, update_state_from_val_loss,
-    compute_global_damp, compute_precision_params, finalize_state,
+    compute_blends, compute_global_damp, compute_precision_params, finalize_state,
+    spectral_phase_lr, update_state_from_val_loss, OptimizerState,
 };
 
 pub fn solve(
@@ -21,17 +20,38 @@ pub fn solve(
     stream: Arc<CudaStream>,
     prop: &cudaDeviceProp,
 ) -> Result<()> {
-    training_loop(challenge, save_solution, module, stream, prop, optimizer_init, optimizer_query, optimizer_step)?;
+    training_loop(
+        challenge,
+        save_solution,
+        module,
+        stream,
+        prop,
+        optimizer_init,
+        optimizer_query,
+        optimizer_step,
+    )?;
     Ok(())
 }
 
-fn optimizer_init(_seed: [u8; 32], param_sizes: &[usize], stream: Arc<CudaStream>, _module: Arc<CudaModule>, prop: &cudaDeviceProp) -> Result<Box<dyn OptimizerStateTrait>> {
+fn optimizer_init(
+    _seed: [u8; 32],
+    param_sizes: &[usize],
+    stream: Arc<CudaStream>,
+    _module: Arc<CudaModule>,
+    prop: &cudaDeviceProp,
+) -> Result<Box<dyn OptimizerStateTrait>> {
     let threads_per_block: u32 = 128;
     let sm_count = prop.multiProcessorCount as u32;
     let sm_blocks = sm_count.saturating_mul(4).max(1);
 
-    let mut m = Vec::new(); let mut v = Vec::new(); let mut prev_g = Vec::new(); let mut prev_u = Vec::new();
-    let mut slow_u = Vec::new(); let mut f = Vec::new(); let mut ef = Vec::new(); let mut upd = Vec::new();
+    let mut m = Vec::new();
+    let mut v = Vec::new();
+    let mut prev_g = Vec::new();
+    let mut prev_u = Vec::new();
+    let mut slow_u = Vec::new();
+    let mut f = Vec::new();
+    let mut ef = Vec::new();
+    let mut upd = Vec::new();
 
     for &n in param_sizes {
         m.push(stream.alloc_zeros::<f32>(n)?);
@@ -48,8 +68,14 @@ fn optimizer_init(_seed: [u8; 32], param_sizes: &[usize], stream: Arc<CudaStream
 
     let mut cfgs = Vec::with_capacity(param_sizes.len());
     for &n in param_sizes {
-        let calc_blocks = ((n as u32 + threads_per_block - 1) / threads_per_block).min(sm_blocks).max(1);
-        cfgs.push(LaunchConfig { grid_dim: (calc_blocks, 1, 1), block_dim: (threads_per_block, 1, 1), shared_mem_bytes: 0 });
+        let calc_blocks = ((n as u32 + threads_per_block - 1) / threads_per_block)
+            .min(sm_blocks)
+            .max(1);
+        cfgs.push(LaunchConfig {
+            grid_dim: (calc_blocks, 1, 1),
+            block_dim: (threads_per_block, 1, 1),
+            shared_mem_bytes: 0,
+        });
     }
 
     let n_params = param_sizes.len();
@@ -65,35 +91,78 @@ fn optimizer_init(_seed: [u8; 32], param_sizes: &[usize], stream: Arc<CudaStream
             0.0012
         };
         let mut lr = base * depth_scale;
-        if i == 0 { lr = 0.0005; }
-        if i == 1 { lr = base; }
-        if i + 1 == n_params { lr = 0.0007; }
+        if i == 0 {
+            lr = 0.0005;
+        }
+        if i == 1 {
+            lr = base;
+        }
+        if i + 1 == n_params {
+            lr = 0.0007;
+        }
         layer_lrs.push(lr);
     }
 
     Ok(Box::new(OptimizerState {
-        m, v, prev_g, prev_u, slow_u, f, ef, upd, cfgs, layer_lrs,
+        m,
+        v,
+        prev_g,
+        prev_u,
+        slow_u,
+        f,
+        ef,
+        upd,
+        cfgs,
+        layer_lrs,
         spectral_boost: 1.1,
         step_count: 0,
         warmup_steps: 40,
         total_steps: 1000,
         noise_variance: 0.040,
         val_loss_history: Vec::new(),
-        beta1: 0.92, beta2: 0.997, eps: 1e-8,
+        beta1: 0.92,
+        beta2: 0.997,
+        eps: 1e-8,
         weight_decay: 0.0025,
         bn_layer_boost: 1.47,
         output_layer_damping: 0.80,
-        prev_val_loss: None, best_val_loss: None,
-        plateau_count: 0, slope_ema: 0.0, lr_boost: 1.0, last_pulse_step: 0,
-        last_epoch: 0, steps_in_epoch: 0, bpe_ema: 1.0, phase_tempo: 1.0,
+        prev_val_loss: None,
+        best_val_loss: None,
+        plateau_count: 0,
+        slope_ema: 0.0,
+        lr_boost: 1.0,
+        last_pulse_step: 0,
+        last_epoch: 0,
+        steps_in_epoch: 0,
+        bpe_ema: 1.0,
+        phase_tempo: 1.0,
     }) as Box<dyn OptimizerStateTrait>)
 }
 
-fn optimizer_query(_state: &dyn OptimizerStateTrait, _params: &[CudaSlice<f32>], _epoch: usize, _train: Option<f32>, _val: Option<f32>, _stream: Arc<CudaStream>, _module: Arc<CudaModule>, _prop: &cudaDeviceProp) -> Result<Option<Vec<CudaSlice<f32>>>> {
+fn optimizer_query(
+    _state: &dyn OptimizerStateTrait,
+    _params: &[CudaSlice<f32>],
+    _epoch: usize,
+    _train: Option<f32>,
+    _val: Option<f32>,
+    _stream: Arc<CudaStream>,
+    _module: Arc<CudaModule>,
+    _prop: &cudaDeviceProp,
+) -> Result<Option<Vec<CudaSlice<f32>>>> {
     Ok(None)
 }
 
-fn optimizer_step(state: &mut dyn OptimizerStateTrait, model_params: &[CudaSlice<f32>], gradients: &[CudaSlice<f32>], epoch: usize, _train_loss: Option<f32>, val_loss: Option<f32>, stream: Arc<CudaStream>, module: Arc<CudaModule>, _prop: &cudaDeviceProp) -> Result<Vec<CudaSlice<f32>>> {
+fn optimizer_step(
+    state: &mut dyn OptimizerStateTrait,
+    model_params: &[CudaSlice<f32>],
+    gradients: &[CudaSlice<f32>],
+    epoch: usize,
+    _train_loss: Option<f32>,
+    val_loss: Option<f32>,
+    stream: Arc<CudaStream>,
+    module: Arc<CudaModule>,
+    _prop: &cudaDeviceProp,
+) -> Result<Vec<CudaSlice<f32>>> {
     let s = state.as_any_mut().downcast_mut::<OptimizerState>().unwrap();
     update_state_from_val_loss(s, epoch, val_loss);
     let global_damp = compute_global_damp(s, val_loss);
@@ -102,36 +171,76 @@ fn optimizer_step(state: &mut dyn OptimizerStateTrait, model_params: &[CudaSlice
 
     let divergence_factor: f32 = if let (Some(best), Some(curr)) = (s.best_val_loss, val_loss) {
         let r = curr / (best + 1e-8);
-        if r > 1.3 { 0.5 } else if r > 1.15 { 0.75 } else if r > 1.05 { 0.9 } else { 1.0 }
-    } else { 1.0 };
+        if r > 1.3 {
+            0.5
+        } else if r > 1.15 {
+            0.75
+        } else if r > 1.05 {
+            0.9
+        } else {
+            1.0
+        }
+    } else {
+        1.0
+    };
 
     let t = s.step_count as i32;
     let bias_correction1 = 1.0 - s.beta1.powi(t.max(1));
     let bias_correction2 = 1.0 - s.beta2.powi(t.max(1));
 
-    let (blend_adam, blend_norm, blend_sign, nesterov_gamma, bb_blend, lookahead_alpha, lookahead_tau) = compute_blends(s, val_loss);
+    let (
+        blend_adam,
+        blend_norm,
+        blend_sign,
+        nesterov_gamma,
+        bb_blend,
+        lookahead_alpha,
+        lookahead_tau,
+    ) = compute_blends(s, val_loss);
 
     let near_floor = val_loss.map_or(false, |loss| loss <= s.noise_variance * 3.0);
     let late_phase = s.step_count > s.total_steps * 13 / 20;
     let use_robust = s.step_count > s.warmup_steps && (near_floor || late_phase);
 
-    let (in_precision_zone, precision_gain, gate_lo, gate_hi, forward_gain) = compute_precision_params(s, val_loss);
+    let (in_precision_zone, precision_gain, gate_lo, gate_hi, forward_gain) =
+        compute_precision_params(s, val_loss);
 
-    let beta1_eff: f32 = if in_precision_zone { (s.beta1 + 0.02).min(0.995) } else { s.beta1 };
+    let beta1_eff: f32 = if in_precision_zone {
+        (s.beta1 + 0.02).min(0.995)
+    } else {
+        s.beta1
+    };
     let beta2_eff: f32 = s.beta2;
-    let eps_eff: f32 = if in_precision_zone { s.eps * 0.9 } else { s.eps };
+    let eps_eff: f32 = if in_precision_zone {
+        s.eps * 0.9
+    } else {
+        s.eps
+    };
 
-    let mut wd_eff: f32 = if in_precision_zone { s.weight_decay * 1.05 } else { s.weight_decay };
+    let mut wd_eff: f32 = if in_precision_zone {
+        s.weight_decay * 1.05
+    } else {
+        s.weight_decay
+    };
     if s.step_count > s.warmup_steps {
-        if near_floor { wd_eff *= 1.10; }
-        else if s.plateau_count >= 20 { wd_eff *= 0.50; }
+        if near_floor {
+            wd_eff *= 1.10;
+        } else if s.plateau_count >= 20 {
+            wd_eff *= 0.50;
+        }
     }
     wd_eff *= (1.0 / s.phase_tempo).clamp(0.6, 1.0);
 
     let trust_backoff: f32 = if let (Some(prev), Some(curr)) = (s.prev_val_loss, val_loss) {
         let delta = curr - prev;
-        if delta > 2e-4 { 1.0 / (1.0 + 1.5 * (delta / (prev.abs() + 1e-8)).min(0.02)) } else { 1.0 }
-    } else { 1.0 };
+        if delta > 2e-4 {
+            1.0 / (1.0 + 1.5 * (delta / (prev.abs() + 1e-8)).min(0.02))
+        } else {
+            1.0
+        }
+    } else {
+        1.0
+    };
 
     let k_fast = module.load_function("dual_consensus_fisher_kernel_14")?;
     let k_robust = module.load_function("sign_ef_consensus_kernel_14")?;
@@ -141,19 +250,29 @@ fn optimizer_step(state: &mut dyn OptimizerStateTrait, model_params: &[CudaSlice
 
     for (i, g) in gradients.iter().enumerate() {
         let n = g.len();
-        if n == 0 { updates.push(stream.alloc_zeros::<f32>(0)?); continue; }
+        if n == 0 {
+            updates.push(stream.alloc_zeros::<f32>(0)?);
+            continue;
+        }
 
         let base_lr = s.layer_lrs[i];
         let tempo_lr = (1.0 / s.phase_tempo.powf(0.35)).max(0.6);
-        let lr = spectral_phase_lr(s, base_lr) * global_damp * s.lr_boost * tempo_lr * divergence_factor;
+        let lr =
+            spectral_phase_lr(s, base_lr) * global_damp * s.lr_boost * tempo_lr * divergence_factor;
 
         let is_output = i + 1 == num_layers;
         let layer_multiplier = if is_output {
             if let Some(loss) = val_loss {
                 if s.step_count > s.warmup_steps + 30 {
-                    (s.output_layer_damping * (0.7 + 0.3 * (loss / (s.noise_variance * 6.0)).min(1.0))).max(s.output_layer_damping)
-                } else { s.output_layer_damping }
-            } else { s.output_layer_damping }
+                    (s.output_layer_damping
+                        * (0.7 + 0.3 * (loss / (s.noise_variance * 6.0)).min(1.0)))
+                    .max(s.output_layer_damping)
+                } else {
+                    s.output_layer_damping
+                }
+            } else {
+                s.output_layer_damping
+            }
         } else if n <= 512 {
             s.bn_layer_boost
         } else {
@@ -163,9 +282,17 @@ fn optimizer_step(state: &mut dyn OptimizerStateTrait, model_params: &[CudaSlice
         let effective_lr = lr * layer_multiplier * precision_gain * forward_gain * trust_backoff;
 
         let rel_update_cap: f32 = if near_floor {
-            if is_output { 0.22 } else { 0.10 }
+            if is_output {
+                0.22
+            } else {
+                0.10
+            }
         } else {
-            if is_output { 0.25 } else { 0.18 }
+            if is_output {
+                0.25
+            } else {
+                0.18
+            }
         };
 
         let cfg = s.cfgs[i];
@@ -173,7 +300,8 @@ fn optimizer_step(state: &mut dyn OptimizerStateTrait, model_params: &[CudaSlice
 
         unsafe {
             if use_robust {
-                stream.launch_builder(&k_robust)
+                stream
+                    .launch_builder(&k_robust)
                     .arg(g)
                     .arg(&model_params[i])
                     .arg(&mut s.f[i])
@@ -191,7 +319,8 @@ fn optimizer_step(state: &mut dyn OptimizerStateTrait, model_params: &[CudaSlice
                     .arg(&gate_hi)
                     .launch(cfg)?;
             } else {
-                stream.launch_builder(&k_fast)
+                stream
+                    .launch_builder(&k_fast)
                     .arg(g)
                     .arg(&model_params[i])
                     .arg(&mut s.m[i])

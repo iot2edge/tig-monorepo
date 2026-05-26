@@ -1,6 +1,6 @@
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use std::collections::HashSet;
 use serde_json::{Map, Value};
+use std::collections::HashSet;
 use tig_challenges::satisfiability::*;
 
 pub fn solve_challenge(
@@ -8,8 +8,11 @@ pub fn solve_challenge(
     save_solution: &dyn Fn(&Solution) -> anyhow::Result<()>,
     hyperparameters: &Option<Map<String, Value>>,
 ) -> anyhow::Result<()> {
-    let _ = save_solution(&Solution { variables: vec![false; challenge.num_variables] });
-    let mut rng = StdRng::seed_from_u64(u64::from_le_bytes(challenge.seed[..8].try_into().unwrap()) as u64);
+    let _ = save_solution(&Solution {
+        variables: vec![false; challenge.num_variables],
+    });
+    let mut rng =
+        StdRng::seed_from_u64(u64::from_le_bytes(challenge.seed[..8].try_into().unwrap()) as u64);
 
     let mut p_single = vec![false; challenge.num_variables];
     let mut n_single = vec![false; challenge.num_variables];

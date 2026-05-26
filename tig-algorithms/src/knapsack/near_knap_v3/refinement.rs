@@ -146,9 +146,17 @@ pub fn dp_refinement_x(state: &mut State, passes_multiplier: usize) {
     let team_est = (state.ch.max_weight as usize) / 6;
     let k = state.window_core.len();
     let passes = (if team_est <= 140 {
-        if k <= 80 { 5 } else { 4 }
+        if k <= 80 {
+            5
+        } else {
+            4
+        }
     } else if team_est <= 180 {
-        if k <= 70 { 4 } else { 3 }
+        if k <= 70 {
+            4
+        } else {
+            3
+        }
     } else if k <= 160 {
         2
     } else {
@@ -343,7 +351,10 @@ pub fn micro_qkp_refinement(state: &mut State) {
         }
     }
 
-    let extra_r = state.window_rejected.len().min(if big_team { 12 } else { 24 });
+    let extra_r = state
+        .window_rejected
+        .len()
+        .min(if big_team { 12 } else { 24 });
     for &i in &state.window_rejected[..extra_r] {
         if !state.selected_bit[i] {
             unsel.push(i);
@@ -364,7 +375,11 @@ pub fn micro_qkp_refinement(state: &mut State) {
         dens + (st.support[i] as i64) * 120 + (st.total_interactions[i] / 320)
     };
 
-    sel.sort_unstable_by(|&a, &b| score(state, a).cmp(&score(state, b)).then_with(|| a.cmp(&b)));
+    sel.sort_unstable_by(|&a, &b| {
+        score(state, a)
+            .cmp(&score(state, b))
+            .then_with(|| a.cmp(&b))
+    });
     unsel.sort_unstable_by(|&a, &b| {
         score(state, b)
             .cmp(&score(state, a))

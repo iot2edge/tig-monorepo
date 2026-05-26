@@ -3,8 +3,8 @@ use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::collections::HashMap;
 use tig_challenges::job_scheduling::*;
 
-use super::types::*;
 use super::infra::*;
+use super::types::*;
 
 pub fn solve(
     challenge: &Challenge,
@@ -84,8 +84,11 @@ pub fn solve(
 
     let base = &ranked[0].2;
     let mut learned_jb = Some(job_bias_from_solution(pre, base)?);
-    let mut learned_mp =
-        Some(machine_penalty_from_solution(pre, base, challenge.num_machines)?);
+    let mut learned_mp = Some(machine_penalty_from_solution(
+        pre,
+        base,
+        challenge.num_machines,
+    )?);
     let mut learned_rp = if route_w_base > 0.0 {
         Some(route_pref_from_solution_lite(pre, base, challenge)?)
     } else {
@@ -162,8 +165,7 @@ pub fn solve(
         } else {
             (0.08 + 0.22 * pre.jobshopness + 0.18 * pre.high_flex).clamp(0.05, 0.42)
         };
-        let learn_boost =
-            (1.0 + 0.35 * ((stuck as f64) / 120.0).clamp(0.0, 1.0)).clamp(1.0, 1.35);
+        let learn_boost = (1.0 + 0.35 * ((stuck as f64) / 120.0).clamp(0.0, 1.0)).clamp(1.0, 1.35);
         let learn_p = (learn_base * learn_boost).clamp(0.0, 0.60);
 
         let use_learn = learned_jb.is_some()
@@ -215,8 +217,7 @@ pub fn solve(
                     challenge.num_machines,
                 )?);
                 if route_w_base > 0.0 {
-                    learned_rp =
-                        Some(route_pref_from_solution_lite(pre, &sol, challenge)?);
+                    learned_rp = Some(route_pref_from_solution_lite(pre, &sol, challenge)?);
                 }
                 learn_updates_left -= 1;
             }
@@ -317,7 +318,9 @@ pub fn solve(
 
     for i in 0..ts_starts {
         let base_sol = &top_solutions[i].0;
-        if let Some((sol2, mk2)) = tabu_search_hybrid(pre, challenge, base_sol, ts_iters, ts_tenure)? {
+        if let Some((sol2, mk2)) =
+            tabu_search_hybrid(pre, challenge, base_sol, ts_iters, ts_tenure)?
+        {
             if mk2 < best_makespan {
                 best_makespan = mk2;
                 best_solution = Some(sol2.clone());
@@ -330,7 +333,7 @@ pub fn solve(
     if let Some(ref sol) = best_solution {
         if let Some((improved_sol, improved_mk)) = greedy_reassign_pass(pre, challenge, sol)? {
             if improved_mk < best_makespan {
-                let _ = improved_mk; 
+                let _ = improved_mk;
                 best_solution = Some(improved_sol.clone());
                 save_solution(&improved_sol)?;
             }
@@ -394,7 +397,7 @@ fn greedy_reassign_pass(
                 let old_pos = old_pos.unwrap();
 
                 ds.machine_seq[cur_machine].remove(old_pos);
-                
+
                 ds.machine_seq[new_m].push(node);
                 ds.node_machine[node] = new_m;
                 ds.node_pt[node] = new_pt;
@@ -414,7 +417,10 @@ fn greedy_reassign_pass(
             }
 
             if best_m != cur_machine {
-                let old_pos = ds.machine_seq[cur_machine].iter().position(|&x| x == node).unwrap();
+                let old_pos = ds.machine_seq[cur_machine]
+                    .iter()
+                    .position(|&x| x == node)
+                    .unwrap();
                 ds.machine_seq[cur_machine].remove(old_pos);
                 ds.machine_seq[best_m].push(node);
                 ds.node_machine[node] = best_m;
@@ -437,8 +443,16 @@ fn greedy_reassign_pass(
 }
 
 enum MoveType {
-    Swap { machine: usize, pos: usize },
-    Reassign { node: usize, new_machine: usize, new_pt: u32, insert_pos: usize },
+    Swap {
+        machine: usize,
+        pos: usize,
+    },
+    Reassign {
+        node: usize,
+        new_machine: usize,
+        new_pt: u32,
+        insert_pos: usize,
+    },
 }
 
 fn tabu_search_hybrid(
@@ -468,8 +482,7 @@ fn tabu_search_hybrid(
     let mut crit = vec![false; n];
     let mut no_improve = 0usize;
 
-    let mut pseed: u64 = (challenge.seed[0] as u64)
-        .wrapping_mul(0x9E3779B97F4A7C15)
+    let mut pseed: u64 = (challenge.seed[0] as u64).wrapping_mul(0x9E3779B97F4A7C15)
         ^ (initial_mk as u64).wrapping_shl(16)
         ^ (n as u64).wrapping_mul(0x517CC1B727220A95);
 
@@ -722,24 +735,55 @@ fn tabu_search_hybrid(
                     let key = (node, new_m);
                     let is_tabu = tabu_reassign.get(&key).map_or(false, |&exp| iter < exp);
 
-                    let positions = find_candidate_insert_positions(&ds, &buf.start, node, new_m, new_pt, &job_pred_node);
+                    let positions = find_candidate_insert_positions(
+                        &ds,
+                        &buf.start,
+                        node,
+                        new_m,
+                        new_pt,
+                        &job_pred_node,
+                    );
 
                     for insert_pos in positions {
                         let est_mk = estimate_reassign_mk(
-                            &ds, &buf.start, &tail, node, new_m, new_pt,
-                            insert_pos, &job_pred_node, &machine_pred_node, &buf.machine_succ,
+                            &ds,
+                            &buf.start,
+                            &tail,
+                            node,
+                            new_m,
+                            new_pt,
+                            insert_pos,
+                            &job_pred_node,
+                            &machine_pred_node,
+                            &buf.machine_succ,
                         );
 
                         let aspiration = est_mk < best_global_mk;
 
                         if (!is_tabu || aspiration) && est_mk < best_move_mk {
                             best_move_mk = est_mk;
-                            best_move = Some((MoveType::Reassign { node, new_machine: new_m, new_pt, insert_pos }, est_mk));
+                            best_move = Some((
+                                MoveType::Reassign {
+                                    node,
+                                    new_machine: new_m,
+                                    new_pt,
+                                    insert_pos,
+                                },
+                                est_mk,
+                            ));
                         }
 
                         if est_mk < fallback_mk {
                             fallback_mk = est_mk;
-                            fallback_move = Some((MoveType::Reassign { node, new_machine: new_m, new_pt, insert_pos }, est_mk));
+                            fallback_move = Some((
+                                MoveType::Reassign {
+                                    node,
+                                    new_machine: new_m,
+                                    new_pt,
+                                    insert_pos,
+                                },
+                                est_mk,
+                            ));
                         }
                     }
                 }
@@ -759,13 +803,25 @@ fn tabu_search_hybrid(
                 pseed ^= pseed.wrapping_shl(17);
                 let offset = (pseed % ((2 * tenure_delta + 1) as u64)) as usize;
                 let progress = (iter as f64) / (max_iterations as f64);
-                let late_bonus = if progress > 0.6 { ((progress - 0.6) * 10.0) as usize } else { 0 };
+                let late_bonus = if progress > 0.6 {
+                    ((progress - 0.6) * 10.0) as usize
+                } else {
+                    0
+                };
                 let this_tenure = (tenure + offset + late_bonus).saturating_sub(tenure_delta);
 
                 let key = (node_a.min(node_b), node_a.max(node_b));
                 tabu_swap.insert(key, iter + this_tenure);
             }
-            Some((MoveType::Reassign { node, new_machine, new_pt, insert_pos }, _)) => {
+            Some((
+                MoveType::Reassign {
+                    node,
+                    new_machine,
+                    new_pt,
+                    insert_pos,
+                },
+                _,
+            )) => {
                 let old_machine = ds.node_machine[node];
 
                 let old_pos = ds.machine_seq[old_machine].iter().position(|&x| x == node);
@@ -848,7 +904,8 @@ fn find_candidate_insert_positions(
     candidates.sort_by_key(|&(_, end)| end);
 
     let max_candidates = 5;
-    candidates.into_iter()
+    candidates
+        .into_iter()
         .take(max_candidates)
         .map(|(pos, _)| pos)
         .collect()
@@ -871,7 +928,11 @@ fn estimate_reassign_mk(
     let old_mp = machine_pred[node];
     let old_ms = machine_succ[node];
 
-    let jp_end = if jp != NONE_USIZE { heads[jp].saturating_add(ds.node_pt[jp]) } else { 0 };
+    let jp_end = if jp != NONE_USIZE {
+        heads[jp].saturating_add(ds.node_pt[jp])
+    } else {
+        0
+    };
 
     let new_seq = &ds.machine_seq[new_machine];
     let new_mp_end = if insert_pos > 0 && !new_seq.is_empty() {
@@ -884,7 +945,11 @@ fn estimate_reassign_mk(
     let new_start = jp_end.max(new_mp_end);
     let new_end = new_start.saturating_add(new_pt);
 
-    let js_tail = if js != NONE_USIZE { ds.node_pt[js].saturating_add(tails[js]) } else { 0 };
+    let js_tail = if js != NONE_USIZE {
+        ds.node_pt[js].saturating_add(tails[js])
+    } else {
+        0
+    };
     let new_ms_tail = if insert_pos < new_seq.len() {
         let succ = new_seq[insert_pos];
         ds.node_pt[succ].saturating_add(tails[succ])
@@ -897,7 +962,9 @@ fn estimate_reassign_mk(
     let old_reconnect = if old_mp != NONE_USIZE && old_ms != NONE_USIZE {
         let old_mp_end = heads[old_mp].saturating_add(ds.node_pt[old_mp]);
         let old_ms_start = old_mp_end;
-        old_ms_start.saturating_add(ds.node_pt[old_ms]).saturating_add(tails[old_ms])
+        old_ms_start
+            .saturating_add(ds.node_pt[old_ms])
+            .saturating_add(tails[old_ms])
     } else {
         0
     };
@@ -924,18 +991,42 @@ fn estimate_swap_mk(
     let js_u = job_succ[u];
     let js_v = job_succ[v];
 
-    let r_jp_v = if jp_v != NONE_USIZE { heads[jp_v].saturating_add(pt[jp_v]) } else { 0 };
-    let r_mp_u = if mp_u != NONE_USIZE { heads[mp_u].saturating_add(pt[mp_u]) } else { 0 };
+    let r_jp_v = if jp_v != NONE_USIZE {
+        heads[jp_v].saturating_add(pt[jp_v])
+    } else {
+        0
+    };
+    let r_mp_u = if mp_u != NONE_USIZE {
+        heads[mp_u].saturating_add(pt[mp_u])
+    } else {
+        0
+    };
     let new_r_v = r_jp_v.max(r_mp_u);
 
-    let r_jp_u = if jp_u != NONE_USIZE { heads[jp_u].saturating_add(pt[jp_u]) } else { 0 };
+    let r_jp_u = if jp_u != NONE_USIZE {
+        heads[jp_u].saturating_add(pt[jp_u])
+    } else {
+        0
+    };
     let new_r_u = r_jp_u.max(new_r_v.saturating_add(pt[v]));
 
-    let q_js_u = if js_u != NONE_USIZE { pt[js_u].saturating_add(tails[js_u]) } else { 0 };
-    let q_ms_v = if ms_v != NONE_USIZE { pt[ms_v].saturating_add(tails[ms_v]) } else { 0 };
+    let q_js_u = if js_u != NONE_USIZE {
+        pt[js_u].saturating_add(tails[js_u])
+    } else {
+        0
+    };
+    let q_ms_v = if ms_v != NONE_USIZE {
+        pt[ms_v].saturating_add(tails[ms_v])
+    } else {
+        0
+    };
     let new_q_u = q_js_u.max(q_ms_v);
 
-    let q_js_v = if js_v != NONE_USIZE { pt[js_v].saturating_add(tails[js_v]) } else { 0 };
+    let q_js_v = if js_v != NONE_USIZE {
+        pt[js_v].saturating_add(tails[js_v])
+    } else {
+        0
+    };
     let new_q_v = q_js_v.max(pt[u].saturating_add(new_q_u));
 
     let path_v = new_r_v.saturating_add(pt[v]).saturating_add(new_q_v);

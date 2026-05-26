@@ -3,7 +3,6 @@ use serde_json::{Map, Value};
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct Params {
-
     /// Single parameter to balance speed vs exploration
     /// Keep between 0 (very fast using a single LS) and 6 (slower but deep exploration using HGS)
     /// Specifying this parameter preloads a different base configuration for the other parameters
@@ -76,99 +75,187 @@ pub struct Params {
 }
 
 impl Params {
-
     /// Suggested parameter values for various exploration levels in {0...5}
     /// Initial penalties depend on the number of nodes in the challenge
     fn preset(exploration_level: usize, nb_nodes: usize) -> Self {
-
-        let p = if nb_nodes <= 700 { 20 }
-        else if nb_nodes <= 1000 { 30 }
-        else if nb_nodes <= 1200 { 50 }
-        else if nb_nodes <= 1500 { 80 }
-        else if nb_nodes <= 2000 { 150 }
-        else if nb_nodes <= 3000 { 200 }
-        else { 500 };
+        let p = if nb_nodes <= 700 {
+            20
+        } else if nb_nodes <= 1000 {
+            30
+        } else if nb_nodes <= 1200 {
+            50
+        } else if nb_nodes <= 1500 {
+            80
+        } else if nb_nodes <= 2000 {
+            150
+        } else if nb_nodes <= 3000 {
+            200
+        } else {
+            500
+        };
 
         match exploration_level {
-            0 => Self { // Single LS
-                exploration_level: 0, allow_swap3: true,
-                granularity: 40, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 0, max_it_total: 0,
-                nb_it_adapt_penalties: 100, nb_it_traces: 100,
-                mu: 2, mu_start: 1, lambda: 1, nb_close: 1, nb_elite: 1
+            0 => Self {
+                // Single LS
+                exploration_level: 0,
+                allow_swap3: true,
+                granularity: 40,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 0,
+                max_it_total: 0,
+                nb_it_adapt_penalties: 100,
+                nb_it_traces: 100,
+                mu: 2,
+                mu_start: 1,
+                lambda: 1,
+                nb_close: 1,
+                nb_elite: 1,
             },
-            1 => Self { // Multi-Start LS
-                exploration_level: 0, allow_swap3: true,
-                granularity: 40, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 0, max_it_total: 0,
-                nb_it_adapt_penalties: 100, nb_it_traces: 100,
-                mu: 2, mu_start: 5, lambda: 1, nb_close: 1, nb_elite: 1
+            1 => Self {
+                // Multi-Start LS
+                exploration_level: 0,
+                allow_swap3: true,
+                granularity: 40,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 0,
+                max_it_total: 0,
+                nb_it_adapt_penalties: 100,
+                nb_it_traces: 100,
+                mu: 2,
+                mu_start: 5,
+                lambda: 1,
+                nb_close: 1,
+                nb_elite: 1,
             },
-            2 => Self { // Very short HGS
-                exploration_level: 1, allow_swap3: true,
-                granularity: 40, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 10, max_it_total: 50,
-                nb_it_adapt_penalties: 100, nb_it_traces: 100,
-                mu: 3, mu_start: 6, lambda: 3, nb_close: 1, nb_elite: 1
+            2 => Self {
+                // Very short HGS
+                exploration_level: 1,
+                allow_swap3: true,
+                granularity: 40,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 10,
+                max_it_total: 50,
+                nb_it_adapt_penalties: 100,
+                nb_it_traces: 100,
+                mu: 3,
+                mu_start: 6,
+                lambda: 3,
+                nb_close: 1,
+                nb_elite: 1,
             },
             3 => Self {
-                exploration_level: 2, allow_swap3: true,
-                granularity: 40, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 100, max_it_total: 500,
-                nb_it_adapt_penalties: 20, nb_it_traces: 20,
-                mu: 5, mu_start: 10, lambda: 5, nb_close: 2, nb_elite: 2
+                exploration_level: 2,
+                allow_swap3: true,
+                granularity: 40,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 100,
+                max_it_total: 500,
+                nb_it_adapt_penalties: 20,
+                nb_it_traces: 20,
+                mu: 5,
+                mu_start: 10,
+                lambda: 5,
+                nb_close: 2,
+                nb_elite: 2,
             },
             4 => Self {
-                exploration_level: 3, allow_swap3: false,
-                granularity: 30, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 500, max_it_total: 5_000,
-                nb_it_adapt_penalties: 20, nb_it_traces: 100,
-                mu: 10, mu_start: 20, lambda: 10, nb_close: 2, nb_elite: 3
+                exploration_level: 3,
+                allow_swap3: false,
+                granularity: 30,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 500,
+                max_it_total: 5_000,
+                nb_it_adapt_penalties: 20,
+                nb_it_traces: 100,
+                mu: 10,
+                mu_start: 20,
+                lambda: 10,
+                nb_close: 2,
+                nb_elite: 3,
             },
             5 => Self {
-                exploration_level: 4, allow_swap3: false,
-                granularity: 30, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 5_000, max_it_total: 50_000,
-                nb_it_adapt_penalties: 50, nb_it_traces: 200,
-                mu: 12, mu_start: 24, lambda: 20, nb_close: 3, nb_elite: 4
+                exploration_level: 4,
+                allow_swap3: false,
+                granularity: 30,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 5_000,
+                max_it_total: 50_000,
+                nb_it_adapt_penalties: 50,
+                nb_it_traces: 200,
+                mu: 12,
+                mu_start: 24,
+                lambda: 20,
+                nb_close: 3,
+                nb_elite: 4,
             },
-            6 => Self { // Deep HGS
-                exploration_level: 5, allow_swap3: false,
-                granularity: 30, granularity2: 20,
-                penalty_tw: p,  penalty_capa: p, target_ratio: 0.2,
-                max_it_noimprov: 10_000, max_it_total: 200_000,
-                nb_it_adapt_penalties: 50, nb_it_traces: 500,
-                mu: 25, mu_start: 50, lambda: 40, nb_close: 3, nb_elite: 8
+            6 => Self {
+                // Deep HGS
+                exploration_level: 5,
+                allow_swap3: false,
+                granularity: 30,
+                granularity2: 20,
+                penalty_tw: p,
+                penalty_capa: p,
+                target_ratio: 0.2,
+                max_it_noimprov: 10_000,
+                max_it_total: 200_000,
+                nb_it_adapt_penalties: 50,
+                nb_it_traces: 500,
+                mu: 25,
+                mu_start: 50,
+                lambda: 40,
+                nb_close: 3,
+                nb_elite: 8,
             },
             _ => Self::defaults(nb_nodes),
         }
     }
 
     /// By default, we use the fastest configuration with a single LS
-    pub fn defaults(nb_nodes: usize) -> Self { Self::preset(0, nb_nodes) }
+    pub fn defaults(nb_nodes: usize) -> Self {
+        Self::preset(0, nb_nodes)
+    }
 
     /// Initialize with defaults()
     /// If exploration_level is provided, then load preset values for this level
     /// Then update any remaining user key
     pub fn initialize(hyperparameters: &Option<Map<String, Value>>, nb_nodes: usize) -> Self {
-
         // Load base parameters
         let mut base_params = Self::defaults(nb_nodes);
 
         // If an exploration level has been provided, load preset config values for this level
-        if let Some(v) = hyperparameters.as_ref().and_then(|m| m.get("exploration_level")) {
+        if let Some(v) = hyperparameters
+            .as_ref()
+            .and_then(|m| m.get("exploration_level"))
+        {
             match v {
                 Value::Number(n) => {
-                    if let Some(u) = n.as_u64() { base_params = Self::preset(u as usize, nb_nodes); }
+                    if let Some(u) = n.as_u64() {
+                        base_params = Self::preset(u as usize, nb_nodes);
+                    }
                 }
                 Value::String(s) => {
-                    if let Ok(u) = s.parse::<usize>() { base_params = Self::preset(u, nb_nodes); }
+                    if let Ok(u) = s.parse::<usize>() {
+                        base_params = Self::preset(u, nb_nodes);
+                    }
                 }
                 _ => {}
             }
@@ -178,7 +265,9 @@ impl Params {
         let mut merged_params = serde_json::to_value(base_params).expect("Params serializable");
         if let (Value::Object(ref mut obj), Some(map)) = (&mut merged_params, hyperparameters) {
             for (k, v) in map {
-                if k == "exploration_level" { continue; } // already encoded in the preset
+                if k == "exploration_level" {
+                    continue;
+                } // already encoded in the preset
                 obj.insert(k.clone(), v.clone());
             }
         }
@@ -186,7 +275,9 @@ impl Params {
         // Display parameters
         if let Value::Object(ref map) = merged_params {
             println!("=========== Algorithm Parameters =================");
-            for (k, v) in map { println!("---- {:25} is set to {}", k, v); }
+            for (k, v) in map {
+                println!("---- {:25} is set to {}", k, v);
+            }
             println!("==================================================");
         }
 
@@ -194,4 +285,3 @@ impl Params {
         serde_json::from_value(merged_params).unwrap_or_else(|_| Self::defaults(nb_nodes))
     }
 }
-

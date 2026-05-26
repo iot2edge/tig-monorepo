@@ -3,8 +3,8 @@ use cudarc::{
     driver::{CudaModule, CudaSlice, CudaStream, LaunchConfig, PushKernelArg},
     runtime::sys::cudaDeviceProp,
 };
-use std::sync::Arc;
 use serde_json::{Map, Value};
+use std::sync::Arc;
 use tig_challenges::neuralnet_optimizer::*;
 
 const THREADS_PER_BLOCK: u32 = 256;
@@ -38,8 +38,8 @@ struct OptimizerState {
     beta2: f32,
     epsilon: f32,
 
-    grad_clip_min: f32,     // Minimum gradient value (e.g., -1.0)
-    grad_clip_max: f32,     // Maximum gradient value (e.g., 1.0)
+    grad_clip_min: f32, // Minimum gradient value (e.g., -1.0)
+    grad_clip_max: f32, // Maximum gradient value (e.g., 1.0)
     step_count: usize,
     param_sizes: Vec<usize>,
     // Persistent AdamW state buffers
@@ -71,22 +71,22 @@ fn optimizer_init_state(
     // Allocate persistent momentum and velocity buffers
     let mut momentum_buffers = Vec::new();
     let mut velocity_buffers = Vec::new();
-    
+
     for &size in param_sizes {
         let momentum_buffer = stream.alloc_zeros::<f32>(size)?;
         let velocity_buffer = stream.alloc_zeros::<f32>(size)?;
         momentum_buffers.push(momentum_buffer);
         velocity_buffers.push(velocity_buffer);
     }
-      
+
     Ok(Box::new(OptimizerState {
-        learning_rate: 0.0003,      // Standard Adam learning rate
-        beta1: 0.95,                // Exponential decay rate for first moment
-        beta2: 0.999,               // Exponential decay rate for second moment
-        grad_clip_min: -1.0,        // Gradient clipping lower bound
-        grad_clip_max: 1.0,         // Gradient clipping upper bound
-        epsilon: 1e-08,             // Small constant for numerical stability
-        step_count: 0,              // Track number of steps for bias correction
+        learning_rate: 0.0003, // Standard Adam learning rate
+        beta1: 0.95,           // Exponential decay rate for first moment
+        beta2: 0.999,          // Exponential decay rate for second moment
+        grad_clip_min: -1.0,   // Gradient clipping lower bound
+        grad_clip_max: 1.0,    // Gradient clipping upper bound
+        epsilon: 1e-08,        // Small constant for numerical stability
+        step_count: 0,         // Track number of steps for bias correction
         param_sizes: param_sizes.to_vec(),
         momentum_buffers,
         velocity_buffers,

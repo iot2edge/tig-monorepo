@@ -2,13 +2,13 @@ use anyhow::Result;
 use serde_json::{Map, Value};
 use tig_challenges::job_scheduling::*;
 
-use super::types::EffortConfig;
-use super::preprocess::build_pre;
+use super::fjsp_high;
+use super::fjsp_medium;
 use super::flow_shop;
 use super::hybrid_flow_shop;
 use super::job_shop;
-use super::fjsp_medium;
-use super::fjsp_high;
+use super::preprocess::build_pre;
+use super::types::EffortConfig;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Track {
@@ -67,21 +67,11 @@ pub fn solve_challenge(
     let effort = parse_effort(hyperparameters);
 
     match track {
-        Track::FlowShop => {
-            flow_shop::solve(challenge, save_solution, &pre, &effort)
-        }
-        Track::HybridFlowShop => {
-            hybrid_flow_shop::solve(challenge, save_solution, &pre, &effort)
-        }
-        Track::JobShop => {
-            job_shop::solve(challenge, save_solution, &pre, &effort)
-        }
-        Track::FjspMedium => {
-            fjsp_medium::solve(challenge, save_solution, &pre, &effort)
-        }
-        Track::FjspHigh => {
-            fjsp_high::solve(challenge, save_solution, &pre, &effort)
-        }
+        Track::FlowShop => flow_shop::solve(challenge, save_solution, &pre, &effort),
+        Track::HybridFlowShop => hybrid_flow_shop::solve(challenge, save_solution, &pre, &effort),
+        Track::JobShop => job_shop::solve(challenge, save_solution, &pre, &effort),
+        Track::FjspMedium => fjsp_medium::solve(challenge, save_solution, &pre, &effort),
+        Track::FjspHigh => fjsp_high::solve(challenge, save_solution, &pre, &effort),
     }
 }
 
@@ -89,7 +79,9 @@ pub fn help() {
     println!("Job Scheduling Solver - Modular Independent Track Architecture v1");
     println!();
     println!("DESCRIPTION:");
-    println!("  Each track is fully self-contained. Changing one track file cannot affect any other.");
+    println!(
+        "  Each track is fully self-contained. Changing one track file cannot affect any other."
+    );
     println!();
     println!("HYPERPARAMETERS:");
     println!("  track (required): \"flow_shop\" | \"hybrid_flow_shop\" | \"job_shop\" | \"fjsp_medium\" | \"fjsp_high\"");

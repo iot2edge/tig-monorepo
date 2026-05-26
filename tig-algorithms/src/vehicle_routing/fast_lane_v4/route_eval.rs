@@ -1,5 +1,5 @@
-use super::instance::Instance;
 use super::config::Config;
+use super::instance::Instance;
 use std::cmp::{max, min};
 
 #[derive(Copy, Clone, Default)]
@@ -83,7 +83,13 @@ impl RouteEval {
     }
 
     #[inline(always)]
-    pub fn eval3(data: &Instance, params: &Config, s1: &RouteEval, s2: &RouteEval, s3: &RouteEval) -> i64 {
+    pub fn eval3(
+        data: &Instance,
+        params: &Config,
+        s1: &RouteEval,
+        s2: &RouteEval,
+        s3: &RouteEval,
+    ) -> i64 {
         let ptw = params.penalty_tw as i64;
         let pcap = params.penalty_capa as i64;
 
@@ -109,14 +115,29 @@ impl RouteEval {
     }
 
     #[inline(always)]
-    pub fn eval4(data: &Instance, params: &Config, s0: &RouteEval, s1: &RouteEval, s2: &RouteEval, s3: &RouteEval) -> i64 {
+    pub fn eval4(
+        data: &Instance,
+        params: &Config,
+        s0: &RouteEval,
+        s1: &RouteEval,
+        s2: &RouteEval,
+        s3: &RouteEval,
+    ) -> i64 {
         let a = RouteEval::join2(data, s0, s1);
         let b = RouteEval::join2(data, &a, s2);
         RouteEval::eval2(data, params, &b, s3)
     }
 
     #[inline(always)]
-    pub fn eval5(data: &Instance, params: &Config, s0: &RouteEval, s1: &RouteEval, s2: &RouteEval, s3: &RouteEval, s4: &RouteEval) -> i64 {
+    pub fn eval5(
+        data: &Instance,
+        params: &Config,
+        s0: &RouteEval,
+        s1: &RouteEval,
+        s2: &RouteEval,
+        s3: &RouteEval,
+        s4: &RouteEval,
+    ) -> i64 {
         let a = RouteEval::join2(data, s0, s1);
         let b = RouteEval::join2(data, &a, s2);
         let c = RouteEval::join2(data, &b, s3);

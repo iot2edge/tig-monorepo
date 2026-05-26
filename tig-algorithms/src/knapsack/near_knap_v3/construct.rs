@@ -1,5 +1,5 @@
-use super::types::{set_windows_from_density, State, N_IT_CONSTRUCT};
 use super::types::Rng;
+use super::types::{set_windows_from_density, State, N_IT_CONSTRUCT};
 
 pub fn greedy_fill_with_beta(state: &mut State, rng: &mut Rng, noise_mask: u32, allow_seed: bool) {
     const BETA_NUM: i64 = 3;
@@ -483,10 +483,7 @@ pub fn construct_frontier_cluster_grow(state: &mut State, rng: &mut Rng) {
         }
     };
 
-    let add_seed = |st: &mut State,
-                        in_f: &mut Vec<bool>,
-                        fr: &mut Vec<usize>,
-                        seed: usize| {
+    let add_seed = |st: &mut State, in_f: &mut Vec<bool>, fr: &mut Vec<usize>, seed: usize| {
         if st.selected_bit[seed] {
             return;
         }
